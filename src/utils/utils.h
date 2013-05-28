@@ -8,7 +8,7 @@ extern "C"
 {
 #endif /* __cplusplus */
 
-void utils_image_copy_n(uint8 *in, int16 *out, uint32 w, uint32 h, uint32 bpp);
+void utils_image_copy_n(const uint8 *in, int16 *out, uint32 w, uint32 h, uint32 bpp);
 
 #ifdef __cplusplus
 }

@@ -23,10 +23,10 @@ typedef enum {
     \brief The image format.
  */
 typedef enum {
-    CS420,
-    CS444,
+    YUV420,
+    YUV444,
     RGB,
-    RGBY,
+    RGBA,
     GREY,
     BAYER
 } ColorSpace;
@@ -50,14 +50,6 @@ typedef enum {
     sRGB
 } Gamma;
 
-/**
-    \brief The frame type.
- */
-typedef enum {
-    I_FRAME = 0,
-    P_FRAME = 1,
-    B_FRAME = 2
-} FrameType;
 
 /**
     \brief The image transform states.
@@ -117,4 +109,17 @@ typedef enum {
     FAST	= 2     ///Nonadaptive fast range coder.
 } RangeType;
 
-#endif //_WALET_HH_
+//Structure definition
+
+typedef struct { 	// Unsigned picture 8bit
+    uint32 w, h;
+    uint8 *pic;
+} Pic8u;
+
+typedef struct {	// Signed picture 16bit
+    uint32 w, h;
+    char *pic;
+} Pic16s;
+
+
+#endif //_ITLIB_HH_
