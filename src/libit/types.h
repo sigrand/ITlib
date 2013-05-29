@@ -23,12 +23,12 @@ typedef enum {
     \brief The image format.
  */
 typedef enum {
+    GREY,
+    BAYER,
+    RGB,
     YUV420,
     YUV444,
-    RGB,
-    RGBA,
-    GREY,
-    BAYER
+    RGBA
 } ColorSpace;
 
 /**

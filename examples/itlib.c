@@ -6,6 +6,15 @@
 #include <png.h>
 
 #include "../libit/types.h"
+#include "./itlib.h"
+
+static int verb = 0;
+
+static int get_trans_status(const TransState* ts, const TransState* ts1)
+{
+    if(ts->colort == ts1->colort && ts->bpp == ts1->bpp) return 0;
+    return 1;
+}
 
 static void PNGAPI error_function(png_structp png, png_const_charp dummy)
 {
@@ -22,7 +31,7 @@ static void PNGAPI error_function(png_structp png, png_const_charp dummy)
     \param colort	The pointer to color types.
     \retval         The return value, if 0 - OK.
 */
-int readPNG(FILE* in_file, uint8* buff, int* const w, int* const h, int* const bpp, int* const colort)
+int readPNG(FILE* in_file, uint8** buff, int* const w, int* const h, int* const bpp, int* const colort)
 {
     png_structp png;
     png_infop info = NULL, end_info = NULL;
@@ -41,7 +50,7 @@ int readPNG(FILE* in_file, uint8* buff, int* const w, int* const h, int* const b
     if (setjmp(png_jmpbuf(png))) {
 Error:
         png_destroy_read_struct(&png, &info, &end_info);
-        free(buff);
+        free(*buff);
         return 1;
     }
 
@@ -72,13 +81,13 @@ Error:
 
     num_passes = png_set_interlace_handling(png);
     png_read_update_info(png, info);
-    stride = (has_alpha ? 4 : 3) * ((*bpp > 8) ? 2 : 1) * (*w) * sizeof(*buff);
-    buff = (uint8*)malloc(stride * (*h));
-    if (buff == NULL) goto Error;
+    stride = (has_alpha ? 4 : 3) * ((*bpp > 8) ? 2 : 1) * (*w);
+    *buff = (uint8*)malloc(stride * (*h));
+    if (*buff == NULL) goto Error;
 
     for (p = 0; p < num_passes; ++p) {
         for (y = 0; y < *h; ++y) {
-            row = buff + y * stride;
+            row = *buff + y * stride;
             png_read_rows(png, &row, NULL, 1);
         }
     }
@@ -86,15 +95,7 @@ Error:
 
     png_destroy_read_struct(&png, &info, &end_info);
 
-    //pic->width = width;
-    //pic->height = height;
-    //ok = has_alpha ? WebPPictureImportRGBA(pic, rgb, stride)
-    //               : WebPPictureImportRGB(pic, rgb, stride);
     free(buff);
-
-    //if (!ok) {
-    //    goto Error;
-    //}
 
 End:
     return 0;
@@ -111,10 +112,7 @@ End:
 */
 int writePNG(FILE* out_file, uint8* const buff, const int w, const int h, const int bpp, const int colort)
 {
-    //unsigned char* const rgb = buffer->u.RGBA.rgba;
-    //const int stride = buffer->u.RGBA.stride;
-    //const int has_alpha = (buffer->colorspace == MODE_RGBA);
-    const int stride = 3 * ((bpp > 8) ? 2 : 1) * w * sizeof(*buff);;
+    const int stride =  bpp * w;
     png_structp png;
     png_infop info;
     png_uint_32 y;
@@ -134,7 +132,7 @@ int writePNG(FILE* out_file, uint8* const buff, const int w, const int h, const 
         return 1;
     }
     png_init_io(png, out_file);
-    png_set_IHDR(png, info, w, h, bpp, colort,
+    png_set_IHDR(png, info, w, h, 16, GREY,
                  PNG_INTERLACE_NONE, PNG_COMPRESSION_TYPE_DEFAULT,
                  PNG_FILTER_TYPE_DEFAULT);
     png_write_info(png, info);
@@ -155,7 +153,7 @@ int writePNG(FILE* out_file, uint8* const buff, const int w, const int h, const 
     \param bpp		The pointer to bits per pixel.
     \retval         The return value, if 0 - OK.
 */
-int readPGM(FILE* in_file, uint8* buff, int* const w, int* const h, int* const bpp)
+int readPGM(FILE* in_file, uint8** buff, int* const w, int* const h, int* const bpp)
 {
     uint8 line[10];
     int size;
@@ -168,23 +166,21 @@ int readPGM(FILE* in_file, uint8* buff, int* const w, int* const h, int* const b
 
     fscanf(in_file, "%d%d%d", w, h, bpp);
     *bpp = (*bpp == 255) ? 1 : 2;
-    printf("w = %d h = %d bpp = %d\n", *w, *h, *bpp);
+    if(verb) printf("w = %d h = %d bpp = %d\n", *w, *h, *bpp);
 
-    //if(*bpp > 1) byts = fread(img, sizeof(uint8), 1,  *wl); //I don't know
 
-    //byts = fread(buff, sizeof(*buff), (*w)*(*h)*(*bpp),  in_file);
+    size = (*w)*(*h)*(*bpp);
+    if(verb) printf("Read file = %p size = %d\n",in_file, size);
 
-    size = sizeof(*buff)*(*w)*(*h)*(*bpp);
-
-    buff = (uint8*)malloc(size);
-    if (buff == NULL) {
+    *buff = (uint8*)malloc(size);
+    if (*buff == NULL) {
         fprintf(stderr, "Error! Can't allocate memory\n");
         return 1;
     }
 
-    if(fread(buff, size, 1,  in_file) != 1){
+    if(fread(*buff, size, 1,  in_file) != 1){
         fprintf(stderr, "Image read error\n");
-        free(buff);
+        free(*buff);
         return 1;
     }
 
@@ -199,13 +195,14 @@ int readPGM(FILE* in_file, uint8* buff, int* const w, int* const h, int* const b
     \param bpp		The pointer to bits per pixel.
     \retval         The return value, if 0 - OK.
 */
-int writePGM(FILE* out_file, uint8* const buff, const int w, const int h, const int bpp)
+int writePGM(FILE* out_file, uint8* buff, const int w, const int h, const int bpp)
 {
-    const size_t bytes_per_px = (bpp > 8) ? 2 : 1;
 
-    fprintf(out_file, "P5\n%d %d\n%d\n", w, h, (bpp > 8) ? 65535 : 255);
+    fprintf(out_file, "P5\n%d %d\n%d", w, h, (bpp > 1) ? 65535 : 255);
 
-    if (fwrite(buff, w*h, bytes_per_px, out_file) != bytes_per_px) {
+    if(verb) printf("Write file = %p size = %d\n",out_file, w*h*bpp);
+
+    if (fwrite(buff, w*h, bpp, out_file) != bpp) {
         fprintf(stderr, "Error! Write PGM file problem\n");
         return 1;
     }
@@ -223,6 +220,8 @@ int main(int argc, const char *argv[]) {
     int16 *pic16;
     uint8* buff;
     int w, h, bpp, colort;
+
+    for (i = 1; i < argc; i++)  if (!strcmp(argv[i], "-v")) verb = 1;
 
     for (i = 1; i < argc; i++) {
         if (!strcmp(argv[i], "-h") || !strcmp(argv[i], "-help")) {
@@ -257,12 +256,12 @@ int main(int argc, const char *argv[]) {
             }
             if(!strcmp(&in_file[strlen(in_file)-4],".pgm") || !strcmp(&in_file[strlen(in_file)-4],".PGM")){
 
-                ok = readPGM(IN_FILE, buff, &w, &h, &bpp);
-                printf("Open file %s w = %d h = %d bpp = %d\n", in_file, w, h, bpp);
+                ok = readPGM(IN_FILE, &buff, &w, &h, &bpp);
+                if(verb) printf("Open file %s w = %d h = %d bpp = %d\n", in_file, w, h, bpp);
 
             } else if(!strcmp(&in_file[strlen(in_file)-4],".png") || !strcmp(&in_file[strlen(in_file)-4],".PNG")){
 
-                ok = readPNG(IN_FILE, buff, &w, &h, &bpp, &colort);
+                ok = readPNG(IN_FILE, &buff, &w, &h, &bpp, &colort);
 
             } else ok = 1;
 
@@ -280,13 +279,15 @@ int main(int argc, const char *argv[]) {
                 fprintf(stderr, "Error! Cannot open input file '%s'\n", out_file);
                 return 1;
             }
-            if(!strcmp(&in_file[strlen(out_file)-4],".pgm") || !strcmp(&in_file[strlen(out_file)-4],".PGM")){
+            if(!strcmp(&out_file[strlen(out_file)-4],".pgm") || !strcmp(&out_file[strlen(out_file)-4],".PGM")){
 
                 ok = writePGM(OUT_FILE, buff, w, h, bpp);
+                //printf("PGM output file\n");
 
             } else if(!strcmp(&out_file[strlen(out_file)-4],".png") || !strcmp(&out_file[strlen(out_file)-4],".PNG")){
 
                 ok = writePNG(OUT_FILE, buff, w, h, bpp, colort);
+                //printf("PNG output file\n");
 
             } else ok = 1;
 

@@ -3,7 +3,7 @@ AM_CPPFLAGS += -I$(top_srcdir)/src/utils
 
 bin_PROGRAMS = itlib
 
-itlib_SOURCES = itlib.c
+itlib_SOURCES = itlib.c itlib.h
 #cwebp_SOURCES += jpegdec.c jpegdec.h
 #cwebp_SOURCES += pngdec.c pngdec.h
 
