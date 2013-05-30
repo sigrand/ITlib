@@ -10,6 +10,23 @@
 
 static int verb = 0;
 
+static void get_first_pixels(uint8 * buff, int num, int bpp)
+{
+    int16 *pic;
+    int i;
+
+    if(bpp > 1){
+        pic = (int16*)buff;
+        for(i=0; i < num; i++){
+            printf("%3d %3d %4d\n", (pic[i] & 0xFF00)>>8, pic[i] & 0x00FF,  pic[i]);
+        }
+    } else {
+        for(i=0; i < num; i++){
+            printf("%4d\n", buff[i]);
+        }
+    }
+}
+
 static int get_trans_status(const TransState* ts, const TransState* ts1)
 {
     if(ts->colort == ts1->colort && ts->bpp == ts1->bpp) return 0;
@@ -36,32 +53,40 @@ int readPNG(FILE* in_file, uint8** buff, int* const w, int* const h, int* const 
     png_structp png;
     png_infop info = NULL, end_info = NULL;
     png_bytep row;
-    int interlaced, has_alpha, num_passes, stride, p;
+    int interlaced, has_alpha, num_passes, stride, p, ok=0;
 
     png_uint_32 y;
-    //uint8* rgb = NULL;
 
     png = png_create_read_struct(PNG_LIBPNG_VER_STRING, 0, 0, 0);
     if (png == NULL) {
-        goto End;
+        fprintf(stderr, "Error! readPNG: Can't create png struct\n");
+        ok = 1; goto End;
     }
-    png_set_error_fn(png, 0, error_function, NULL);
 
     if (setjmp(png_jmpbuf(png))) {
-Error:
-        png_destroy_read_struct(&png, &info, &end_info);
-        free(*buff);
-        return 1;
+        fprintf(stderr, "Error! readPNG: Can't create png_jmpbuf\n");
+        ok = 1; goto End;
     }
 
     info = png_create_info_struct(png);
-    if (info == NULL) goto Error;
+    if (info == NULL) {
+        fprintf(stderr, "Error! readPNG: Can't create info struct\n");
+        ok = 1; goto End;
+    }
+
     end_info = png_create_info_struct(png);
-    if (end_info == NULL) goto Error;
+    if (end_info == NULL) {
+        fprintf(stderr, "Error! readPNG: Can't create end_info struct\n");
+        ok = 1; goto End;
+    }
 
     png_init_io(png, in_file);
     png_read_info(png, info);
-    if (!png_get_IHDR(png, info, w, h, bpp, colort, &interlaced, NULL, NULL)) goto Error;
+    if (!png_get_IHDR(png, info, w, h, bpp, colort, &interlaced, NULL, NULL)) {
+        fprintf(stderr, "Error! readPNG: Can't create png_get_IHDR\n");
+        ok = 1; goto End;
+    }
+    //if(verb) printf("readPNG: w = %d h = %d bpp = %d colort = %d\n", *w, *h, *bpp, *colort);
 
     png_set_strip_16(png);
     png_set_packing(png);
@@ -81,24 +106,32 @@ Error:
 
     num_passes = png_set_interlace_handling(png);
     png_read_update_info(png, info);
-    stride = (has_alpha ? 4 : 3) * ((*bpp > 8) ? 2 : 1) * (*w);
+    //Bits per pixel to bytes per pixel
+    *bpp = (*bpp > 8) ? 2 : 1;
+    stride = (has_alpha ? 4 : 3) * (*bpp) * (*w);
+
     *buff = (uint8*)malloc(stride * (*h));
-    if (*buff == NULL) goto Error;
+    if (*buff == NULL) {
+        fprintf(stderr, "Error! readPNG: Can't allocate memory\n");
+        ok = 1; goto End;
+    }
 
     for (p = 0; p < num_passes; ++p) {
-        for (y = 0; y < *h; ++y) {
-            row = *buff + y * stride;
+        for (y = 0; y < *h; y++) {
+            row = (*buff) + y * stride;
             png_read_rows(png, &row, NULL, 1);
         }
     }
+    //if(verb) printf("readPNG: Finish reading file\n");
     png_read_end(png, end_info);
-
-    png_destroy_read_struct(&png, &info, &end_info);
-
-    free(buff);
+    //if(verb) printf("readPNG: Finish png_read_end file\n");
+    if(verb)  get_first_pixels(*buff, 10, *bpp);
 
 End:
-    return 0;
+    png_destroy_read_struct(&png, &info, &end_info);
+    //if(verb) printf("readPNG: Finish png_destroy_read_struct file\n");
+    //if(*buff) free(*buff);
+    return ok;
 }
 
 /** \brief Write buffer to PNG file.
@@ -120,28 +153,34 @@ int writePNG(FILE* out_file, uint8* const buff, const int w, const int h, const 
 
     png = png_create_write_struct(PNG_LIBPNG_VER_STRING,NULL, error_function, NULL);
     if (png == NULL) {
+        fprintf(stderr, "Error! write PNG: Can't create png struct.");
         return 1;
     }
     info = png_create_info_struct(png);
     if (info == NULL) {
+        fprintf(stderr, "Error! write PNG: Can't create inf struct.");
         png_destroy_write_struct(&png, NULL);
         return 1;
     }
     if (setjmp(png_jmpbuf(png))) {
+        fprintf(stderr, "Error! write PNG: Can't create png_jmpbuf.");
         png_destroy_write_struct(&png, &info);
         return 1;
     }
     png_init_io(png, out_file);
-    png_set_IHDR(png, info, w, h, 16, GREY,
+    png_set_IHDR(png, info, w, h, bpp > 1 ? 8 : 8, colort,
                  PNG_INTERLACE_NONE, PNG_COMPRESSION_TYPE_DEFAULT,
                  PNG_FILTER_TYPE_DEFAULT);
     png_write_info(png, info);
-    for (y = 0; y < h; ++y) {
+    for (y = 0; y < h; y++) {
         row = buff + y * stride;
         png_write_rows(png, &row, 1);
     }
     png_write_end(png, info);
     png_destroy_write_struct(&png, &info);
+
+    if(verb)  get_first_pixels(buff, 10, bpp);
+
     return 0;
 }
 
@@ -160,29 +199,31 @@ int readPGM(FILE* in_file, uint8** buff, int* const w, int* const h, int* const 
 
     fscanf(in_file, "%s", line);
     if (strcmp(line, "P5") != 0) {
-        fprintf(stderr, "It's not PPM file\n");
+        fprintf(stderr, "Error! readPGM: It's not PPM file\n");
         return 1;
     }
 
     fscanf(in_file, "%d%d%d", w, h, bpp);
     *bpp = (*bpp == 255) ? 1 : 2;
-    if(verb) printf("w = %d h = %d bpp = %d\n", *w, *h, *bpp);
+    //if(verb) printf("w = %d h = %d bpp = %d\n", *w, *h, *bpp);
 
 
     size = (*w)*(*h)*(*bpp);
-    if(verb) printf("Read file = %p size = %d\n",in_file, size);
+    //if(verb) printf("readPGM: Read file = %p size = %d\n",in_file, size);
 
     *buff = (uint8*)malloc(size);
     if (*buff == NULL) {
-        fprintf(stderr, "Error! Can't allocate memory\n");
+        fprintf(stderr, "Error! readPGM: Can't allocate memory\n");
         return 1;
     }
 
     if(fread(*buff, size, 1,  in_file) != 1){
-        fprintf(stderr, "Image read error\n");
+        fprintf(stderr, "Error! readPGM: Image read error\n");
         free(*buff);
         return 1;
     }
+
+    if(verb)  get_first_pixels(*buff, 10, *bpp);
 
     return 0;
 }
@@ -200,12 +241,14 @@ int writePGM(FILE* out_file, uint8* buff, const int w, const int h, const int bp
 
     fprintf(out_file, "P5\n%d %d\n%d", w, h, (bpp > 1) ? 65535 : 255);
 
-    if(verb) printf("Write file = %p size = %d\n",out_file, w*h*bpp);
+    //if(verb) printf("Write file = %p size = %d\n",out_file, w*h*bpp);
 
     if (fwrite(buff, w*h, bpp, out_file) != bpp) {
-        fprintf(stderr, "Error! Write PGM file problem\n");
+        fprintf(stderr, "Error! writePGM: Write PGM file problem\n");
         return 1;
     }
+
+    if(verb)  get_first_pixels(buff, 10, bpp);
 
     return 0;
 }
@@ -257,11 +300,12 @@ int main(int argc, const char *argv[]) {
             if(!strcmp(&in_file[strlen(in_file)-4],".pgm") || !strcmp(&in_file[strlen(in_file)-4],".PGM")){
 
                 ok = readPGM(IN_FILE, &buff, &w, &h, &bpp);
-                if(verb) printf("Open file %s w = %d h = %d bpp = %d\n", in_file, w, h, bpp);
+                if(verb) printf("Read %s file w = %d h = %d bpp = %d\n", in_file, w, h, bpp);
 
             } else if(!strcmp(&in_file[strlen(in_file)-4],".png") || !strcmp(&in_file[strlen(in_file)-4],".PNG")){
 
                 ok = readPNG(IN_FILE, &buff, &w, &h, &bpp, &colort);
+                if(verb) printf("Read %s file w = %d h = %d bpp = %d colort = %d\n", in_file, w, h, bpp, colort);
 
             } else ok = 1;
 
@@ -282,18 +326,18 @@ int main(int argc, const char *argv[]) {
             if(!strcmp(&out_file[strlen(out_file)-4],".pgm") || !strcmp(&out_file[strlen(out_file)-4],".PGM")){
 
                 ok = writePGM(OUT_FILE, buff, w, h, bpp);
-                //printf("PGM output file\n");
+                if(verb) printf("Write %s file\n", out_file);
 
             } else if(!strcmp(&out_file[strlen(out_file)-4],".png") || !strcmp(&out_file[strlen(out_file)-4],".PNG")){
 
-                ok = writePNG(OUT_FILE, buff, w, h, bpp, colort);
-                //printf("PNG output file\n");
+                ok = writePNG(OUT_FILE, buff, w, h, bpp, GREY);
+                if(verb) printf("Write %s file\n", out_file);
 
             } else ok = 1;
 
             if(OUT_FILE) fclose(OUT_FILE);
             if(ok){
-                fprintf(stderr, "Error! Write output file '%s'\n", in_file);
+                fprintf(stderr, "Error! Write output file '%s'\n", out_file);
                 return 1;
             }
 
