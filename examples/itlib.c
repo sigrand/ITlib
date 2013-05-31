@@ -18,7 +18,7 @@ static void get_first_pixels(uint8 * buff, int num, int bpp)
     if(bpp > 1){
         pic = (int16*)buff;
         for(i=0; i < num; i++){
-            printf("%3d %3d %4d\n", (pic[i] & 0xFF00)>>8, pic[i] & 0x00FF,  pic[i]);
+            printf("%3d %3d %4d\n", (pic[i]&0xFF00)>>8, pic[i]&0x00FF,  pic[i]);
         }
     } else {
         for(i=0; i < num; i++){
