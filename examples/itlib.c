@@ -168,7 +168,7 @@ int writePNG(FILE* out_file, uint8* const buff, const int w, const int h, const 
         return 1;
     }
     png_init_io(png, out_file);
-    png_set_IHDR(png, info, w, h, bpp > 1 ? 8 : 8, colort,
+    png_set_IHDR(png, info, w, h, 8, colort,
                  PNG_INTERLACE_NONE, PNG_COMPRESSION_TYPE_DEFAULT,
                  PNG_FILTER_TYPE_DEFAULT);
     png_write_info(png, info);
@@ -262,26 +262,26 @@ int main(int argc, const char *argv[]) {
     uint8 *pic8;
     int16 *pic16;
     uint8* buff;
-    int w, h, bpp, colort;
+    //int w, h, bpp, colort;
+    TransState ts;
 
     for (i = 1; i < argc; i++)  if (!strcmp(argv[i], "-v")) verb = 1;
 
     for (i = 1; i < argc; i++) {
         if (!strcmp(argv[i], "-h") || !strcmp(argv[i], "-help")) {
-            printf("Usage: itlib in_file [options] [-o out_file]\n\n"
-                   "Decodes the WebP image file to PNG format [Default]\n"
-                   "Use following options to convert into alternate image formats:\n"
-                   "  -pam ......... save the raw RGBA samples as a color PAM\n"
-                   "  -ppm ......... save the raw RGB samples as a color PPM\n"
-                   "  -pgm ......... save the raw YUV samples as a grayscale PGM\n"
-                   "                 file with IMC4 layout.\n"
-                   "  -yuv ......... save the raw YUV samples in flat layout.\n"
+            printf("Usage: itlib -i[input options] in_file [transform options] [-o[output options] out_file]\n\n"
+                   "Input options:\n"
+                   "  b  ......... input file is raw BAYER image\n"
+                   "  g  ......... input file is grayscale image\n"
+                   "  r  ......... input file is RGB image\n"
                    "\n"
-                   " Other options are:\n"
+                   "Transform options:\n"
                    "  -version  .... print version number and exit.\n"
                    "  -nofancy ..... don't use the fancy YUV420 upscaler.\n"
                    "  -nofilter .... disable in-loop filtering.\n"
                    "  -mt .......... use multi-threading\n"
+                   "\n"
+                   "Output options:\n"
                    "  -crop <x> <y> <w> <h> ... crop output with the given rectangle\n"
                    "  -scale <w> <h> .......... scale the output (*after* any cropping)\n"
                    "  -alpha ....... only save the alpha plane.\n"
@@ -291,27 +291,49 @@ int main(int argc, const char *argv[]) {
             return 0;
         } else if (i == 1){
             //Open input file
-            in_file = argv[i];
-            IN_FILE = fopen(in_file, "rb");
-            if (IN_FILE == NULL) {
-                fprintf(stderr, "Error! Cannot open input file '%s'\n", in_file);
-                return 1;
-            }
-            if(!strcmp(&in_file[strlen(in_file)-4],".pgm") || !strcmp(&in_file[strlen(in_file)-4],".PGM")){
+            if(!strncmp(argv[i], "-i",2)){
+                //Find input options
+                if(strlen(argv[i]) == 2){
+                    //Bayer is defaul
+                    ts.colort = BAYER;
+                } else if(!strncmp(&argv[i][2], "b",1)){
+                    ts.colort = BAYER;
+                } else if(!strncmp(&argv[i][2], "g",1)){
+                    ts.colort = GREY;
+                } else if(!strncmp(&argv[i][2], "r",1)){
+                    ts.colort = RGB;
+                } else {
+                    fprintf(stderr, "Error! Can't support '%s' options\n", argv[i]);
+                    return 1;
+                }
 
-                ok = readPGM(IN_FILE, &buff, &w, &h, &bpp);
-                if(verb) printf("Read %s file w = %d h = %d bpp = %d\n", in_file, w, h, bpp);
+                if(verb) printf("Color type of input file is %d\n", ts.colort);
 
-            } else if(!strcmp(&in_file[strlen(in_file)-4],".png") || !strcmp(&in_file[strlen(in_file)-4],".PNG")){
+                in_file = argv[++i];
+                IN_FILE = fopen(in_file, "rb");
+                if (IN_FILE == NULL) {
+                    fprintf(stderr, "Error! Cannot open input file '%s'\n", in_file);
+                    return 1;
+                }
+                if(!strcmp(&in_file[strlen(in_file)-4],".pgm") || !strcmp(&in_file[strlen(in_file)-4],".PGM")){
 
-                ok = readPNG(IN_FILE, &buff, &w, &h, &bpp, &colort);
-                if(verb) printf("Read %s file w = %d h = %d bpp = %d colort = %d\n", in_file, w, h, bpp, colort);
+                    ok = readPGM(IN_FILE, &buff, &ts.w, &ts.h, &ts.bpp);
+                    if(verb) printf("Read %s file w = %d h = %d bpp = %d\n", in_file, ts.w, ts.h, ts.bpp);
 
-            } else ok = 1;
+                } else if(!strcmp(&in_file[strlen(in_file)-4],".png") || !strcmp(&in_file[strlen(in_file)-4],".PNG")){
 
-            if(IN_FILE) fclose(IN_FILE);
-            if(ok){
-                fprintf(stderr, "Error! Read input file '%s'\n", in_file);
+                    ok = readPNG(IN_FILE, &buff, &ts.w, &ts.h, &ts.bpp, &ts.colort);
+                    if(verb) printf("Read %s file w = %d h = %d bpp = %d colort = %d\n", in_file, ts.w, ts.h, ts.bpp, ts.colort);
+
+                } else ok = 1;
+
+                if(IN_FILE) fclose(IN_FILE);
+                if(ok){
+                    fprintf(stderr, "Error! Read input file '%s'\n", in_file);
+                    return 1;
+                }
+            } else {
+                fprintf(stderr, "Error! Can't find -i (input file)\n");
                 return 1;
             }
 
@@ -325,12 +347,12 @@ int main(int argc, const char *argv[]) {
             }
             if(!strcmp(&out_file[strlen(out_file)-4],".pgm") || !strcmp(&out_file[strlen(out_file)-4],".PGM")){
 
-                ok = writePGM(OUT_FILE, buff, w, h, bpp);
+                ok = writePGM(OUT_FILE, buff, ts.w, ts.h, ts.bpp);
                 if(verb) printf("Write %s file\n", out_file);
 
             } else if(!strcmp(&out_file[strlen(out_file)-4],".png") || !strcmp(&out_file[strlen(out_file)-4],".PNG")){
 
-                ok = writePNG(OUT_FILE, buff, w, h, bpp, GREY);
+                ok = writePNG(OUT_FILE, buff, ts.w, ts.h, ts.bpp, ts.colort);
                 if(verb) printf("Write %s file\n", out_file);
 
             } else ok = 1;
@@ -350,7 +372,7 @@ int main(int argc, const char *argv[]) {
         }
     }
 
-    if(argc == 1) fprintf(stderr, "Help: itlib -h\n");
+    if(argc == 1) fprintf(stderr, "Usage: itlib -h\n");
     free(buff);
 
     return 0;
