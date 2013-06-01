@@ -1,27 +1,391 @@
+#include <assert.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
 #include "../libit/types.h"
 #include "./utils.h"
 
-/** \brief Copy image from the buffer
-    \param in       The input buffer.
-    \param out		The output image.
+/** \brief Chage image bytes order.
+    \param in       The input 16 bits image.
     \param w		The image width.
     \param h		The image height.
-    \param bpp		The bits per pixel.
 */
-void utils_image_copy_n(const uint8 *in, int16 *out, uint32 w, uint32 h, uint32 bpp)
+void utils_cnange_two_bytes(int16 *in, const int w, const int h)
 {
     uint32 i, size = w*h;
-    //uint8 *in1 = &in[1];
-
-    if(bpp > 8){
-        for(i=0; i<size; i++) {
-            //For Aptina sensor
-            out[i] = ((in[(i<<1)+1]<<8) | in[(i<<1)]);
-            //For Sony sensor
-            //out[i] = ((in[(i<<1)]<<8) | in[(i<<1)+1]);
-            //img[i] = ((buff[(i<<1)]<<8) | buff[(i<<1)+1]);
-            //printf("MSB = %d LSB = %d img = %d shift = %d\n", buff[(i<<1)], buff[(i<<1)+1], ((buff[(i<<1)]) | buff[(i<<1)+1]<<8), shift);
-        }
-    } else
-        for(i=0; i<size; i++) out[i] = in[i];
+    for(i=0; i < size; i++) in[i] = ((in[i]&0x00FF)<<8) | ((in[i]&0xFF00)>>8);
 }
+
+/** \brief Get 16 bits grey image statistics.
+    \param in       The input 16 bits image.
+    \param w		The image width.
+    \param h		The image height.
+    \param bpp      The bits per pixel.
+    \param min      The minimum image value.
+    \param max      The maximum image value.
+
+*/
+void utils_get_stat(int16 *in, const int w, const int h, int *bpp, int *min, int *max)
+{
+    uint32 i, size = w*h;
+    *max = in[0]; *min = in[0];
+    for(i=1; i < size; i++){
+        if      (in[i] > *max) *max = in[i];
+        else if (in[i] < *min) *min = in[i];
+    }
+    for(*bpp=1; (*max)>>(*bpp); (*bpp)++);
+}
+
+/**	\brief Transform 16 bits image to 8 bits image.
+    \param in	 		The input 16 bits rgb image.
+    \param out	 		The output 8 bits rgb image.
+    \param w 			The image width.
+    \param h 			The image height.
+    \param bpp          The bits per pixel.
+    \param par          If  0 - direct transform grey to grey image,
+                            1 - scale transform grey to grey image,
+                            2 - direct transform grb to rgb image,
+                            2 - scale transform grb to rgb image,
+    \retval             The output 8 bits image.
+*/
+uint8* utils_16_to_8(const int16 *in, uint8 *out, const int w, const int h, const int bpp, const int par)
+{
+    int i, j, size, sh;
+
+    if(par == 0) {
+        size = w*h; sh = 0;
+    } else if (par == 1) {
+        size = w*h; sh = bpp - 8;
+    } else if (par == 2) {
+        size = w*h*3; sh = 0;
+    } else if (par == 3) {
+        size = w*h*3; sh = bpp - 8;
+    }
+
+    for(i = 0; i < size; i++) out[i] = in[i] >> sh;
+
+    return out;
+}
+
+/**	\brief Zoom out the rgb 16 bits image in integer times.
+    \param in	 		The input rgb image.
+    \param out	 		The output rgb image.
+    \param buff	 		The temporary buffer, should include 1 row of image w*3.
+    \param zoom 		The zoom parameter 1 - no zoom, 2 - twice, 3 - three times ...
+    \param w 			The image width.
+    \param h 			The image height.
+*/
+void utils_zoom_out_rgb16_to_rgb16(const int16 *in, int16 *out, uint32 *buff, const int zoom, const int w, const int h)
+{
+    int i, j, x, x1, y, y1, yw, yx, yxi, sq = zoom*zoom, w1 = w/zoom;
+    uint32 max = 1<<31, sh = 0;
+    uint32 *buff1, *buff2;
+
+    buff1 = &buff[w1]; buff2 = &buff1[w1];
+
+    memset(buff, 0, sizeof(uint32)*w1*3);
+
+    //Find zoom value when / can changed to >>
+    for(i=2; i < max; i<<=1) if((i|zoom) == i) sh++;
+
+    for(y=0, y1=0; y < h; y+=zoom, y1++){
+
+        for(j=0; j < zoom; j++){
+            yw = (y+j)*w;
+            for(x=0, x1=0; x < w; x+=zoom, x1++){
+                yx = yw + x;
+                for(i=0; i < zoom; i++) {
+                    yxi = (yx+i)*3;
+                    buff [x1] += in[yxi  ];
+                    buff1[x1] += in[yxi+1];
+                    buff2[x1] += in[yxi+2];
+                }
+                if(j == zoom-1) {
+                    yxi = (y1*w1+x1)*3;
+                    if(sh) {
+                        out[yxi  ] =  buff [x1]>>zoom;
+                        out[yxi+1] =  buff1[x1]>>zoom;
+                        out[yxi+2] =  buff2[x1]>>zoom;
+                    } else {
+                        out[yxi  ] =  buff [x1]/sq;
+                        out[yxi+1] =  buff1[x1]/sq;
+                        out[yxi+2] =  buff2[x1]/sq;
+                    }
+                    buff[x1] = buff1[x1] = buff2[x1] = 0;
+                }
+            }
+        }
+    }
+}
+
+/**	\brief Zoom out of bayer image and convert to rgb24 format.
+    \param in	 	The input bayer image.
+    \param out	 	The output image in r,g,b,r1,g1,b1... format.
+    \param buff	 	The temporary buffer, should include 2 row of bayer image.
+    \param zoom 	The zoom parameter 1 - 2x, 2 - 4x, 3 - 6x times ...
+    \param bay		The Bayer grids pattern.
+    \param w 		The image width.
+    \param h 		The image height.
+*/
+void utils_zoom_out_bayer16_to_rgb16(uint16 *in, uint16 *out, uint32 *buff, uint32 zoom, BayerGrid bay, uint32 w, uint32 h)
+{
+    int i, j, x, x1, y, y1, yw, yx, sq = zoom*zoom, zoom2 = zoom<<1, w1 = w/zoom2;
+    uint32 max = 1<<31, sh = 0;
+    uint32 *c[4];   //Three color buffer
+
+    c[0] = buff; c[1] = &c[0][w1]; c[2] = &c[1][w1]; c[3] = &c[2][w1];
+
+    memset(c[0], 0, sizeof(uint32)*w1<<2);
+
+    //Find zoom value when / can changed to >>
+    for(i=1; i < max; i<<=1) if((i|zoom) == i) sh++;
+    zoom = (zoom == 1) ? 0 : zoom;
+    printf("zoom = %d sh = %d\n", zoom, sh);
+
+    for(y=0, y1=0; y < h; y+=zoom2, y1++){
+
+        for(j=0; j < zoom2; j+=2){
+            yw = (y+j)*w;
+            for(x=0, x1=0; x < w; x+=zoom2, x1++){
+                yx = yw + x;
+                for(i=0; i < zoom2; i+=2) {
+                    c[0][x1] += in[yx+i];
+                    c[1][x1] += in[yx+i+1];
+                    c[2][x1] += in[yx+i+w];
+                    c[3][x1] += in[yx+i+w+1];
+                }
+                if(j == zoom2-2) {
+                    switch(bay){
+                    case(BGGR):{
+                        out[(y1*w1+x1)*3]   = sh ? c[3][x1]>>zoom : c[3][x1]/sq;
+                        out[(y1*w1+x1)*3+1] = sh ? (c[1][x1]+c[2][x1])>>(zoom+1) : (c[1][x1]+c[2][x1])/(sq<<1);
+                        out[(y1*w1+x1)*3+2] = sh ? c[0][x1]>>zoom : c[0][x1]/sq;
+                        break;
+                    }
+                    case(GRBG):{
+                        out[(y1*w1+x1)*3]   = sh ? c[1][x1]>>zoom : c[01][x1]/sq;
+                        out[(y1*w1+x1)*3+1] = sh ? (c[0][x1]+c[3][x1])>>(zoom+1) : (c[0][x1]+c[3][x1])/(sq<<1);
+                        out[(y1*w1+x1)*3+2] = sh ? c[2][x1]>>zoom : c[2][x1]/sq;
+                        break;
+                    }
+                    case(GBRG):{
+                        out[(y1*w1+x1)*3]   = sh ? c[2][x1]>>zoom : c[2][x1]/sq;
+                        out[(y1*w1+x1)*3+1] = sh ? (c[0][x1]+c[3][x1])>>(zoom+1) : (c[0][x1]+c[3][x1])/(sq<<1);
+                        out[(y1*w1+x1)*3+2] = sh ? c[1][x1]>>zoom : c[1][x1]/sq;
+                        break;
+                    }
+                    case(RGGB):{
+                        out[(y1*w1+x1)*3]   = sh ? c[0][x1]>>zoom : c[0][x1]/sq;
+                        out[(y1*w1+x1)*3+1] = sh ? (c[1][x1]+c[2][x1])>>(zoom+1) : (c[1][x1]+c[2][x1])/(sq<<1);
+                        out[(y1*w1+x1)*3+2] = sh ? c[3][x1]>>zoom : c[3][x1]/sq;
+                        break;
+                    }
+                    }
+                    c[0][x1] = c[1][x1] = c[2][x1] = c[3][x1] = 0;
+                }
+            }
+        }
+    }
+}
+
+/**	\brief Calculate the white balance multiplier for red and blue color of 16 bits rgb image.
+    \param in	The input 16 bits rgb image.
+    \param rm   The pointer to the red multiplier.
+    \param bm   The pointer to the blue multiplier.
+    \param buff The histogram buffer size = uint32*(1<<bpp).
+    \param sh   The shift for integer multiplier.
+    \param bpp  The input image bits per pixel.
+    \param w    The image width.
+    \param h 	The image height.
+*/
+void utils_wb(int16 *in, int *rm, int *bm, uint32 *buff, int sh, uint32 bpp, uint32 w, uint32 h)
+{
+    int i, j, sz = w*h, size3 = h*w*3;
+    uint32 d, d1, r = 0, g = 0, b = 0, cn = 0, min, max, mx, Y, hs = 1<<bpp, sum, ts = sz*3/10;
+    //float s = 0.01,  th = 0.5;
+    uint32 *hi = buff;
+    int m, mr, mb, s = 10;
+
+    memset(hi, 0, sizeof(uint32)*hs);
+    //Gray world algorithm the first step of iteration
+    //Make Y histogram
+    for(i = 0; i < size3; i+=3) {
+        r += in[i  ];
+        g += in[i+1];
+        b += in[i+2];
+        Y = (306*in[i] + 601*in[i+1] + 117*in[i+2])>>10;
+        hi[Y]++;
+    }
+
+    //Gray world multiplier for first step approximation
+    r = r/sz; g = g/sz; b = b/sz;
+    //mr = (double)g/(double)r;
+    //mb = (double)g/(double)b;
+    mr = (g<<sh)/r;
+    mb = (g<<sh)/b;
+    printf("mr = %d mb = %d mr = %f mb = %f\n",mr, mb,(double)mr/(double)(1<<sh), (double)mb/(double)(1<<sh));
+
+    //Find threshold for removing dark pixels.
+    sum = 0;
+    for(i=0; i < hs; i++) {
+        sum += hi[i];
+        if(sum > ts) break;
+    }
+    mx = i;
+
+    //Remove all dark pixels
+    for(i = 0; i < size3; i+=3) {
+        Y = (306*in[i] + 601*in[i+1] + 117*in[i+2])>>10;
+        if(Y < mx) in[i] = in[i+1] = in[i+2] = 0;
+    }
+
+    printf("cn = %d sz = %d p = %f\n", cn, sz, (double)(sz - cn)/(double)sz);
+
+    //Red color distortion minimization
+    d = 0; m = mr;
+    for(i = 0; i < size3; i+=3) d += abs(in[i+1] - (in[i]*m>>sh));
+    for(j=0; ;j++){
+        m = m + s;
+        d1 = 0;
+        for(i = 0; i < size3; i+=3) d1 += abs(in[i+1] - (in[i]*m>>sh));
+        printf("j = %d d = %d d1 = %d m = %f\n", j, d, d1, (double)m/(double)(1<<sh));
+        if(!j && d1 > d) s = -s;
+        if( j && d1 > d) break;
+        d = d1;
+    }
+    *rm = m;
+
+    //Blue color distortion minimization
+    d = 0; m = mb;
+    for(i = 0; i < size3; i+=3) d += abs(in[i+1] - (in[i+2]*m>>sh));
+    for(j=0; ;j++){
+        m = m + s;
+        d1 = 0;
+        for(i = 0; i < size3; i+=3) d1 += abs(in[i+1] - (in[i+2]*m>>sh));
+        printf("j = %d d = %d d1 = %d m = %f\n", j, d, d1, (double)m/(double)(1<<sh));
+        if(!j && d1 > d) s = -s;
+        if( j && d1 > d) break;
+        d = d1;
+    }
+    *bm = m;
+}
+
+/**	\brief White balance 16 bits rgb image.
+    \param in	The input 16 bits rgb image.
+    \param out	The output 16 bits rgb image.
+    \param buff	The temporary buffer.
+    \param bpp  The image bits per pixel.
+    \param w    The image width.
+    \param h 	The image height.
+*/
+void utils_wb_rgb(int16 *in, int16 *out, int16 *buff, uint32 bpp, uint32 w, uint32 h)
+{
+    int i, j, sz = w*h, size3 = h*w*3, sh = 10, z = 3, zoom = 1<<z, w1 = w>>z, h1 = h>>z, max = (1<<bpp)-1;
+    int rm, bm;
+
+    utils_zoom_out_rgb16_to_rgb16(in, buff, (uint32*)&buff[w1*h1*3], zoom, w, h);
+
+    utils_wb(buff, &rm, &bm, (uint32*)buff, sh, bpp, w1, h1);
+    printf("rm = %d bm = %d rm = %f bm = %f \n", rm, bm, (double)rm/(double)(1<<sh), (double)bm/(double)(1<<sh));
+
+    for(i = 0; i < size3; i+=3) {
+        out[i]   = in[i]*rm>>sh;    out[i] = out[i] > max ? max : out[i];
+        out[i+1] = in[i+1];
+        out[i+2] = in[i+2]*bm>>sh;  out[i+2] = out[i+2] > max ? max : out[i+2];
+    }
+}
+
+/**	\brief White balance 16 bits bayer image.
+    \param in	The input 16 bits bayer image.
+    \param out	The output 16 bits rgb image.
+    \param buff	The temporary buffer.
+    \param bpp  The image bits per pixel.
+    \param bg   The Bayer grid pattern
+    \param w    The image width.
+    \param h 	The image height.
+*/
+void utils_wb_bayer(int16 *in, int16 *out, int16 *buff, uint32 bpp, uint32 bg, uint32 w, uint32 h)
+{
+    int sz = w*h, sh = 10, z = 2, zoom = 1<<z, w1 = w>>(z+1), h1 = h>>(z+1), max = (1<<bpp)-1;
+    int x, y, yx, yw, rm, bm;
+
+    printf("zoom = %d , w1 = %d h1 = %d\n", zoom, w1, h1);
+    utils_zoom_out_bayer16_to_rgb16(in, buff, (uint32*)&buff[w1*h1*3], zoom, bg, w, h);
+    printf("zoom = %d , w1 = %d h1 = %d\n", zoom, w1, h1);
+
+    utils_wb(buff, &rm, &bm, (uint32*)buff, sh, bpp, w1, h1);
+    printf("rm = %d bm = %d rm = %f bm = %f \n", rm, bm, (double)rm/(double)(1<<sh), (double)bm/(double)(1<<sh));
+
+    switch(bg){
+    case(BGGR):{
+        for(y=0; y < h; y++){
+            yw = y*w;
+            for(x=0; x < w; x++){
+                yx = yw + x;
+                if(y&1){
+                    if(x&1) { out[yx] = in[yx]*rm>>sh;  out[yx] = out[yx] > max ? max : out[yx]; }
+                    else    out[yx] = in[yx];
+
+                } else {
+                    if(x&1) out[yx] = in[yx];
+                    else    { out[yx] = in[yx]*bm>>sh;  out[yx] = out[yx] > max ? max : out[yx]; }
+                }
+            }
+        }
+        break;
+    }
+    case(GRBG):{
+        for(y=0; y < h; y++){
+            yw = y*w;
+            for(x=0; x < w; x++){
+                yx = yw + x;
+                if(y&1){
+                    if(x&1) out[yx] = in[yx];
+                    else    { out[yx] = in[yx]*bm>>sh;  out[yx] = out[yx] > max ? max : out[yx]; }
+
+                } else {
+                    if(x&1) { out[yx] = in[yx]*rm>>sh;  out[yx] = out[yx] > max ? max : out[yx]; }
+                    else    out[yx] = in[yx];
+                }
+            }
+        }
+        break;
+    }
+    case(GBRG):{
+        for(y=0; y < h; y++){
+            yw = y*w;
+            for(x=0; x < w; x++){
+                yx = yw + x;
+                if(y&1){
+                    if(x&1) out[yx] = in[yx];
+                    else    { out[yx] = in[yx]*rm>>sh;  out[yx] = out[yx] > max ? max : out[yx]; }
+
+                } else {
+                    if(x&1) { out[yx] = in[yx]*bm>>sh;  out[yx] = out[yx] > max ? max : out[yx]; }
+                    else    out[yx] = in[yx];
+                }
+            }
+        }
+        break;
+    }
+    case(RGGB):{
+        for(y=0; y < h; y++){
+            yw = y*w;
+            for(x=0; x < w; x++){
+                yx = yw + x;
+                if(y&1){
+                    if(x&1) { out[yx] = in[yx]*bm>>sh;  out[yx] = out[yx] > max ? max : out[yx]; }
+                    else    out[yx] = in[yx];
+
+                } else {
+                    if(x&1) out[yx] = in[yx];
+                    else    { out[yx] = in[yx]*rm>>sh;  out[yx] = out[yx] > max ? max : out[yx]; }
+                }
+            }
+        }
+        break;
+    }
+    }
+}
+

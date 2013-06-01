@@ -10,12 +10,12 @@
 
 static int verb = 0;
 
-static void get_first_pixels(uint8 * buff, int num, int bpp)
+static void print_first_pixels(uint8 * buff, int num, int bpp)
 {
     int16 *pic;
     int i;
 
-    if(bpp > 1){
+    if(bpp > 8){
         pic = (int16*)buff;
         for(i=0; i < num; i++){
             printf("%3d %3d %4d\n", (pic[i]&0xFF00)>>8, pic[i]&0x00FF,  pic[i]);
@@ -107,8 +107,8 @@ int readPNG(FILE* in_file, uint8** buff, int* const w, int* const h, int* const 
     num_passes = png_set_interlace_handling(png);
     png_read_update_info(png, info);
     //Bits per pixel to bytes per pixel
-    *bpp = (*bpp > 8) ? 2 : 1;
-    stride = (has_alpha ? 4 : 3) * (*bpp) * (*w);
+    //*bpp = (*bpp > 8) ? 2 : 1;
+    stride = (has_alpha ? 4 : 3) * ((*bpp > 8) ? 2 : 1) * (*w);
 
     *buff = (uint8*)malloc(stride * (*h));
     if (*buff == NULL) {
@@ -125,7 +125,7 @@ int readPNG(FILE* in_file, uint8** buff, int* const w, int* const h, int* const 
     //if(verb) printf("readPNG: Finish reading file\n");
     png_read_end(png, end_info);
     //if(verb) printf("readPNG: Finish png_read_end file\n");
-    if(verb)  get_first_pixels(*buff, 10, *bpp);
+    if(verb)  print_first_pixels(*buff, 10, *bpp);
 
 End:
     png_destroy_read_struct(&png, &info, &end_info);
@@ -145,7 +145,7 @@ End:
 */
 int writePNG(FILE* out_file, uint8* const buff, const int w, const int h, const int bpp, const int colort)
 {
-    const int stride =  bpp * w;
+    const int stride =  ((bpp > 8) ? 2 : 1) * w;
     png_structp png;
     png_infop info;
     png_uint_32 y;
@@ -179,7 +179,7 @@ int writePNG(FILE* out_file, uint8* const buff, const int w, const int h, const 
     png_write_end(png, info);
     png_destroy_write_struct(&png, &info);
 
-    if(verb)  get_first_pixels(buff, 10, bpp);
+    if(verb)  print_first_pixels(buff, 10, bpp);
 
     return 0;
 }
@@ -204,11 +204,11 @@ int readPGM(FILE* in_file, uint8** buff, int* const w, int* const h, int* const 
     }
 
     fscanf(in_file, "%d%d%d", w, h, bpp);
-    *bpp = (*bpp == 255) ? 1 : 2;
+    *bpp = (*bpp == 255) ? 8 : 16;
     //if(verb) printf("w = %d h = %d bpp = %d\n", *w, *h, *bpp);
 
 
-    size = (*w)*(*h)*(*bpp);
+    size = (*w)*(*h)*((*bpp > 8) ? 2 : 1);
     //if(verb) printf("readPGM: Read file = %p size = %d\n",in_file, size);
 
     *buff = (uint8*)malloc(size);
@@ -223,7 +223,7 @@ int readPGM(FILE* in_file, uint8** buff, int* const w, int* const h, int* const 
         return 1;
     }
 
-    if(verb)  get_first_pixels(*buff, 10, *bpp);
+    if(verb)  print_first_pixels(*buff, 10, *bpp);
 
     return 0;
 }
@@ -239,16 +239,16 @@ int readPGM(FILE* in_file, uint8** buff, int* const w, int* const h, int* const 
 int writePGM(FILE* out_file, uint8* buff, const int w, const int h, const int bpp)
 {
 
-    fprintf(out_file, "P5\n%d %d\n%d", w, h, (bpp > 1) ? 65535 : 255);
+    fprintf(out_file, "P5\n%d %d\n%d", w, h, (bpp > 8) ? 65535 : 255);
 
     //if(verb) printf("Write file = %p size = %d\n",out_file, w*h*bpp);
 
-    if (fwrite(buff, w*h, bpp, out_file) != bpp) {
+    if (fwrite(buff, w*h, (bpp > 8) ? 2 : 1, out_file) != ((bpp > 8) ? 2 : 1)) {
         fprintf(stderr, "Error! writePGM: Write PGM file problem\n");
         return 1;
     }
 
-    if(verb)  get_first_pixels(buff, 10, bpp);
+    if(verb)  print_first_pixels(buff, 10, bpp);
 
     return 0;
 }
@@ -261,8 +261,8 @@ int main(int argc, const char *argv[]) {
     int i, ok = 0;
     uint8 *pic8;
     int16 *pic16;
-    uint8* buff;
-    //int w, h, bpp, colort;
+    uint8 *buff, *tmpb;
+    int min=0, max=0;
     TransState ts;
 
     for (i = 1; i < argc; i++)  if (!strcmp(argv[i], "-v")) verb = 1;
@@ -271,12 +271,12 @@ int main(int argc, const char *argv[]) {
         if (!strcmp(argv[i], "-h") || !strcmp(argv[i], "-help")) {
             printf("Usage: itlib -i[input options] in_file [transform options] [-o[output options] out_file]\n\n"
                    "Input options:\n"
-                   "  b  ......... input file is raw BAYER image\n"
-                   "  g  ......... input file is grayscale image\n"
-                   "  r  ......... input file is RGB image\n"
+                   "  b  ......... Input file is raw BAYER image.\n"
+                   "  g  ......... Input file is grayscale image.\n"
+                   "  r  ......... Input file is RGB image.\n"
                    "\n"
                    "Transform options:\n"
-                   "  -version  .... print version number and exit.\n"
+                   "  -wb  .......  White balancing.\n"
                    "  -nofancy ..... don't use the fancy YUV420 upscaler.\n"
                    "  -nofilter .... disable in-loop filtering.\n"
                    "  -mt .......... use multi-threading\n"
@@ -318,7 +318,13 @@ int main(int argc, const char *argv[]) {
                 if(!strcmp(&in_file[strlen(in_file)-4],".pgm") || !strcmp(&in_file[strlen(in_file)-4],".PGM")){
 
                     ok = readPGM(IN_FILE, &buff, &ts.w, &ts.h, &ts.bpp);
-                    if(verb) printf("Read %s file w = %d h = %d bpp = %d\n", in_file, ts.w, ts.h, ts.bpp);
+
+                    if(ts.bpp > 8) {
+                        pic16 = (int16*) buff;
+                        utils_get_stat(pic16, ts.w, ts.h, &ts.bpp, &min, &max);
+                    }
+
+                    if(verb) printf("Read %s file w = %d h = %d bpp = %d max = %d min = %d\n", in_file, ts.w, ts.h, ts.bpp, max, min);
 
                 } else if(!strcmp(&in_file[strlen(in_file)-4],".png") || !strcmp(&in_file[strlen(in_file)-4],".PNG")){
 
@@ -332,6 +338,14 @@ int main(int argc, const char *argv[]) {
                     fprintf(stderr, "Error! Read input file '%s'\n", in_file);
                     return 1;
                 }
+
+                //Create tmp buffer
+                tmpb = (uint8*)malloc(ts.w*ts.h*((ts.bpp > 8) ? 2 : 1)*3);
+                if (tmpb == NULL) {
+                    fprintf(stderr, "Error! Create tmpb buffer\n");
+                    return 1;
+                }
+
             } else {
                 fprintf(stderr, "Error! Can't find -i (input file)\n");
                 return 1;
@@ -348,12 +362,17 @@ int main(int argc, const char *argv[]) {
             if(!strcmp(&out_file[strlen(out_file)-4],".pgm") || !strcmp(&out_file[strlen(out_file)-4],".PGM")){
 
                 ok = writePGM(OUT_FILE, buff, ts.w, ts.h, ts.bpp);
-                if(verb) printf("Write %s file\n", out_file);
+                //if(verb) printf("Write %s file\n", out_file);
 
             } else if(!strcmp(&out_file[strlen(out_file)-4],".png") || !strcmp(&out_file[strlen(out_file)-4],".PNG")){
 
-                ok = writePNG(OUT_FILE, buff, ts.w, ts.h, ts.bpp, ts.colort);
-                if(verb) printf("Write %s file\n", out_file);
+                if(ts.bpp > 8 && ts.colort == BAYER){
+                    utils_16_to_8(pic16, tmpb, ts.w, ts.h, ts.bpp, 1);
+                    ok = writePNG(OUT_FILE, tmpb, ts.w, ts.h, 8, GREY);
+                } else {
+                    ok = writePNG(OUT_FILE, buff, ts.w, ts.h, 8, ts.colort);
+                }
+                //if(verb) printf("Write %s file\n", out_file);
 
             } else ok = 1;
 
@@ -374,6 +393,7 @@ int main(int argc, const char *argv[]) {
 
     if(argc == 1) fprintf(stderr, "Usage: itlib -h\n");
     free(buff);
+    free(tmpb);
 
     return 0;
 }
