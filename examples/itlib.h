@@ -11,6 +11,7 @@ typedef struct {
     int h;          /**<  Image height */
     int bpp;        /**<  Bytes per pixel */
     int colort;     /**<  Color types */
+    int bg;         /**<  Bayer grids pattern */
 } TransState;
 
 #endif /*ITLIB_H_*/

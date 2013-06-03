@@ -86,4 +86,4 @@ CPPFLAGS=$SAVED_CPPFLAGS
 LIBS=$SAVED_LIBS
 
 
-AC_OUTPUT(Makefile  src/Makefile src/utils/Makefile examples/Makefile )
+AC_OUTPUT(Makefile  src/Makefile src/utils/Makefile src/transforms/Makefile examples/Makefile )

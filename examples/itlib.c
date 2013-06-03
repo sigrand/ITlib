@@ -145,12 +145,20 @@ End:
 */
 int writePNG(FILE* out_file, uint8* const buff, const int w, const int h, const int bpp, const int colort)
 {
-    const int stride =  ((bpp > 8) ? 2 : 1) * w;
+    int stride, color;
     png_structp png;
     png_infop info;
     png_uint_32 y;
     png_bytep row;
 
+    if(colort == GREY || colort == BAYER) {
+        color = PNG_COLOR_TYPE_GRAY;
+        stride =  ((bpp > 8) ? 2 : 1) * w;
+    } else {
+        color = PNG_COLOR_TYPE_RGB;
+        stride =  ((bpp > 8) ? 2 : 1) * w * 3;
+
+    }
     png = png_create_write_struct(PNG_LIBPNG_VER_STRING,NULL, error_function, NULL);
     if (png == NULL) {
         fprintf(stderr, "Error! write PNG: Can't create png struct.");
@@ -168,7 +176,7 @@ int writePNG(FILE* out_file, uint8* const buff, const int w, const int h, const 
         return 1;
     }
     png_init_io(png, out_file);
-    png_set_IHDR(png, info, w, h, 8, colort,
+    png_set_IHDR(png, info, w, h, 8, color,
                  PNG_INTERLACE_NONE, PNG_COMPRESSION_TYPE_DEFAULT,
                  PNG_FILTER_TYPE_DEFAULT);
     png_write_info(png, info);
@@ -207,7 +215,6 @@ int readPGM(FILE* in_file, uint8** buff, int* const w, int* const h, int* const 
     *bpp = (*bpp == 255) ? 8 : 16;
     //if(verb) printf("w = %d h = %d bpp = %d\n", *w, *h, *bpp);
 
-
     size = (*w)*(*h)*((*bpp > 8) ? 2 : 1);
     //if(verb) printf("readPGM: Read file = %p size = %d\n",in_file, size);
 
@@ -242,7 +249,6 @@ int writePGM(FILE* out_file, uint8* buff, const int w, const int h, const int bp
     fprintf(out_file, "P5\n%d %d\n%d", w, h, (bpp > 8) ? 65535 : 255);
 
     //if(verb) printf("Write file = %p size = %d\n",out_file, w*h*bpp);
-
     if (fwrite(buff, w*h, (bpp > 8) ? 2 : 1, out_file) != ((bpp > 8) ? 2 : 1)) {
         fprintf(stderr, "Error! writePGM: Write PGM file problem\n");
         return 1;
@@ -258,10 +264,10 @@ int main(int argc, const char *argv[]) {
     const char *in_file = NULL;
     const char *out_file = NULL;
     FILE *IN_FILE, *OUT_FILE;
-    int i, ok = 0;
+    int i, ok = 0, tr = 0;
     uint8 *pic8;
     int16 *pic16;
-    uint8 *buff, *tmpb;
+    uint8 *buff = NULL, *tmpb = NULL;
     int min=0, max=0;
     TransState ts;
 
@@ -269,17 +275,23 @@ int main(int argc, const char *argv[]) {
 
     for (i = 1; i < argc; i++) {
         if (!strcmp(argv[i], "-h") || !strcmp(argv[i], "-help")) {
-            printf("Usage: itlib -i[input options] in_file [transform options] [-o[output options] out_file]\n\n"
+            printf("Usage: itlib -i[input options [bayer_option]] in_file [-t transform options] [-o[output options] out_file]\n\n"
                    "Input options:\n"
-                   "  b  ......... Input file is raw BAYER image.\n"
-                   "  g  ......... Input file is grayscale image.\n"
-                   "  r  ......... Input file is RGB image.\n"
+                   "  b  Input file is raw BAYER image.\n"
+                   "  g  Input file is grayscale image.\n"
+                   "  r  Input file is RGB image.\n"
+                   "\n"
+                   "bayer_option:\n"
+                   "  bggr            grbg            gbrg            rggb  \n"
+                   "    0 1 2 3 4 5	    0 1 2 3 4 5	    0 1 2 3 4 5	    0 1 2 3 4 5 \n"
+                   "  0 B G B G B G	  0 G R G R G R	  0 G B G B G B	  0 R G R G R G \n"
+                   "  1 G R G R G R	  1 B G B G B G	  1 R G R G R G	  1 G B G B G B \n"
+                   "  2 B G B G B G	  2 G R G R G R	  2 G B G B G B	  2 R G R G R G \n"
+                   "  3 G R G R G R	  3 B G B G B G	  3 R G R G R G	  3 G B G B G B \n"
                    "\n"
                    "Transform options:\n"
-                   "  -wb  .......  White balancing.\n"
-                   "  -nofancy ..... don't use the fancy YUV420 upscaler.\n"
-                   "  -nofilter .... disable in-loop filtering.\n"
-                   "  -mt .......... use multi-threading\n"
+                   "  wb               White balancing.\n"
+                   "  bay_to_rgb_bi    Bayer to rgb bilinear interpolation algorithm.\n"
                    "\n"
                    "Output options:\n"
                    "  -crop <x> <y> <w> <h> ... crop output with the given rectangle\n"
@@ -290,21 +302,32 @@ int main(int argc, const char *argv[]) {
                    );
             return 0;
         } else if (i == 1){
-            //Open input file
+            //Read input file
             if(!strncmp(argv[i], "-i",2)){
                 //Find input options
-                if(strlen(argv[i]) == 2){
-                    //Bayer is defaul
+                if(!strncmp(&argv[i][2], "b",1)){
                     ts.colort = BAYER;
-                } else if(!strncmp(&argv[i][2], "b",1)){
-                    ts.colort = BAYER;
+                    i++;
+                    if(argc > 2) {
+                        if     (!strcmp(argv[i], "bggr")) ts.bg = BGGR;
+                        else if(!strcmp(argv[i], "grbg")) ts.bg = GRBG;
+                        else if(!strcmp(argv[i], "gbrg")) ts.bg = GBRG;
+                        else if(!strcmp(argv[i], "rggb")) ts.bg = RGGB;
+                        else {
+                            fprintf(stderr, "Error! Pls, write bayer grids pattern option\n");
+                            goto Error;
+                        }
+                    } else {
+                        fprintf(stderr, "Error! Usage: itlib -h\n");
+                        goto Error;
+                    }
                 } else if(!strncmp(&argv[i][2], "g",1)){
                     ts.colort = GREY;
                 } else if(!strncmp(&argv[i][2], "r",1)){
                     ts.colort = RGB;
                 } else {
                     fprintf(stderr, "Error! Can't support '%s' options\n", argv[i]);
-                    return 1;
+                    goto Error;
                 }
 
                 if(verb) printf("Color type of input file is %d\n", ts.colort);
@@ -313,7 +336,7 @@ int main(int argc, const char *argv[]) {
                 IN_FILE = fopen(in_file, "rb");
                 if (IN_FILE == NULL) {
                     fprintf(stderr, "Error! Cannot open input file '%s'\n", in_file);
-                    return 1;
+                    goto Error;
                 }
                 if(!strcmp(&in_file[strlen(in_file)-4],".pgm") || !strcmp(&in_file[strlen(in_file)-4],".PGM")){
 
@@ -336,28 +359,27 @@ int main(int argc, const char *argv[]) {
                 if(IN_FILE) fclose(IN_FILE);
                 if(ok){
                     fprintf(stderr, "Error! Read input file '%s'\n", in_file);
-                    return 1;
+                    goto Error;
                 }
 
                 //Create tmp buffer
                 tmpb = (uint8*)malloc(ts.w*ts.h*((ts.bpp > 8) ? 2 : 1)*3);
                 if (tmpb == NULL) {
                     fprintf(stderr, "Error! Create tmpb buffer\n");
-                    return 1;
+                    goto Error;
                 }
-
             } else {
                 fprintf(stderr, "Error! Can't find -i (input file)\n");
-                return 1;
+                goto Error;
             }
 
         } else if (!strcmp(argv[i], "-o") && i < argc - 1) {
-            //Open output file
+            //Write output file
             out_file = argv[++i];
             OUT_FILE = fopen(out_file, "wb");
             if (OUT_FILE == NULL) {
                 fprintf(stderr, "Error! Cannot open input file '%s'\n", out_file);
-                return 1;
+                goto Error;
             }
             if(!strcmp(&out_file[strlen(out_file)-4],".pgm") || !strcmp(&out_file[strlen(out_file)-4],".PGM")){
 
@@ -370,7 +392,7 @@ int main(int argc, const char *argv[]) {
                     utils_16_to_8(pic16, tmpb, ts.w, ts.h, ts.bpp, 1);
                     ok = writePNG(OUT_FILE, tmpb, ts.w, ts.h, 8, GREY);
                 } else {
-                    ok = writePNG(OUT_FILE, buff, ts.w, ts.h, 8, ts.colort);
+                    ok = writePNG(OUT_FILE, tmpb, ts.w, ts.h, 8, ts.colort);
                 }
                 //if(verb) printf("Write %s file\n", out_file);
 
@@ -379,21 +401,35 @@ int main(int argc, const char *argv[]) {
             if(OUT_FILE) fclose(OUT_FILE);
             if(ok){
                 fprintf(stderr, "Error! Write output file '%s'\n", out_file);
-                return 1;
+                goto Error;
             }
 
-        } else if (!strcmp(argv[i], "-be")) {
+        } else if (!strcmp(argv[i], "-t")) {
+            //The image transform
+            tr = 1;
+        } else if (!strcmp(argv[i], "wb") && tr) {
             //utils_image_copy_n(in, out, 320, 200, 8);
 
-        } else if (!strcmp(argv[i], "-le")) {
-            //utils_image_copy_n(in, out, 320, 200, 8);
-
+        } else if (!strcmp(argv[i], "bay_to_rgb_bi") && tr) {
+            if(ts.colort == BAYER){
+                //pic8 = tmpb;
+                utils_bay16_to_rgb8_bi(pic16, tmpb, &tmpb[ts.w*ts.h*3], ts.w, ts.w, ts.bg, ts.bpp);
+                ts.bpp = 8; ts.colort = RGB;
+                if(verb) printf("bay_to_rgb_bi transform\n");
+            } else {
+                fprintf(stderr, "Error! bay_to_rgb_bi: Input file should be in bayer format.\n", out_file);
+                goto Error;
+            }
         }
     }
 
-    if(argc == 1) fprintf(stderr, "Usage: itlib -h\n");
-    free(buff);
-    free(tmpb);
-
+    if(argc == 1) printf("Usage: itlib -h\n");
+    if(buff) free(buff);
+    if(tmpb) free(tmpb);
     return 0;
+Error:
+    if(buff) free(buff);
+    if(tmpb) free(tmpb);
+    return 1;
+
 }
