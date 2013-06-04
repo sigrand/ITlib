@@ -10,27 +10,30 @@
 
 static int verb = 0;
 
-static void print_first_pixels(uint8 * buff, int num, int bpp)
+static void print_first_pixels(uint8 * buff, int num, int bpp, int colort, int w)
 {
     int16 *pic;
     int i;
 
-    if(bpp > 8){
-        pic = (int16*)buff;
-        for(i=0; i < num; i++){
-            printf("%3d %3d %4d\n", (pic[i]&0xFF00)>>8, pic[i]&0x00FF,  pic[i]);
+    if(colort == GREY || colort == BAYER){
+        if(bpp > 8){
+            pic = (int16*)buff;
+            for(i=0; i < num; i++) printf("%4d ", pic[i]>>4);
+            printf("\n");
+            for(i=0; i < num; i++) printf("%4d ", pic[w+i]>>4);
+            printf("\n");
+        } else {
+            for(i=0; i < num; i++) printf("%3d ", buff[i]);
+            printf("\n");
+            for(i=0; i < num; i++) printf("%3d ", buff[w+i]);
+            printf("\n");
         }
     } else {
-        for(i=0; i < num; i++){
-            printf("%4d\n", buff[i]);
-        }
+        for(i=0; i < num*3; i+=3) printf("%3d %3d %3d   ", buff[i], buff[i+1], buff[i+2]);
+        printf("\n");
+        for(i=0; i < num*3; i+=3) printf("%3d %3d %3d   ", buff[w*3+i], buff[w*3+i+1], buff[w*3+i+2]);
+        printf("\n");
     }
-}
-
-static int get_trans_status(const TransState* ts, const TransState* ts1)
-{
-    if(ts->colort == ts1->colort && ts->bpp == ts1->bpp) return 0;
-    return 1;
 }
 
 static void PNGAPI error_function(png_structp png, png_const_charp dummy)
@@ -125,7 +128,7 @@ int readPNG(FILE* in_file, uint8** buff, int* const w, int* const h, int* const 
     //if(verb) printf("readPNG: Finish reading file\n");
     png_read_end(png, end_info);
     //if(verb) printf("readPNG: Finish png_read_end file\n");
-    if(verb)  print_first_pixels(*buff, 10, *bpp);
+    if(verb)  print_first_pixels(*buff, 10, *bpp, *colort, *w);
 
 End:
     png_destroy_read_struct(&png, &info, &end_info);
@@ -176,6 +179,8 @@ int writePNG(FILE* out_file, uint8* const buff, const int w, const int h, const 
         return 1;
     }
     png_init_io(png, out_file);
+
+    //printf("color = %d  %d\n", color, PNG_COLOR_TYPE_RGB);
     png_set_IHDR(png, info, w, h, 8, color,
                  PNG_INTERLACE_NONE, PNG_COMPRESSION_TYPE_DEFAULT,
                  PNG_FILTER_TYPE_DEFAULT);
@@ -187,7 +192,7 @@ int writePNG(FILE* out_file, uint8* const buff, const int w, const int h, const 
     png_write_end(png, info);
     png_destroy_write_struct(&png, &info);
 
-    if(verb)  print_first_pixels(buff, 10, bpp);
+    if(verb)  print_first_pixels(buff, 10, bpp, colort, w);
 
     return 0;
 }
@@ -212,6 +217,7 @@ int readPGM(FILE* in_file, uint8** buff, int* const w, int* const h, int* const 
     }
 
     fscanf(in_file, "%d%d%d", w, h, bpp);
+
     *bpp = (*bpp == 255) ? 8 : 16;
     //if(verb) printf("w = %d h = %d bpp = %d\n", *w, *h, *bpp);
 
@@ -224,13 +230,15 @@ int readPGM(FILE* in_file, uint8** buff, int* const w, int* const h, int* const 
         return 1;
     }
 
+    fread(*buff, 1, 1, in_file);
+
     if(fread(*buff, size, 1,  in_file) != 1){
         fprintf(stderr, "Error! readPGM: Image read error\n");
         free(*buff);
         return 1;
     }
 
-    if(verb)  print_first_pixels(*buff, 10, *bpp);
+    if(verb)  print_first_pixels(*buff, 10, *bpp, GREY, *w);
 
     return 0;
 }
@@ -254,7 +262,7 @@ int writePGM(FILE* out_file, uint8* buff, const int w, const int h, const int bp
         return 1;
     }
 
-    if(verb)  print_first_pixels(buff, 10, bpp);
+    if(verb)  print_first_pixels(buff, 10, bpp, GREY, w);
 
     return 0;
 }
@@ -330,7 +338,7 @@ int main(int argc, const char *argv[]) {
                     goto Error;
                 }
 
-                if(verb) printf("Color type of input file is %d\n", ts.colort);
+                //if(verb) printf("Color type of input file is %d\n", ts.colort);
 
                 in_file = argv[++i];
                 IN_FILE = fopen(in_file, "rb");
@@ -344,6 +352,7 @@ int main(int argc, const char *argv[]) {
 
                     if(ts.bpp > 8) {
                         pic16 = (int16*) buff;
+                        utils_cnange_two_bytes(pic16, ts.w, ts.h);
                         utils_get_stat(pic16, ts.w, ts.h, &ts.bpp, &min, &max);
                     }
 
