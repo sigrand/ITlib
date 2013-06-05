@@ -1,4 +1,4 @@
-SUBDIRS = utils transforms
+SUBDIRS = utils transforms filters
 #segment hdr filters transforms libit 
 
 AM_CPPFLAGS = -I$(top_srcdir)/src
@@ -18,7 +18,4 @@ libit_la_SOURCES =
 libit_la_LIBADD =
 libit_la_LIBADD += utils/libitutils.la
 libit_la_LIBADD += transforms/libittransforms.la
-#libwebp_la_LIBADD += segment/libwitsegment.la
-#libwebp_la_LIBADD += hdr/libithdr.la
-#libwebp_la_LIBADD += filters/libitfilters.la
-#libwebp_la_LIBADD += transforms/libittransforms.la
+libit_la_LIBADD += filters/libitfilters.la

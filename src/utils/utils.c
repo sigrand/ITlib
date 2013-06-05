@@ -11,7 +11,7 @@
     \param w		The image width.
     \param h		The image height.
 */
-void utils_cnange_two_bytes(int16 *in, const int w, const int h)
+void utils_cnange_bytes(int16 *in, const int w, const int h)
 {
     uint32 i, size = w*h;
     for(i=0; i < size; i++) in[i] = ((in[i]&0x00FF)<<8) | ((in[i]&0xFF00)>>8);
@@ -71,12 +71,12 @@ uint8* utils_16_to_8(const int16 *in, uint8 *out, const int w, const int h, cons
 /**	\brief Zoom out the rgb 16 bits image in integer times.
     \param in	 		The input rgb image.
     \param out	 		The output rgb image.
-    \param buff	 		The temporary buffer, should include 1 row of image w*3.
-    \param zoom 		The zoom parameter 1 - no zoom, 2 - twice, 3 - three times ...
+    \param buff	 		The temporary buffer, should include 1 row of rgb image size = sizeof(uint32)*w*3).
     \param w 			The image width.
     \param h 			The image height.
+    \param zoom 		The zoom parameter 1 - no zoom, 2 - twice, 3 - three times ...
 */
-void utils_zoom_out_rgb16_to_rgb16(const int16 *in, int16 *out, uint32 *buff, const int zoom, const int w, const int h)
+void utils_zoom_out_rgb16_to_rgb16(const int16 *in, int16 *out, uint32 *buff, const int w, const int h, const int zoom)
 {
     int i, j, x, x1, y, y1, yw, yx, yxi, sq = zoom*zoom, w1 = w/zoom;
     uint32 max = 1<<31, sh = 0;
@@ -122,15 +122,15 @@ void utils_zoom_out_rgb16_to_rgb16(const int16 *in, int16 *out, uint32 *buff, co
 /**	\brief Zoom out of bayer image and convert to rgb24 format.
     \param in	 	The input bayer image.
     \param out	 	The output image in r,g,b,r1,g1,b1... format.
-    \param buff	 	The temporary buffer, should include 2 row of bayer image.
-    \param zoom 	The zoom parameter 1 - 2x, 2 - 4x, 3 - 6x times ...
-    \param bay		The Bayer grids pattern.
+    \param buff	 	The temporary buffer, should include 2 row of bayer image size = sizeof(uint32)*w*2.
     \param w 		The image width.
     \param h 		The image height.
+    \param zoom 	The zoom parameter 1 - 2x, 2 - 4x, 3 - 6x times ...
+    \param bay		The Bayer grids pattern.
 */
-void utils_zoom_out_bayer16_to_rgb16(uint16 *in, uint16 *out, uint32 *buff, uint32 zoom, BayerGrid bay, uint32 w, uint32 h)
+void utils_zoom_out_bayer16_to_rgb16(const uint16 *in, uint16 *out, uint32 *buff, const int w, const int h, const int zoom, const BayerGrid bay)
 {
-    int i, j, x, x1, y, y1, yw, yx, sq = zoom*zoom, zoom2 = zoom<<1, w1 = w/zoom2;
+    int i, j, x, x1, y, y1, yw, yx, sq = zoom*zoom, zoom2 = zoom<<1, w1 = w/zoom2, zm;
     uint32 max = 1<<31, sh = 0;
     uint32 *c[4];   //Three color buffer
 
@@ -140,7 +140,8 @@ void utils_zoom_out_bayer16_to_rgb16(uint16 *in, uint16 *out, uint32 *buff, uint
 
     //Find zoom value when / can changed to >>
     for(i=1; i < max; i<<=1) if((i|zoom) == i) sh++;
-    zoom = (zoom == 1) ? 0 : zoom;
+
+    zm = (zoom == 1) ? 0 : zoom;
     printf("zoom = %d sh = %d\n", zoom, sh);
 
     for(y=0, y1=0; y < h; y+=zoom2, y1++){
@@ -158,27 +159,27 @@ void utils_zoom_out_bayer16_to_rgb16(uint16 *in, uint16 *out, uint32 *buff, uint
                 if(j == zoom2-2) {
                     switch(bay){
                     case(BGGR):{
-                        out[(y1*w1+x1)*3]   = sh ? c[3][x1]>>zoom : c[3][x1]/sq;
-                        out[(y1*w1+x1)*3+1] = sh ? (c[1][x1]+c[2][x1])>>(zoom+1) : (c[1][x1]+c[2][x1])/(sq<<1);
-                        out[(y1*w1+x1)*3+2] = sh ? c[0][x1]>>zoom : c[0][x1]/sq;
+                        out[(y1*w1+x1)*3]   = sh ? c[3][x1]>>zm : c[3][x1]/sq;
+                        out[(y1*w1+x1)*3+1] = sh ? (c[1][x1]+c[2][x1])>>(zm+1) : (c[1][x1]+c[2][x1])/(sq<<1);
+                        out[(y1*w1+x1)*3+2] = sh ? c[0][x1]>>zm : c[0][x1]/sq;
                         break;
                     }
                     case(GRBG):{
-                        out[(y1*w1+x1)*3]   = sh ? c[1][x1]>>zoom : c[01][x1]/sq;
-                        out[(y1*w1+x1)*3+1] = sh ? (c[0][x1]+c[3][x1])>>(zoom+1) : (c[0][x1]+c[3][x1])/(sq<<1);
-                        out[(y1*w1+x1)*3+2] = sh ? c[2][x1]>>zoom : c[2][x1]/sq;
+                        out[(y1*w1+x1)*3]   = sh ? c[1][x1]>>zm : c[01][x1]/sq;
+                        out[(y1*w1+x1)*3+1] = sh ? (c[0][x1]+c[3][x1])>>(zm+1) : (c[0][x1]+c[3][x1])/(sq<<1);
+                        out[(y1*w1+x1)*3+2] = sh ? c[2][x1]>>zm : c[2][x1]/sq;
                         break;
                     }
                     case(GBRG):{
-                        out[(y1*w1+x1)*3]   = sh ? c[2][x1]>>zoom : c[2][x1]/sq;
-                        out[(y1*w1+x1)*3+1] = sh ? (c[0][x1]+c[3][x1])>>(zoom+1) : (c[0][x1]+c[3][x1])/(sq<<1);
-                        out[(y1*w1+x1)*3+2] = sh ? c[1][x1]>>zoom : c[1][x1]/sq;
+                        out[(y1*w1+x1)*3]   = sh ? c[2][x1]>>zm : c[2][x1]/sq;
+                        out[(y1*w1+x1)*3+1] = sh ? (c[0][x1]+c[3][x1])>>(zm+1) : (c[0][x1]+c[3][x1])/(sq<<1);
+                        out[(y1*w1+x1)*3+2] = sh ? c[1][x1]>>zm : c[1][x1]/sq;
                         break;
                     }
                     case(RGGB):{
-                        out[(y1*w1+x1)*3]   = sh ? c[0][x1]>>zoom : c[0][x1]/sq;
-                        out[(y1*w1+x1)*3+1] = sh ? (c[1][x1]+c[2][x1])>>(zoom+1) : (c[1][x1]+c[2][x1])/(sq<<1);
-                        out[(y1*w1+x1)*3+2] = sh ? c[3][x1]>>zoom : c[3][x1]/sq;
+                        out[(y1*w1+x1)*3]   = sh ? c[0][x1]>>zm : c[0][x1]/sq;
+                        out[(y1*w1+x1)*3+1] = sh ? (c[1][x1]+c[2][x1])>>(zm+1) : (c[1][x1]+c[2][x1])/(sq<<1);
+                        out[(y1*w1+x1)*3+2] = sh ? c[3][x1]>>zm : c[3][x1]/sq;
                         break;
                     }
                     }
@@ -193,16 +194,16 @@ void utils_zoom_out_bayer16_to_rgb16(uint16 *in, uint16 *out, uint32 *buff, uint
     \param in	The input 16 bits rgb image.
     \param rm   The pointer to the red multiplier.
     \param bm   The pointer to the blue multiplier.
-    \param buff The histogram buffer size = uint32*(1<<bpp).
-    \param sh   The shift for integer multiplier.
-    \param bpp  The input image bits per pixel.
+    \param buff The histogram buffer size = sizeof(uint32)*(1<<bpp).
     \param w    The image width.
     \param h 	The image height.
+    \param sh   The shift for integer multiplier.
+    \param bpp  The input image bits per pixel.
 */
-void utils_wb(int16 *in, int *rm, int *bm, uint32 *buff, int sh, uint32 bpp, uint32 w, uint32 h)
+void utils_wb(int16 *in, int *rm, int *bm, uint32 *buff, const int w, const int h, const int sh, const int bpp)
 {
-    int i, j, sz = w*h, size3 = h*w*3;
-    uint32 d, d1, r = 0, g = 0, b = 0, cn = 0, min, max, mx, Y, hs = 1<<bpp, sum, ts = sz*3/10;
+    int i, j, size = w*h, size3 = size*3;
+    uint32 d, d1, r = 0, g = 0, b = 0, cn = 0, min, max, mx, Y, hs = 1<<bpp, sum, ts = size3>>3;
     //float s = 0.01,  th = 0.5;
     uint32 *hi = buff;
     int m, mr, mb, s = 10;
@@ -219,7 +220,7 @@ void utils_wb(int16 *in, int *rm, int *bm, uint32 *buff, int sh, uint32 bpp, uin
     }
 
     //Gray world multiplier for first step approximation
-    r = r/sz; g = g/sz; b = b/sz;
+    r = r/size; g = g/size; b = b/size;
     //mr = (double)g/(double)r;
     //mb = (double)g/(double)b;
     mr = (g<<sh)/r;
@@ -240,9 +241,9 @@ void utils_wb(int16 *in, int *rm, int *bm, uint32 *buff, int sh, uint32 bpp, uin
         if(Y < mx) in[i] = in[i+1] = in[i+2] = 0;
     }
 
-    printf("cn = %d sz = %d p = %f\n", cn, sz, (double)(sz - cn)/(double)sz);
+    printf("cn = %d sz = %d p = %f\n", cn, size, (double)(size - cn)/(double)size);
 
-    //Red color distortion minimization
+    //Red color (g - r) minimization
     d = 0; m = mr;
     for(i = 0; i < size3; i+=3) d += abs(in[i+1] - (in[i]*m>>sh));
     for(j=0; ;j++){
@@ -256,7 +257,7 @@ void utils_wb(int16 *in, int *rm, int *bm, uint32 *buff, int sh, uint32 bpp, uin
     }
     *rm = m;
 
-    //Blue color distortion minimization
+    //Blue color (g - b) minimization
     d = 0; m = mb;
     for(i = 0; i < size3; i+=3) d += abs(in[i+1] - (in[i+2]*m>>sh));
     for(j=0; ;j++){
@@ -274,19 +275,19 @@ void utils_wb(int16 *in, int *rm, int *bm, uint32 *buff, int sh, uint32 bpp, uin
 /**	\brief White balance 16 bits rgb image.
     \param in	The input 16 bits rgb image.
     \param out	The output 16 bits rgb image.
-    \param buff	The temporary buffer.
-    \param bpp  The image bits per pixel.
+    \param buff	The histogram buffer size = sizeof(uint32)*(1<<bpp).
     \param w    The image width.
     \param h 	The image height.
+    \param bpp  The image bits per pixel.
 */
-void utils_wb_rgb(int16 *in, int16 *out, int16 *buff, uint32 bpp, uint32 w, uint32 h)
+void utils_wb_rgb(int16 *in, int16 *out, int16 *buff, const int w, const int h, const int bpp)
 {
-    int i, j, sz = w*h, size3 = h*w*3, sh = 10, z = 3, zoom = 1<<z, w1 = w>>z, h1 = h>>z, max = (1<<bpp)-1;
+    int i, j, size3 = h*w*3, sh = 10, z = 3, zoom = 1<<z, w1 = w>>z, h1 = h>>z, max = (1<<bpp)-1;
     int rm, bm;
 
-    utils_zoom_out_rgb16_to_rgb16(in, buff, (uint32*)&buff[w1*h1*3], zoom, w, h);
+    utils_zoom_out_rgb16_to_rgb16(in, buff, (uint32*)&buff[w1*h1*3], w, h, zoom );
 
-    utils_wb(buff, &rm, &bm, (uint32*)buff, sh, bpp, w1, h1);
+    utils_wb(buff, &rm, &bm, (uint32*)buff, w1, h1, sh, bpp);
     printf("rm = %d bm = %d rm = %f bm = %f \n", rm, bm, (double)rm/(double)(1<<sh), (double)bm/(double)(1<<sh));
 
     for(i = 0; i < size3; i+=3) {
@@ -299,22 +300,22 @@ void utils_wb_rgb(int16 *in, int16 *out, int16 *buff, uint32 bpp, uint32 w, uint
 /**	\brief White balance 16 bits bayer image.
     \param in	The input 16 bits bayer image.
     \param out	The output 16 bits rgb image.
-    \param buff	The temporary buffer.
-    \param bpp  The image bits per pixel.
-    \param bg   The Bayer grid pattern
+    \param buff	The histogram buffer size = sizeof(uint32)*(1<<bpp).
     \param w    The image width.
     \param h 	The image height.
+    \param bpp  The image bits per pixel.
+    \param bg   The Bayer grid pattern
 */
-void utils_wb_bayer(int16 *in, int16 *out, int16 *buff, uint32 bpp, uint32 bg, uint32 w, uint32 h)
+void utils_wb_bayer(const int16 *in, int16 *out, int16 *buff, const int w, const int h, const int bpp, const int bg)
 {
     int sz = w*h, sh = 10, z = 2, zoom = 1<<z, w1 = w>>(z+1), h1 = h>>(z+1), max = (1<<bpp)-1;
     int x, y, yx, yw, rm, bm;
 
     printf("zoom = %d , w1 = %d h1 = %d\n", zoom, w1, h1);
-    utils_zoom_out_bayer16_to_rgb16(in, buff, (uint32*)&buff[w1*h1*3], zoom, bg, w, h);
+    utils_zoom_out_bayer16_to_rgb16(in, buff, (uint32*)&buff[w1*h1*3], w, h, zoom, bg);
     printf("zoom = %d , w1 = %d h1 = %d\n", zoom, w1, h1);
 
-    utils_wb(buff, &rm, &bm, (uint32*)buff, sh, bpp, w1, h1);
+    utils_wb(buff, &rm, &bm, (uint32*)buff, w1, h1, sh, bpp);
     printf("rm = %d bm = %d rm = %f bm = %f \n", rm, bm, (double)rm/(double)(1<<sh), (double)bm/(double)(1<<sh));
 
     switch(bg){
@@ -326,7 +327,6 @@ void utils_wb_bayer(int16 *in, int16 *out, int16 *buff, uint32 bpp, uint32 bg, u
                 if(y&1){
                     if(x&1) { out[yx] = in[yx]*rm>>sh;  out[yx] = out[yx] > max ? max : out[yx]; }
                     else    out[yx] = in[yx];
-
                 } else {
                     if(x&1) out[yx] = in[yx];
                     else    { out[yx] = in[yx]*bm>>sh;  out[yx] = out[yx] > max ? max : out[yx]; }
@@ -343,7 +343,6 @@ void utils_wb_bayer(int16 *in, int16 *out, int16 *buff, uint32 bpp, uint32 bg, u
                 if(y&1){
                     if(x&1) out[yx] = in[yx];
                     else    { out[yx] = in[yx]*bm>>sh;  out[yx] = out[yx] > max ? max : out[yx]; }
-
                 } else {
                     if(x&1) { out[yx] = in[yx]*rm>>sh;  out[yx] = out[yx] > max ? max : out[yx]; }
                     else    out[yx] = in[yx];
@@ -360,7 +359,6 @@ void utils_wb_bayer(int16 *in, int16 *out, int16 *buff, uint32 bpp, uint32 bg, u
                 if(y&1){
                     if(x&1) out[yx] = in[yx];
                     else    { out[yx] = in[yx]*rm>>sh;  out[yx] = out[yx] > max ? max : out[yx]; }
-
                 } else {
                     if(x&1) { out[yx] = in[yx]*bm>>sh;  out[yx] = out[yx] > max ? max : out[yx]; }
                     else    out[yx] = in[yx];
@@ -377,7 +375,6 @@ void utils_wb_bayer(int16 *in, int16 *out, int16 *buff, uint32 bpp, uint32 bg, u
                 if(y&1){
                     if(x&1) { out[yx] = in[yx]*bm>>sh;  out[yx] = out[yx] > max ? max : out[yx]; }
                     else    out[yx] = in[yx];
-
                 } else {
                     if(x&1) out[yx] = in[yx];
                     else    { out[yx] = in[yx]*rm>>sh;  out[yx] = out[yx] > max ? max : out[yx]; }
@@ -387,5 +384,87 @@ void utils_wb_bayer(int16 *in, int16 *out, int16 *buff, uint32 bpp, uint32 bg, u
         break;
     }
     }
+}
+
+/** \brief Make the integral matrix of 16 bits grey image.
+    \param in	The pointer to a input image.
+    \param ing 	The pointer to a integral matrix.
+    \param w	The image width.
+    \param h	The imahe height.
+*/
+void utils_integral_grey(const int16 *in, int *ing, const int w, const int h)
+{
+    uint32 x, y=0, yw, yx;
+
+    ing[0] = in[0];
+    for(x=1; x < w; x++){
+        ing[x] = ing[x-1] + in[x];
+    }
+    for(y=1; y < h; y++){
+        yw = y*w;
+        ing[yw] = ing[yw-w] + in[yw];
+        for(x=1; x < w; x++){
+            yx = yw + x;
+            ing[yx] = ing[yx-1] + ing[yx-w] - ing[yx-1-w] + in[yx];
+        }
+    }
+    /*
+    for(x=0; x < w*h; x++){
+        sum += in[x];
+    }
+    printf("Check the integral matrix = %d sum = %d\n", ing[w*h-1], sum);
+    */
+}
+
+/** \brief Make the integral matrix for 16 bits bayer image.
+    \param in	The pointer to a input image.
+    \param int 	The pointer to a integral matrix.
+    \param w	The image width.
+    \param h	The imahe height.
+*/
+void utils_integral_bayer(const int16 *in, uint32 *ing, const int w, const int h)
+{
+    uint32 x, y=0, yw, yx, w2 = w<<1;
+
+    ing[0] = in[0];
+    ing[1] = in[1];
+    for(x=2; x < w; x++){
+        ing[x] = ing[x-2] + in[x];
+    }
+
+    ing[w]   = in[w];
+    ing[w+1] = in[w+1];
+    for(x=2; x < w; x++){
+        yx = w + x;
+        ing[yx] = ing[yx-2] + in[yx];
+    }
+
+    for(y=2; y < h; y++){
+        yw = y*w;
+        ing[yw] = ing[yw-w2] + in[yw];
+        ing[yw+1] = ing[yw-w2+1] + in[yw+1];
+        for(x=2; x < w; x++){
+            yx = yw + x;
+            ing[yx] = ing[yx-2] + ing[yx-w2] - ing[yx-2-w2] + in[yx];
+        }
+    }
+
+    /*
+    //For check only
+    uint32 sum;
+    sum = 0;
+    for(y=0; y < h; y+=2){ yw = y*w; for(x=0; x < w; x+=2) {sum += in[yw + x];}}
+    printf("Check the integral sum = %d\n", sum);
+    sum = 0;
+    for(y=0; y < h; y+=2){ yw = y*w; for(x=1; x < w; x+=2) {sum += in[yw + x];}}
+    printf("Check the integral sum = %d\n", sum);
+    sum = 0;
+    for(y=1; y < h; y+=2){ yw = y*w; for(x=0; x < w; x+=2) {sum += in[yw + x];}}
+    printf("Check the integral sum = %d\n", sum);
+    sum = 0;
+    for(y=1; y < h; y+=2){ yw = y*w; for(x=1; x < w; x+=2) {sum += in[yw + x];}}
+    printf("Check the integral sum = %d\n", sum);
+    printf("mat1 = %d mat2 = %d mat3 = %d mat4 = %d\n", in[w*h-w-2], in[w*h-w-1], in[w*h-2], in[w*h-1]);
+    */
 }
 

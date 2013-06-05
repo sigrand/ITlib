@@ -113,7 +113,8 @@ int readPNG(FILE* in_file, uint8** buff, int* const w, int* const h, int* const 
     //*bpp = (*bpp > 8) ? 2 : 1;
     stride = (has_alpha ? 4 : 3) * ((*bpp > 8) ? 2 : 1) * (*w);
 
-    *buff = (uint8*)malloc(stride * (*h));
+    //Create buffer up to 2 times more the bayer or gray image for the future used
+    *buff = (uint8*)malloc(stride*(*h)*2);
     if (*buff == NULL) {
         fprintf(stderr, "Error! readPNG: Can't allocate memory\n");
         ok = 1; goto End;
@@ -224,7 +225,8 @@ int readPGM(FILE* in_file, uint8** buff, int* const w, int* const h, int* const 
     size = (*w)*(*h)*((*bpp > 8) ? 2 : 1);
     //if(verb) printf("readPGM: Read file = %p size = %d\n",in_file, size);
 
-    *buff = (uint8*)malloc(size);
+    //Create buffer up to 6 times more the bayer or gray image for the future used
+    *buff = (uint8*)malloc(size*3*2);
     if (*buff == NULL) {
         fprintf(stderr, "Error! readPGM: Can't allocate memory\n");
         return 1;
@@ -275,9 +277,10 @@ int main(int argc, const char *argv[]) {
     int i, ok = 0, tr = 0;
     uint8 *pic8;
     int16 *pic16;
-    uint8 *buff = NULL, *tmpb = NULL;
+    uint8 *buff = NULL, *buf = NULL;
     int min=0, max=0;
     TransState ts;
+    void *tmp;
 
     for (i = 1; i < argc; i++)  if (!strcmp(argv[i], "-v")) verb = 1;
 
@@ -351,16 +354,24 @@ int main(int argc, const char *argv[]) {
                     ok = readPGM(IN_FILE, &buff, &ts.w, &ts.h, &ts.bpp);
 
                     if(ts.bpp > 8) {
-                        pic16 = (int16*) buff;
-                        utils_cnange_two_bytes(pic16, ts.w, ts.h);
-                        utils_get_stat(pic16, ts.w, ts.h, &ts.bpp, &min, &max);
+                        ts.pic = (int16*) buff;
+                        buf = &buff[ts.w*ts.h*2*3]; //Temporary buffer
+                        utils_cnange_bytes(ts.pic, ts.w, ts.h);
+                        utils_get_stat(ts.pic, ts.w, ts.h, &ts.bpp, &min, &max);
+                    } else {
+                        ts.pic = buff;
+                        buf = &buff[ts.w*ts.h*3]; //Temporary buffer
                     }
+
 
                     if(verb) printf("Read %s file w = %d h = %d bpp = %d max = %d min = %d\n", in_file, ts.w, ts.h, ts.bpp, max, min);
 
                 } else if(!strcmp(&in_file[strlen(in_file)-4],".png") || !strcmp(&in_file[strlen(in_file)-4],".PNG")){
 
                     ok = readPNG(IN_FILE, &buff, &ts.w, &ts.h, &ts.bpp, &ts.colort);
+                    ts.pic = buff;
+                    buf = &buff[ts.w*ts.h*3]; //Temporary buffer
+
                     if(verb) printf("Read %s file w = %d h = %d bpp = %d colort = %d\n", in_file, ts.w, ts.h, ts.bpp, ts.colort);
 
                 } else ok = 1;
@@ -370,18 +381,16 @@ int main(int argc, const char *argv[]) {
                     fprintf(stderr, "Error! Read input file '%s'\n", in_file);
                     goto Error;
                 }
-
                 //Create tmp buffer
-                tmpb = (uint8*)malloc(ts.w*ts.h*((ts.bpp > 8) ? 2 : 1)*3);
-                if (tmpb == NULL) {
-                    fprintf(stderr, "Error! Create tmpb buffer\n");
-                    goto Error;
-                }
+                //tmpb = (uint8*)malloc(ts.w*ts.h*((ts.bpp > 8) ? 2 : 1)*3);
+                //if (tmpb == NULL) {
+                //    fprintf(stderr, "Error! Can't create tmpb buffer\n");
+                //    goto Error;
+                //}
             } else {
                 fprintf(stderr, "Error! Can't find -i (input file)\n");
                 goto Error;
             }
-
         } else if (!strcmp(argv[i], "-o") && i < argc - 1) {
             //Write output file
             out_file = argv[++i];
@@ -392,16 +401,18 @@ int main(int argc, const char *argv[]) {
             }
             if(!strcmp(&out_file[strlen(out_file)-4],".pgm") || !strcmp(&out_file[strlen(out_file)-4],".PGM")){
 
-                ok = writePGM(OUT_FILE, buff, ts.w, ts.h, ts.bpp);
+                ok = writePGM(OUT_FILE, ts.pic, ts.w, ts.h, ts.bpp);
                 //if(verb) printf("Write %s file\n", out_file);
 
             } else if(!strcmp(&out_file[strlen(out_file)-4],".png") || !strcmp(&out_file[strlen(out_file)-4],".PNG")){
 
                 if(ts.bpp > 8 && ts.colort == BAYER){
-                    utils_16_to_8(pic16, tmpb, ts.w, ts.h, ts.bpp, 1);
-                    ok = writePNG(OUT_FILE, tmpb, ts.w, ts.h, 8, GREY);
+                    utils_16_to_8(ts.pic, buf, ts.w, ts.h, ts.bpp, 1);
+                    tmp = ts.pic; ts.pic = buf; buf = tmp; ts.bpp = 8;
+
+                    ok = writePNG(OUT_FILE, ts.pic, ts.w, ts.h, ts.bpp, GREY);
                 } else {
-                    ok = writePNG(OUT_FILE, tmpb, ts.w, ts.h, 8, ts.colort);
+                    ok = writePNG(OUT_FILE, ts.pic, ts.w, ts.h, ts.bpp, ts.colort);
                 }
                 //if(verb) printf("Write %s file\n", out_file);
 
@@ -417,28 +428,31 @@ int main(int argc, const char *argv[]) {
             //The image transform
             tr = 1;
         } else if (!strcmp(argv[i], "wb") && tr) {
-            //utils_image_copy_n(in, out, 320, 200, 8);
+            utils_wb_bayer(ts.pic, buf, &buf[ts.w*ts.h*(ts.bpp>8 ? 2 : 1)], ts.w, ts.h, ts.bpp, ts.bg);
+            tmp = ts.pic; ts.pic = buf; buf = tmp;
 
         } else if (!strcmp(argv[i], "bay_to_rgb_bi") && tr) {
             if(ts.colort == BAYER){
                 //pic8 = tmpb;
-                utils_bay16_to_rgb8_bi(pic16, tmpb, &tmpb[ts.w*ts.h*3], ts.w, ts.w, ts.bg, ts.bpp);
-                ts.bpp = 8; ts.colort = RGB;
+                utils_bay16_to_rgb8_bi(ts.pic, buf, &buf[ts.w*ts.h*3], ts.w, ts.w, ts.bg, ts.bpp);
+                tmp = ts.pic; ts.pic = buf; buf = tmp; ts.bpp = 8; ts.colort = RGB;
                 if(verb) printf("bay_to_rgb_bi transform\n");
             } else {
                 fprintf(stderr, "Error! bay_to_rgb_bi: Input file should be in bayer format.\n", out_file);
                 goto Error;
             }
+        } else if (!strcmp(argv[i], "med_filter") && tr) {
+            filter_median_bayer(ts.pic, buf, &buf[ts.w*ts.h*2], ts.w, ts.h, 0);
+            tmp = ts.pic; ts.pic = buf; buf = tmp;
         }
+
     }
 
     if(argc == 1) printf("Usage: itlib -h\n");
     if(buff) free(buff);
-    if(tmpb) free(tmpb);
     return 0;
 Error:
     if(buff) free(buff);
-    if(tmpb) free(tmpb);
     return 1;
 
 }

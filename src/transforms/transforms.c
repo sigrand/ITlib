@@ -6,10 +6,10 @@
 #include "../libit/types.h"
 #include "./transforms.h"
 
-#define lb(x) (((x) < 0) ? 0 : (((x) > 255) ? 255 : (x)))
+//#define lb(x) (((x) < 0) ? 0 : (((x) > 255) ? 255 : (x)))
 
 /**	\brief Bilinear algorithm for bayer to rgb interpolation.
-    \param img	 	The input bayer image.
+    \param in	 	The input bayer image.
     \param rgb		The output rgb image.
     \param buff		The temporary 3 rows buffer
     \param w		The image width.
