@@ -274,10 +274,10 @@ int main(int argc, const char *argv[]) {
     const char *in_file = NULL;
     const char *out_file = NULL;
     FILE *IN_FILE, *OUT_FILE;
-    int i, ok = 0, tr = 0;
+    int i, ok = 0, tr = 0, par;
     uint8 *pic8;
     int16 *pic16;
-    uint8 *buff = NULL, *buf = NULL;
+    uint8 *buff = NULL, *buf = NULL, *tmpb = NULL;
     int min=0, max=0;
     TransState ts;
     void *tmp;
@@ -303,13 +303,15 @@ int main(int argc, const char *argv[]) {
                    "Transform options:\n"
                    "  wb               White balancing.\n"
                    "  bay_to_rgb_bi    Bayer to rgb bilinear interpolation algorithm.\n"
+                   "  med_filter <a>   3x3 median filter if a = 0 non adaptive, if a = 1 adaptive\n"
+                   "  ace              Automatic Color Enhancement transform\n"
                    "\n"
                    "Output options:\n"
                    "  -crop <x> <y> <w> <h> ... crop output with the given rectangle\n"
                    "  -scale <w> <h> .......... scale the output (*after* any cropping)\n"
                    "  -alpha ....... only save the alpha plane.\n"
                    "  -h     ....... this help message.\n"
-                   "  -v     ....... verbose (e.g. print encoding/decoding times)\n"
+                   "  -v     ....... verbose \n"
                    );
             return 0;
         } else if (i == 1){
@@ -356,13 +358,13 @@ int main(int argc, const char *argv[]) {
                     if(ts.bpp > 8) {
                         ts.pic = (int16*) buff;
                         buf = &buff[ts.w*ts.h*2*3]; //Temporary buffer
+
                         utils_cnange_bytes(ts.pic, ts.w, ts.h);
                         utils_get_stat(ts.pic, ts.w, ts.h, &ts.bpp, &min, &max);
                     } else {
                         ts.pic = buff;
                         buf = &buff[ts.w*ts.h*3]; //Temporary buffer
                     }
-
 
                     if(verb) printf("Read %s file w = %d h = %d bpp = %d max = %d min = %d\n", in_file, ts.w, ts.h, ts.bpp, max, min);
 
@@ -382,11 +384,11 @@ int main(int argc, const char *argv[]) {
                     goto Error;
                 }
                 //Create tmp buffer
-                //tmpb = (uint8*)malloc(ts.w*ts.h*((ts.bpp > 8) ? 2 : 1)*3);
-                //if (tmpb == NULL) {
-                //    fprintf(stderr, "Error! Can't create tmpb buffer\n");
-                //    goto Error;
-                //}
+                tmpb = (uint8*)malloc(ts.w*ts.h*sizeof(uint32));
+                if (tmpb == NULL) {
+                    fprintf(stderr, "Error! Can't create tmpb buffer\n");
+                    goto Error;
+                }
             } else {
                 fprintf(stderr, "Error! Can't find -i (input file)\n");
                 goto Error;
@@ -428,24 +430,50 @@ int main(int argc, const char *argv[]) {
             //The image transform
             tr = 1;
         } else if (!strcmp(argv[i], "wb") && tr) {
-            utils_wb_bayer(ts.pic, buf, &buf[ts.w*ts.h*(ts.bpp>8 ? 2 : 1)], ts.w, ts.h, ts.bpp, ts.bg);
-            tmp = ts.pic; ts.pic = buf; buf = tmp;
+            //White balancing.........................................................................
+            if(ts.colort == BAYER && ts.bpp > 8){
+                utils_wb_bayer(ts.pic, buf, tmpb, ts.w, ts.h, ts.bpp, ts.bg);
+                tmp = ts.pic; ts.pic = buf; buf = tmp;
+            } else if (ts.colort == RGB && ts.bpp > 8){
+                utils_wb(ts.pic, buf, tmpb, ts.w, ts.h, ts.bpp, ts.bg);
+                tmp = ts.pic; ts.pic = buf; buf = tmp;
+            } else {
+                fprintf(stderr, "Error! wb: Input image should be in bayer or rgb format and 16 bits.\n", out_file);
+                goto Error;
+            }
+            if(verb) printf("white balancing \n");
 
         } else if (!strcmp(argv[i], "bay_to_rgb_bi") && tr) {
             if(ts.colort == BAYER){
-                //pic8 = tmpb;
-                utils_bay16_to_rgb8_bi(ts.pic, buf, &buf[ts.w*ts.h*3], ts.w, ts.w, ts.bg, ts.bpp);
+                utils_bay16_to_rgb8_bi(ts.pic, buf, tmpb, ts.w, ts.w, ts.bg, ts.bpp);
                 tmp = ts.pic; ts.pic = buf; buf = tmp; ts.bpp = 8; ts.colort = RGB;
-                if(verb) printf("bay_to_rgb_bi transform\n");
             } else {
-                fprintf(stderr, "Error! bay_to_rgb_bi: Input file should be in bayer format.\n", out_file);
+                fprintf(stderr, "Error! bay_to_rgb_bi: Input image should be in bayer format and 16 bits.\n", out_file);
                 goto Error;
             }
-        } else if (!strcmp(argv[i], "med_filter") && tr) {
-            filter_median_bayer(ts.pic, buf, &buf[ts.w*ts.h*2], ts.w, ts.h, 0);
-            tmp = ts.pic; ts.pic = buf; buf = tmp;
-        }
+            if(verb) printf("bay_to_rgb_bi transform\n");
 
+        } else if (!strcmp(argv[i], "med_filter") && tr) {
+            par = strtol(argv[i+1], NULL, 0);
+
+            if(ts.colort == BAYER && ts.bpp > 8){
+                filters_median_bayer(ts.pic, buf, tmpb, ts.w, ts.h, par);
+                tmp = ts.pic; ts.pic = buf; buf = tmp;
+            } else {
+                fprintf(stderr, "Error! med_filter: Input image should be in bayer format and 16 bits.\n", out_file);
+                goto Error;
+            }
+            if(verb) printf("median filter\n");
+        } else if (!strcmp(argv[i], "ace") && tr) {
+            if((ts.colort == BAYER || ts.colort == GREY) && ts.bpp > 8){
+                utils_ace(ts.pic, buf, tmpb, ts.w, ts.h, ts.bpp, 8);
+                tmp = ts.pic; ts.pic = buf; buf = tmp; ts.bpp = 8;
+            } else {
+                fprintf(stderr, "Error! med_filter: Input image should be in bayer or grey format and 16 bits.\n", out_file);
+                goto Error;
+            }
+            if(verb) printf("ace filter\n");
+        }
     }
 
     if(argc == 1) printf("Usage: itlib -h\n");

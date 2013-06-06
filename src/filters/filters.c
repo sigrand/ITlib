@@ -63,7 +63,7 @@ void inline static cp_line(int16 *in, int16 *l, uint32 w, uint32 sh)
     \param  h       The image height.
     \param  type    The type of filter 0 - non adaptive, 1 - adaptive.
 */
-void filter_median_bayer(int16 *in, int16 *out, int16 *buff, const int w, const int h, const int type)
+void filters_median_bayer(int16 *in, int16 *out, int16 *buff, const int w, const int h, const int type)
 {
     // s[0]  s[1]  s[2]
     //|-----|-----|-----|

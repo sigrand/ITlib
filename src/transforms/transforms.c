@@ -69,3 +69,43 @@ uint8* utils_bay16_to_rgb8_bi(const int16 *in, uint8 *rgb, int16 *buff, const in
 }
 
 
+/**	\brief Automatic Color Enhancement algorithm.
+    \param in       The input 16 bits rgb image.
+    \param out      The output 16 bits rgb image.
+    \param buff     The temporary buffer.
+    \param bpp      The input image bits per pixel.
+    \param bpp1     The output image bits per pixel.
+    \param w        The image width.
+    \param h        The image height.
+*/
+void utils_ace(const int16 *in, int16 *out, int *buff, const int w, const int h, const int bpp, const int bpp1)
+{
+    int x, y, yx, yw, hs = 1<<bpp, size = w*h, sum;
+    int *hi;
+    int b = (1<<30)/size, shb = 30 - bpp1;
+
+    hi = buff; //hl = &hi[hs]; hr = &hl[hs]; lt = &hr[hs];
+
+    //Fill historgam
+    memset(hi, 0, sizeof(int)*hs);
+    for(x=0; x < size; x++) hi[in[x]]++;
+
+    //Make lookup table
+    sum = 0;
+    for(x=0; x < hs; x++) {
+        sum += hi[x];
+        hi[x] = sum*b>>shb;
+    }
+
+    for(y=0; y < h; y++){
+        yw = y*w;
+        for(x=0; x < w; x++){
+            yx = yw + x;
+            //For sony A55 sensor check
+            //if(in[yx] > hs-1) in[yx] = hs-1;
+            out[yx] = hi[in[yx]];
+            //if(out[yx] < 0 || out[yx] > 255) printf("yx = %d out = %d in = %d lt = %d\n", yx, out[yx], in[yx], lt[in[yx]]);
+        }
+    }
+}
+

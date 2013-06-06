@@ -24,7 +24,6 @@ void utils_cnange_bytes(int16 *in, const int w, const int h)
     \param bpp      The bits per pixel.
     \param min      The minimum image value.
     \param max      The maximum image value.
-
 */
 void utils_get_stat(int16 *in, const int w, const int h, int *bpp, int *min, int *max)
 {
@@ -119,9 +118,9 @@ void utils_zoom_out_rgb16_to_rgb16(const int16 *in, int16 *out, uint32 *buff, co
     }
 }
 
-/**	\brief Zoom out of bayer image and convert to rgb24 format.
-    \param in	 	The input bayer image.
-    \param out	 	The output image in r,g,b,r1,g1,b1... format.
+/**	\brief Zoom out of bayer image and convert to rgb format.
+    \param in	 	The input 16 bits bayer image.
+    \param out	 	The output 16 bits rgb image.
     \param buff	 	The temporary buffer, should include 2 row of bayer image size = sizeof(uint32)*w*2.
     \param w 		The image width.
     \param h 		The image height.
@@ -142,7 +141,7 @@ void utils_zoom_out_bayer16_to_rgb16(const uint16 *in, uint16 *out, uint32 *buff
     for(i=1; i < max; i<<=1) if((i|zoom) == i) sh++;
 
     zm = (zoom == 1) ? 0 : zoom;
-    printf("zoom = %d sh = %d\n", zoom, sh);
+    //printf("zoom = %d sh = %d\n", zoom, sh);
 
     for(y=0, y1=0; y < h; y+=zoom2, y1++){
 
@@ -241,7 +240,7 @@ void utils_wb(int16 *in, int *rm, int *bm, uint32 *buff, const int w, const int 
         if(Y < mx) in[i] = in[i+1] = in[i+2] = 0;
     }
 
-    printf("cn = %d sz = %d p = %f\n", cn, size, (double)(size - cn)/(double)size);
+    //printf("cn = %d sz = %d p = %f\n", cn, size, (double)(size - cn)/(double)size);
 
     //Red color (g - r) minimization
     d = 0; m = mr;
@@ -275,17 +274,21 @@ void utils_wb(int16 *in, int *rm, int *bm, uint32 *buff, const int w, const int 
 /**	\brief White balance 16 bits rgb image.
     \param in	The input 16 bits rgb image.
     \param out	The output 16 bits rgb image.
-    \param buff	The histogram buffer size = sizeof(uint32)*(1<<bpp).
+    \param buff	The the buffer size should be 1000000 bytes.
     \param w    The image width.
     \param h 	The image height.
     \param bpp  The image bits per pixel.
 */
 void utils_wb_rgb(int16 *in, int16 *out, int16 *buff, const int w, const int h, const int bpp)
 {
-    int i, j, size3 = h*w*3, sh = 10, z = 3, zoom = 1<<z, w1 = w>>z, h1 = h>>z, max = (1<<bpp)-1;
+    int i, j, size3 = h*w*3, sh = 10, z, zoom, w1, h1, max = (1<<bpp)-1;
     int rm, bm;
 
-    utils_zoom_out_rgb16_to_rgb16(in, buff, (uint32*)&buff[w1*h1*3], w, h, zoom );
+    //Check zoom image size
+    for(i=0; (w*h>>i) > 500000; i+=2);
+    z = i>>1; zoom = 1<<z; w1 = w>>z; h1 = h>>z;
+
+    utils_zoom_out_rgb16_to_rgb16(in, buff, (uint32*)&buff[w1*h1*3], w, h, zoom);
 
     utils_wb(buff, &rm, &bm, (uint32*)buff, w1, h1, sh, bpp);
     printf("rm = %d bm = %d rm = %f bm = %f \n", rm, bm, (double)rm/(double)(1<<sh), (double)bm/(double)(1<<sh));
@@ -300,7 +303,7 @@ void utils_wb_rgb(int16 *in, int16 *out, int16 *buff, const int w, const int h, 
 /**	\brief White balance 16 bits bayer image.
     \param in	The input 16 bits bayer image.
     \param out	The output 16 bits rgb image.
-    \param buff	The histogram buffer size = sizeof(uint32)*(1<<bpp).
+    \param buff	The the buffer size should be 2000000 bytes.
     \param w    The image width.
     \param h 	The image height.
     \param bpp  The image bits per pixel.
@@ -308,12 +311,17 @@ void utils_wb_rgb(int16 *in, int16 *out, int16 *buff, const int w, const int h, 
 */
 void utils_wb_bayer(const int16 *in, int16 *out, int16 *buff, const int w, const int h, const int bpp, const int bg)
 {
-    int sz = w*h, sh = 10, z = 2, zoom = 1<<z, w1 = w>>(z+1), h1 = h>>(z+1), max = (1<<bpp)-1;
-    int x, y, yx, yw, rm, bm;
+    int sh = 10, z, zoom, w1, h1, max = (1<<bpp)-1;
+    int i, x, y, yx, yw, rm, bm;
 
-    printf("zoom = %d , w1 = %d h1 = %d\n", zoom, w1, h1);
+    //Check zoom image size
+    for(i=0; (w*h>>i) > 1000000; i+=2);
+    z = i>>1; zoom = 1<<z; w1 = w>>(z+1); h1 = h>>(z+1);
+    //printf("z = %d zoom = %d  size = %d newsize = %d\n", z, zoom, w*h, w1*h1);
+
+    //printf("zoom = %d , w1 = %d h1 = %d\n", zoom, w1, h1);
     utils_zoom_out_bayer16_to_rgb16(in, buff, (uint32*)&buff[w1*h1*3], w, h, zoom, bg);
-    printf("zoom = %d , w1 = %d h1 = %d\n", zoom, w1, h1);
+    //printf("zoom = %d , w1 = %d h1 = %d\n", zoom, w1, h1);
 
     utils_wb(buff, &rm, &bm, (uint32*)buff, w1, h1, sh, bpp);
     printf("rm = %d bm = %d rm = %f bm = %f \n", rm, bm, (double)rm/(double)(1<<sh), (double)bm/(double)(1<<sh));

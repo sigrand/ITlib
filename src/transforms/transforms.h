@@ -9,6 +9,7 @@ extern "C"
 #endif /*__cplusplus*/
 
 uint8* utils_bay16_to_rgb8_bi(const int16 *in, uint8 *rgb, int16 *buff, const int w, const int h, const BayerGrid bay, const int bpp);
+void utils_ace(const int16 *in, int16 *out, int *buff, const int w, const int h, const int bpp, const int bpp1);
 
 #ifdef __cplusplus
 }
