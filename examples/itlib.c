@@ -466,13 +466,22 @@ int main(int argc, const char *argv[]) {
             if(verb) printf("median filter\n");
         } else if (!strcmp(argv[i], "ace") && tr) {
             if((ts.colort == BAYER || ts.colort == GREY) && ts.bpp > 8){
-                utils_ace(ts.pic, buf, tmpb, ts.w, ts.h, ts.bpp, 8);
+                hdr_ace(ts.pic, buf, tmpb, ts.w, ts.h, ts.bpp, 8);
                 tmp = ts.pic; ts.pic = buf; buf = tmp; ts.bpp = 8;
             } else {
-                fprintf(stderr, "Error! med_filter: Input image should be in bayer or grey format and 16 bits.\n", out_file);
+                fprintf(stderr, "Error! ace: Input image should be in bayer or grey format and 16 bits.\n", out_file);
                 goto Error;
             }
             if(verb) printf("ace filter\n");
+        } else if (!strcmp(argv[i], "ace_local") && tr) {
+            if((ts.colort == BAYER || ts.colort == GREY) && ts.bpp > 8){
+                hdr_ace_local(ts.pic, buf, tmpb, ts.w, ts.h, ts.bpp);
+                tmp = ts.pic; ts.pic = buf; buf = tmp; ts.bpp = 8;
+            } else {
+                fprintf(stderr, "Error! ace_local: Input image should be in bayer or grey format and 16 bits.\n", out_file);
+                goto Error;
+            }
+            if(verb) printf("ace_local filter\n");
         }
     }
 

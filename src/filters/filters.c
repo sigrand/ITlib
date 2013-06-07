@@ -102,8 +102,9 @@ void filters_median_bayer(int16 *in, int16 *out, int16 *buff, const int w, const
         for(x=0; x < w; x++){
             yx = yw + x;
             x2 = x + 4;
-            if(x&1) i = 1;
-            else i = 0;
+            i = x&1 ? 1 : 0;
+            //if(x&1) i = 1;
+            //else i = 0;
 
             sort_16(s[i][2], l[0][x2], l[2][x2], l[4][x2]);
             max = max_3_16(s[i][0][2], s[i][1][2], s[i][2][2]);

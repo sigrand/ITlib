@@ -121,5 +121,7 @@ typedef struct {	// Signed picture 16bit
     char *pic;
 } Pic16s;
 
+#define lb(x) (((x) < 0) ? 0 : (((x) > 255) ? 255 : (x)))
+
 
 #endif //_ITLIB_HH_
