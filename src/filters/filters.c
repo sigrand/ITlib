@@ -55,6 +55,7 @@ void inline static cp_line(int16 *in, int16 *l, uint32 w, uint32 sh)
     for(i=0; i < sh; i++) l[i+sh+w] = in[w-sh-i];
 }
 
+
 /**	\brief	3x3 Median filter for 16 bits bayer image.
     \param	in		The input image.
     \param	out     The output filtered image.

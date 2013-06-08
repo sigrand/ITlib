@@ -394,6 +394,14 @@ void utils_wb_bayer(const int16 *in, int16 *out, int16 *buff, const int w, const
     }
 }
 
+void inline static cp_line(int16 *in, int16 *l, uint32 w, uint32 br)
+{
+    uint32 i;
+    for(i=0; i < br; i++) l[i] = in[br-i];
+    for(i=0; i < w ; i++) l[i+br] = in[i];
+    for(i=0; i < br; i++) l[i+br+w] = in[w-br-i];
+}
+
 /** \brief Make the integral matrix of 16 bits grey image.
     \param in	The pointer to a input image.
     \param ing 	The pointer to a integral matrix.
@@ -423,6 +431,51 @@ void utils_integral_grey(const int16 *in, int *ing, const int w, const int h)
     printf("Check the integral matrix = %d sum = %d\n", ing[w*h-1], sum);
     */
 }
+
+/** \brief Make the integral matrix of 16 bits grey image with border.
+    \param in	The pointer to a input image.
+    \param ing 	The pointer to a integral matrix, the size = (w + 2*br)*(h + 2*br)*(sizeof(uint32)).
+    \param buff	The two lines buffer, size should be (w + 2*br)*2*(sizeof(int16)) bytes.
+    \param w	The image width.
+    \param h	The imahe height.
+    \param br	The border on the image ing, new w = w + 2*br and new h = h + 2*br;
+*/
+void utils_integral_grey_br(int16 *in, uint32 *ing, int16 *buff, const int w, const int h, const int br)
+{
+    uint32 i, x, y=0, yw, yx, w1 = w + (br<<1), h1 = h + (br<<1), h2 = h + br - 1;
+    int16 *l[2], *tm; //Two lines buffer
+
+    l[0] = buff; l[1] = &buff[w1];
+
+    //First line
+    cp_line(&in[w*br], l[0], w, br);
+    ing[0] = l[0][0];
+    for(x=1; x < w1; x++) ing[x] = l[0][x-1] + l[0][x];
+
+
+    for(y=1; y < h1; y++){
+        yw = y*w1;
+        i = y&1 ? 1 : 0;
+        if(y < br)      cp_line(&in[w*(br-y)], l[i], w, br);
+        else if(y > h2) cp_line(&in[w*((h2<<1)-y)], l[i], w, br);
+        else            cp_line(&in[w*y], l[i], w, br);
+        ing[yw] = l[!i][0] + l[i][0];
+
+        for(x=1; x < w1; x++){
+            yx = yw + x;
+            ing[yx] = l[i][x-1] + l[!i][x] - l[!i][x-1] + l[i][x];
+        }
+
+        tm = l[i]; l[i] = l[!i]; l[!i] = tm;
+    }
+    /*
+    for(x=0; x < w*h; x++){
+        sum += in[x];
+    }
+    printf("Check the integral matrix = %d sum = %d\n", ing[w*h-1], sum);
+    */
+}
+
 
 /** \brief Make the integral matrix for 16 bits bayer image.
     \param in	The pointer to a input image.
