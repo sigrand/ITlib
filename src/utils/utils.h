@@ -21,6 +21,9 @@ void utils_wb_bayer(const int16 *in, int16 *out, int16 *buff, const int w, const
 
 void utils_integral_grey(const int16 *in, int *ing, const int w, const int h);
 void utils_integral_bayer(const int16 *in, uint32 *ing, const int w, const int h);
+void utils_integral_grey_br(int16 *in, uint32 *ing, uint32 *buff, const int w, const int h, const int br);
+
+void utils_average(int16 *in, int16 *out, uint32 *buff, const int w, const int h, const int br);
 
 #ifdef __cplusplus
 }

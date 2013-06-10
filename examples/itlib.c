@@ -303,8 +303,10 @@ int main(int argc, const char *argv[]) {
                    "Transform options:\n"
                    "  wb               White balancing.\n"
                    "  bay_to_rgb_bi    Bayer to rgb bilinear interpolation algorithm.\n"
+                   "  bay_to_rgey_bi   Bayer to rgb bilinear interpolation algorithm.\n"
                    "  med_filter <a>   3x3 median filter if a = 0 non adaptive, if a = 1 adaptive\n"
                    "  ace              Automatic Color Enhancement transform\n"
+                   "  average <x>      Averaging image with window of x radius\n"
                    "\n"
                    "Output options:\n"
                    "  -crop <x> <y> <w> <h> ... crop output with the given rectangle\n"
@@ -408,13 +410,19 @@ int main(int argc, const char *argv[]) {
 
             } else if(!strcmp(&out_file[strlen(out_file)-4],".png") || !strcmp(&out_file[strlen(out_file)-4],".PNG")){
 
-                if(ts.bpp > 8 && ts.colort == BAYER){
+                if(ts.colort == GREY || ts.colort == BAYER){
                     utils_16_to_8(ts.pic, buf, ts.w, ts.h, ts.bpp, 1);
                     tmp = ts.pic; ts.pic = buf; buf = tmp; ts.bpp = 8;
 
                     ok = writePNG(OUT_FILE, ts.pic, ts.w, ts.h, ts.bpp, GREY);
-                } else {
+                } else if (ts.colort == RGB){
+                    utils_16_to_8(ts.pic, buf, ts.w, ts.h, ts.bpp, 3);
+                    tmp = ts.pic; ts.pic = buf; buf = tmp; ts.bpp = 8;
+
                     ok = writePNG(OUT_FILE, ts.pic, ts.w, ts.h, ts.bpp, ts.colort);
+                } else {
+                    fprintf(stderr, "Error! Don't support color type %d\n", ts.colort);
+                    goto Error;
                 }
                 //if(verb) printf("Write %s file\n", out_file);
 
@@ -431,24 +439,34 @@ int main(int argc, const char *argv[]) {
             tr = 1;
         } else if (!strcmp(argv[i], "wb") && tr) {
             //White balancing.........................................................................
-            if(ts.colort == BAYER && ts.bpp > 8){
+            if(ts.colort == BAYER ){
                 utils_wb_bayer(ts.pic, buf, tmpb, ts.w, ts.h, ts.bpp, ts.bg);
                 tmp = ts.pic; ts.pic = buf; buf = tmp;
-            } else if (ts.colort == RGB && ts.bpp > 8){
+            } else if (ts.colort == RGB){
                 utils_wb(ts.pic, buf, tmpb, ts.w, ts.h, ts.bpp, ts.bg);
                 tmp = ts.pic; ts.pic = buf; buf = tmp;
             } else {
-                fprintf(stderr, "Error! wb: Input image should be in bayer or rgb format and 16 bits.\n", out_file);
+                fprintf(stderr, "Error! wb: Input image should be in bayer or rgb format.\n", out_file);
                 goto Error;
             }
             if(verb) printf("white balancing \n");
 
         } else if (!strcmp(argv[i], "bay_to_rgb_bi") && tr) {
             if(ts.colort == BAYER){
-                utils_bay16_to_rgb8_bi(ts.pic, buf, tmpb, ts.w, ts.w, ts.bg, ts.bpp);
-                tmp = ts.pic; ts.pic = buf; buf = tmp; ts.bpp = 8; ts.colort = RGB;
+                utils_bay_to_rgb_bi(ts.pic, buf, tmpb, ts.w, ts.h, ts.bg, ts.bpp);
+                tmp = ts.pic; ts.pic = buf; buf = tmp; ts.colort = RGB; ts.bpp = 8;
             } else {
-                fprintf(stderr, "Error! bay_to_rgb_bi: Input image should be in bayer format and 16 bits.\n", out_file);
+                fprintf(stderr, "Error! bay_to_rgb_bi: Input image should be in bayer format .\n", out_file);
+                goto Error;
+            }
+            if(verb) printf("bay_to_rgb_bi transform\n");
+
+        }  else if (!strcmp(argv[i], "bay_to_grey_bi") && tr) {
+            if(ts.colort == BAYER){
+                utils_bay_to_grey_bi(ts.pic, buf, tmpb, ts.w, ts.h, ts.bg, ts.bpp);
+                tmp = ts.pic; ts.pic = buf; buf = tmp; ts.colort = GREY; ts.bpp = 8;
+            } else {
+                fprintf(stderr, "Error! bay_to_grey_bi: Input image should be in bayer format.\n", out_file);
                 goto Error;
             }
             if(verb) printf("bay_to_rgb_bi transform\n");
@@ -456,32 +474,43 @@ int main(int argc, const char *argv[]) {
         } else if (!strcmp(argv[i], "med_filter") && tr) {
             par = strtol(argv[i+1], NULL, 0);
 
-            if(ts.colort == BAYER && ts.bpp > 8){
+            if(ts.colort == BAYER){
                 filters_median_bayer(ts.pic, buf, tmpb, ts.w, ts.h, par);
                 tmp = ts.pic; ts.pic = buf; buf = tmp;
             } else {
-                fprintf(stderr, "Error! med_filter: Input image should be in bayer format and 16 bits.\n", out_file);
+                fprintf(stderr, "Error! med_filter: Input image should be in bayer format.\n", out_file);
                 goto Error;
             }
             if(verb) printf("median filter\n");
         } else if (!strcmp(argv[i], "ace") && tr) {
-            if((ts.colort == BAYER || ts.colort == GREY) && ts.bpp > 8){
+            if(ts.colort == BAYER || ts.colort == GREY){
                 hdr_ace(ts.pic, buf, tmpb, ts.w, ts.h, ts.bpp, 8);
                 tmp = ts.pic; ts.pic = buf; buf = tmp; ts.bpp = 8;
             } else {
-                fprintf(stderr, "Error! ace: Input image should be in bayer or grey format and 16 bits.\n", out_file);
+                fprintf(stderr, "Error! ace: Input image should be in bayer or grey.\n", out_file);
                 goto Error;
             }
             if(verb) printf("ace filter\n");
         } else if (!strcmp(argv[i], "ace_local") && tr) {
-            if((ts.colort == BAYER || ts.colort == GREY) && ts.bpp > 8){
+            if(ts.colort == BAYER || ts.colort == GREY){
                 hdr_ace_local(ts.pic, buf, tmpb, ts.w, ts.h, ts.bpp);
                 tmp = ts.pic; ts.pic = buf; buf = tmp; ts.bpp = 8;
             } else {
-                fprintf(stderr, "Error! ace_local: Input image should be in bayer or grey format and 16 bits.\n", out_file);
+                fprintf(stderr, "Error! ace_local: Input image should be in bayer or grey format.\n", out_file);
                 goto Error;
             }
             if(verb) printf("ace_local filter\n");
+        } else if (!strcmp(argv[i], "average") && tr) {
+            if(ts.colort == GREY){
+                par = strtol(argv[i+1], NULL, 0);
+
+                utils_average(ts.pic, buf, tmpb, ts.w, ts.h, par);
+                tmp = ts.pic; ts.pic = buf; buf = tmp; //ts.bpp = 8;
+            } else {
+                fprintf(stderr, "Error! average: Input image should be in bayer or grey format.\n", out_file);
+                goto Error;
+            }
+            if(verb) printf("average filter\n");
         }
     }
 
