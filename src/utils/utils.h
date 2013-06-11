@@ -25,6 +25,8 @@ void utils_integral_grey_br(int16 *in, uint32 *ing, uint32 *buff, const int w, c
 
 void utils_average(int16 *in, int16 *out, uint32 *buff, const int w, const int h, const int br);
 
+void utils_subtract(const int16 *in, const int16 *in1, int16 *out, const int w, const int h, const int bpp);
+
 #ifdef __cplusplus
 }
 #endif /* __cplusplus */

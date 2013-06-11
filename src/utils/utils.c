@@ -545,9 +545,16 @@ void utils_integral_bayer(const int16 *in, uint32 *ing, const int w, const int h
 */
 void utils_average(int16 *in, int16 *out, uint32 *buff, const int w, const int h, const int br)
 {
-    int x, y, yw, yw1, yx, yx1;
+    int i,x, y, yw, yw1, yx, yx1;
     int w1 = w + ((br+1)<<1), h1 = h + ((br+1)<<1), bs = ((br<<1)+1)*((br<<1)+1), br2 = (br<<1) + 1;
-    uint32 *ing;
+    uint32 *ing, sh;
+    int64_t b;
+
+    //Finding b coefficient to change / to *
+    for(i=1; bs>>i; i++);
+    sh = 63 - i - 16;
+    b = (1LL<<sh)/bs;
+    //printf("i = %d b = %lld bs = %d sh = %d\n", i, b, bs, sh);
 
     ing = (uint32*)malloc(w1*h1*sizeof(uint32));
     if (ing == NULL) {
@@ -559,15 +566,33 @@ void utils_average(int16 *in, int16 *out, uint32 *buff, const int w, const int h
 
     for(y=0; y < h; y++){
         yw = y*w;
-        yw1 = (y+br+1)*w1;
+        yw1 = y*w1;
         for(x=0; x < w; x++){
             yx = yw + x;
-            //yx1 = yw1 + x;
+            yx1 = yw1 + x;
+            out[yx] = (ing[yx1 + br2 + br2*w1] + ing[yx1] - ing[yx1 + br2] - ing[yx1 + br2*w1])*b>>sh;
             //out[yx] = (ing[yx1 + br2 + br2*w1] + ing[yx1] - ing[yx1 + br2] - ing[yx1 + br2*w1])/bs;
-            yx1 = yw1 + x + br + 1;
-            out[yx] = (ing[yx1 + br + br*w1] + ing[yx1 - (br+1) - (br+1)*w1] - ing[yx1 + br - (br+1)*w1] - ing[yx1 + br*w1 - (br+1)])/bs;
+            //yx1 = yw1 + x + br + 1;
+            //out[yx] = (ing[yx1 + br + br*w1] + ing[yx1 - (br+1) - (br+1)*w1] - ing[yx1 + br - (br+1)*w1] - ing[yx1 + br*w1 - (br+1)])/bs;
+            //yx1 = yw1 + x + br2;
+            //out[yx] = (ing[yx1 + br + br*w1] + ing[yx1 - br2 - br2*w1] - ing[yx1 + br - br2*w1] - ing[yx1 + br*w1 - br2])/bs;
         }
     }
 
     if(ing) free(ing);
+}
+
+/** \brief Subtraction one grey image from another.
+    \param in	The input 16 bits image.
+    \param in1 	The input 16 bits image.
+    \param out	The output 16 bits difference.
+    \param w	The image width.
+    \param h	The imahe height.
+    \param bpp  The image bits per pixel.
+*/
+void utils_subtract(const int16 *in, const int16 *in1, int16 *out, const int w, const int h, const int bpp)
+{
+    int i, j, size = w*h, sh = 1<<(bpp -1);
+
+    for(i = 0; i < size; i++) out[i] = in[i] - in1[i] + sh;
 }

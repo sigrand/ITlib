@@ -7,7 +7,7 @@
     \brief The states of image transform
  */
 typedef struct {
-    void *pic;      /**<  Pointer to current image */
+    void *pic[2];      /**<  Pointer to current image */
     int w;          /**<  Image widht */
     int h;          /**<  Image height */
     int bpp;        /**<  Bytes per pixel */
