@@ -111,7 +111,7 @@ int readPNG(FILE* in_file, uint8** buff, int* const w, int* const h, int* const 
     png_read_update_info(png, info);
     //Bits per pixel to bytes per pixel
     //*bpp = (*bpp > 8) ? 2 : 1;
-    stride = (has_alpha ? 4 : 3) * ((*bpp > 8) ? 2 : 1) * (*w);
+    stride = (has_alpha ? 4 : 3) * 2 * (*w);
 
     //Create buffer up to 2 times more the bayer or gray image for the future used
     *buff = (uint8*)malloc(stride*(*h)*2);
@@ -222,7 +222,7 @@ int readPGM(FILE* in_file, uint8** buff, int* const w, int* const h, int* const 
     *bpp = (*bpp == 255) ? 8 : 16;
     //if(verb) printf("w = %d h = %d bpp = %d\n", *w, *h, *bpp);
 
-    size = (*w)*(*h)*((*bpp > 8) ? 2 : 1);
+    size = (*w)*(*h)*2;
     //if(verb) printf("readPGM: Read file = %p size = %d\n",in_file, size);
 
     //Create buffer up to 6 times more the bayer or gray image for the future used
@@ -269,14 +269,32 @@ int writePGM(FILE* out_file, uint8* buff, const int w, const int h, const int bp
     return 0;
 }
 
+void copy_image16(int16 *in, int16 *out, const int w, const int h)
+{
+    int i, size = w*h;
+    for(i=0; i < size; i++) out[i] = in[i];
+}
+
+void copy_image8(uint8 *in, uint8 *out, const int w, const int h)
+{
+    int i, size = w*h;
+    for(i=0; i < size; i++) out[i] = in[i];
+}
+
+void copy_image8_to16(uint8 *in, int16 *out, const int w, const int h)
+{
+    int i, size = w*h;
+    for(i=0; i < size; i++) out[i] = in[i];
+}
+
 int main(int argc, const char *argv[]) {
 
     const char *in_file = NULL;
     const char *out_file = NULL;
     FILE *IN_FILE, *OUT_FILE;
-    int i, ok = 0, tr = 0, par, fc = 0;
-    uint8 *buff = NULL, *tmpb = NULL;
-    int min=0, max=0;
+    int i, j, ok = 0, tr = 0, par, fc = 0;
+    uint8 *buff = NULL, *buff1 = NULL, *tmpb = NULL;
+    int min=0, max=0, size;
     TransState ts[2], *cr;
     void *tmp;
 
@@ -330,11 +348,11 @@ int main(int argc, const char *argv[]) {
                         else if(!strcmp(argv[i], "rggb")) cr->bg = RGGB;
                         else {
                             fprintf(stderr, "Error! Pls, write bayer grids pattern option\n");
-                            goto Error;
+                            ok = 1; goto End;
                         }
                     } else {
                         fprintf(stderr, "Error! Usage: itlib -h\n");
-                        goto Error;
+                        ok = 1; goto End;
                     }
                 } else if(!strncmp(&argv[i][2], "g",1)){
                     cr->colort = GREY;
@@ -342,7 +360,7 @@ int main(int argc, const char *argv[]) {
                     cr->colort = RGB;
                 } else {
                     fprintf(stderr, "Error! Can't support '%s' options\n", argv[i]);
-                    goto Error;
+                    ok = 1; goto End;
                 }
 
                 //if(verb) printf("Color type of input file is %d\n", cr->colort);
@@ -351,21 +369,22 @@ int main(int argc, const char *argv[]) {
                 IN_FILE = fopen(in_file, "rb");
                 if (IN_FILE == NULL) {
                     fprintf(stderr, "Error! Cannot open input file '%s'\n", in_file);
-                    goto Error;
+                    ok = 1; goto End;
                 }
                 if(!strcmp(&in_file[strlen(in_file)-4],".pgm") || !strcmp(&in_file[strlen(in_file)-4],".PGM")){
 
                     ok = readPGM(IN_FILE, &buff, &cr->w, &cr->h, &cr->bpp);
 
-                    if(cr->bpp > 8) {
-                        cr->pic[0] = (int16*) buff;
-                        cr->pic[1] = &buff[cr->w*cr->h*2*3]; //Temporary buffer
+                    cr->pic[0] = buff;
+                    cr->pic[1] = &buff[cr->w*cr->h*2*3]; //Temporary buffer
 
+
+                    if(cr->bpp > 8) {
                         utils_cnange_bytes(cr->pic[0], cr->w, cr->h);
                         utils_get_stat(cr->pic[0], cr->w, cr->h, &cr->bpp, &min, &max);
                     } else {
-                        cr->pic[0] = buff;
-                        cr->pic[1] = &buff[cr->w*cr->h*3];
+                        copy_image8_to16(cr->pic[0], cr->pic[1], cr->w, cr->h);
+                        tmp = cr->pic[0]; cr->pic[0] = cr->pic[1]; cr->pic[1] = tmp;
                     }
 
                     if(verb) printf("Read %s file w = %d h = %d bpp = %d max = %d min = %d\n", in_file, cr->w, cr->h, cr->bpp, max, min);
@@ -373,8 +392,11 @@ int main(int argc, const char *argv[]) {
                 } else if(!strcmp(&in_file[strlen(in_file)-4],".png") || !strcmp(&in_file[strlen(in_file)-4],".PNG")){
 
                     ok = readPNG(IN_FILE, &buff, &cr->w, &cr->h, &cr->bpp, &cr->colort);
+
                     cr->pic[0] = buff;
-                    cr->pic[1] = &buff[cr->w*cr->h*3];
+                    cr->pic[1] = &buff[cr->w*cr->h*2*3];
+                    copy_image8_to16(cr->pic[0], cr->pic[1], cr->w, cr->h);
+                    tmp = cr->pic[0]; cr->pic[0] = cr->pic[1]; cr->pic[1] = tmp;
 
                     if(verb) printf("Read %s file w = %d h = %d bpp = %d colort = %d\n", in_file, cr->w, cr->h, cr->bpp, cr->colort);
 
@@ -383,17 +405,17 @@ int main(int argc, const char *argv[]) {
                 if(IN_FILE) fclose(IN_FILE);
                 if(ok){
                     fprintf(stderr, "Error! Read input file '%s'\n", in_file);
-                    goto Error;
+                    ok = 1; goto End;
                 }
                 //Create tmp buffer
                 tmpb = (uint8*)malloc(cr->w*cr->h*sizeof(uint32));
                 if (tmpb == NULL) {
                     fprintf(stderr, "Error! Can't create tmpb buffer\n");
-                    goto Error;
+                    ok = 1; goto End;
                 }
             } else {
                 fprintf(stderr, "Error! Can't find -i (input file)\n");
-                goto Error;
+                ok = 1; goto End;
             }
         } else if (!strcmp(argv[i], "-o") && i < argc - 1) {
             //Write output file
@@ -401,7 +423,7 @@ int main(int argc, const char *argv[]) {
             OUT_FILE = fopen(out_file, "wb");
             if (OUT_FILE == NULL) {
                 fprintf(stderr, "Error! Cannot open input file '%s'\n", out_file);
-                goto Error;
+                ok = 1; goto End;
             }
             if(!strcmp(&out_file[strlen(out_file)-4],".pgm") || !strcmp(&out_file[strlen(out_file)-4],".PGM")){
 
@@ -422,7 +444,7 @@ int main(int argc, const char *argv[]) {
                     ok = writePNG(OUT_FILE, cr->pic[0], cr->w, cr->h, cr->bpp, cr->colort);
                 } else {
                     fprintf(stderr, "Error! Don't support color type %d\n", cr->colort);
-                    goto Error;
+                    ok = 1; goto End;
                 }
                 //if(verb) printf("Write %s file\n", out_file);
 
@@ -431,37 +453,31 @@ int main(int argc, const char *argv[]) {
             if(OUT_FILE) fclose(OUT_FILE);
             if(ok){
                 fprintf(stderr, "Error! Write output file '%s'\n", out_file);
-                goto Error;
+                ok = 1; goto End;
             }
 
         } else if (!strcmp(argv[i], "-t")) {
             //The image transform
             tr = 1;
-        } else if (!strcmp(argv[i], "|") && tr) {
+        } else if (!strcmp(argv[i], "!") && tr) {
             if(fc){
                  fc++;
                  cr = &ts[0];
             } else {
                 fc++;
-                if(cr->bpp > 8) {
-                    cr = &ts[1];
-                    buff = (uint8*)malloc(cr->h*cr->h*3*4);
-                    if (cr->pic[1] == NULL) {
-                        fprintf(stderr, "Error! readPNG: Can't allocate memory\n");
-                        ok = 1; goto Error;
-                    }
-                    cr->pic[0] = buff;
-                    cr->pic[1] = &buff[cr->w*cr->h*2*3]; //Temporary buffer
-
-                } else {
-                    buff = (uint8*)malloc(cr->h*cr->h*3*2);
-                    if (buff == NULL) {
-                        fprintf(stderr, "Error! readPNG: Can't allocate memory\n");
-                        ok = 1; goto Error;
-                    }
-                    cr->pic[0] = buff;
-                    cr->pic[1] = &buff[cr->w*cr->h*3]; //Temporary buffer
+                //Clone image
+                ts[1].w = ts[0].w; ts[1].h = ts[0].h; ts[1].bpp = ts[0].bpp; ts[1].bg = ts[0].bg; ts[1].colort = ts[0].colort;
+                cr = &ts[1];
+                size = ts[0].w*ts[0].h;
+                buff1 = (uint8*)malloc(cr->h*cr->h*3*4);
+                if (cr->pic[1] == NULL) {
+                    fprintf(stderr, "Error! readPNG: Can't allocate memory buff1.\n");
+                    ok = 1; goto End;
                 }
+                cr->pic[0] = buff1;
+                cr->pic[1] = &buff1[cr->w*cr->h*2*3]; //Temporary buffer
+                copy_image16(ts[0].pic[0], ts[1].pic[0], ts[0].w, ts[0].h);
+
             }
         } else if (!strcmp(argv[i], "wb") && tr) {
             //White balancing.........................................................................
@@ -473,7 +489,7 @@ int main(int argc, const char *argv[]) {
                 tmp = cr->pic[0]; cr->pic[0] = cr->pic[1]; cr->pic[1] = tmp;
             } else {
                 fprintf(stderr, "Error! wb: Input image should be in bayer or rgb format.\n", out_file);
-                goto Error;
+                ok = 1; goto End;
             }
             if(verb) printf("white balancing \n");
 
@@ -483,7 +499,7 @@ int main(int argc, const char *argv[]) {
                 tmp = cr->pic[0]; cr->pic[0] = cr->pic[1]; cr->pic[1] = tmp; cr->colort = RGB; cr->bpp = 8;
             } else {
                 fprintf(stderr, "Error! bay_to_rgb_bi: Input image should be in bayer format .\n", out_file);
-                goto Error;
+                ok = 1; goto End;
             }
             if(verb) printf("bay_to_rgb_bi transform\n");
 
@@ -493,19 +509,22 @@ int main(int argc, const char *argv[]) {
                 tmp = cr->pic[0]; cr->pic[0] = cr->pic[1]; cr->pic[1] = tmp; cr->colort = GREY; cr->bpp = 8;
             } else {
                 fprintf(stderr, "Error! bay_to_grey_bi: Input image should be in bayer format.\n", out_file);
-                goto Error;
+                ok = 1; goto End;
             }
             if(verb) printf("bay_to_rgb_bi transform\n");
 
-        } else if (!strcmp(argv[i], "med_filter") && tr) {
+        } else if (!strcmp(argv[i], "median") && tr) {
             par = strtol(argv[i+1], NULL, 0);
 
             if(cr->colort == BAYER){
                 filters_median_bayer(cr->pic[0], cr->pic[1], tmpb, cr->w, cr->h, par);
                 tmp = cr->pic[0]; cr->pic[0] = cr->pic[1]; cr->pic[1] = tmp;
+            } else if(cr->colort == GREY){
+                filters_median(cr->pic[0], cr->pic[1], tmpb, cr->w, cr->h, par);
+                tmp = cr->pic[0]; cr->pic[0] = cr->pic[1]; cr->pic[1] = tmp;
             } else {
-                fprintf(stderr, "Error! med_filter: Input image should be in bayer format.\n", out_file);
-                goto Error;
+                fprintf(stderr, "Error! median: Input image should be in bayer format.\n", out_file);
+                ok = 1; goto End;
             }
             if(verb) printf("median filter\n");
         } else if (!strcmp(argv[i], "ace") && tr) {
@@ -514,7 +533,7 @@ int main(int argc, const char *argv[]) {
                 tmp = cr->pic[0]; cr->pic[0] = cr->pic[1]; cr->pic[1] = tmp; cr->bpp = 8;
             } else {
                 fprintf(stderr, "Error! ace: Input image should be in bayer or grey.\n", out_file);
-                goto Error;
+                ok = 1; goto End;
             }
             if(verb) printf("ace filter\n");
         } else if (!strcmp(argv[i], "ace_local") && tr) {
@@ -523,7 +542,7 @@ int main(int argc, const char *argv[]) {
                 tmp = cr->pic[0]; cr->pic[0] = cr->pic[1]; cr->pic[1] = tmp; cr->bpp = 8;
             } else {
                 fprintf(stderr, "Error! ace_local: Input image should be in bayer or grey format.\n", out_file);
-                goto Error;
+                ok = 1; goto End;
             }
             if(verb) printf("ace_local filter\n");
         } else if (!strcmp(argv[i], "average") && tr) {
@@ -534,28 +553,30 @@ int main(int argc, const char *argv[]) {
                 tmp = cr->pic[0]; cr->pic[0] = cr->pic[1]; cr->pic[1] = tmp; //cr->bpp = 8;
             } else {
                 fprintf(stderr, "Error! average: Input image should be in bayer or grey format.\n", out_file);
-                goto Error;
+                ok = 1; goto End;
             }
             if(verb) printf("average filter\n");
-        } else if (!strcmp(argv[i], "subtract") && tr && fc == 3) {
-            if(cr->colort == GREY || cr->colort == BAYER){
-                utils_subtract(cr->pic[0], ts[1].pic[0], cr->pic[1], cr->w, cr->h, cr->bpp);
-                tmp = cr->pic[0]; cr->pic[0] = cr->pic[1]; cr->pic[1] = tmp; //cr->bpp = 8;
+        } else if (!strcmp(argv[i], "subtract") && tr ) {
+            if(fc == 3){
+                if(cr->colort == GREY || cr->colort == BAYER){
+                    utils_subtract(cr->pic[0], ts[1].pic[0], cr->pic[1], cr->w, cr->h, cr->bpp);
+                    tmp = cr->pic[0]; cr->pic[0] = cr->pic[1]; cr->pic[1] = tmp; //cr->bpp = 8;
+                } else {
+                    fprintf(stderr, "Error! subtract: Input image should be in bayer or grey format.\n", out_file);
+                    ok = 1; goto End;
+                }
             } else {
-                fprintf(stderr, "Error! subtract: Input image should be in bayer or grey format.\n", out_file);
-                goto Error;
+                fprintf(stderr, "Error! subtract: Should be two image in input.\n", out_file);
+                ok = 1; goto End;
             }
             if(verb) printf("subtract two image\n");
         }
     }
 
     if(argc == 1) printf("Usage: itlib -h\n");
+End:
     if(buff) free(buff);
+    if(buff1) free(buff1);
     if(tmpb) free(tmpb);
-    return 0;
-Error:
-    if(buff) free(buff);
-    if(tmpb) free(tmpb);
-    return 1;
-
+    return ok;
 }
