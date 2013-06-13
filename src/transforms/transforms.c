@@ -18,9 +18,9 @@
     \param bpp      The bits per pixel.
     \retval			Output rgb image..
 */
-void utils_bay_to_rgb_bi(const int16 *in, int16 *rgb, int16 *buff, const int w, const int h, const BayerGrid bay, const int bpp)
+void utils_bay_to_rgb_bi(const int16 *in, int16 *rgb, int16 *buff, const int w, const int h, const BayerGrid bay)
 {
-    int x, x1, x2, xs, ys, y = 0, wy, xwy3, w2 = w<<1, yw = 0, h1, w1, h2, sh = bpp - 8;
+    int x, x1, x2, xs, ys, y = 0, wy, xwy3, w2 = w<<1, yw = 0, h1, w1, h2;
     int16 *l0, *l1, *l2, *tm;
     l0 = buff; l1 = &buff[w+2]; l2 = &buff[(w+2)<<1];
     //printf("bpp = %d shift = %d\n", bpp, shift);
@@ -46,21 +46,21 @@ void utils_bay_to_rgb_bi(const int16 *in, int16 *rgb, int16 *buff, const int w, 
             xwy3 = wy*3;
 
             if(!(y&1) && !(x&1)){
-                rgb[xwy3] 	= 	(l1[x2])>>sh;
-                rgb[xwy3+1] = 	(((l0[x2] + l2[x2] + l1[x2-1] + l1[x2+1])>>2))>>sh;
-                rgb[xwy3+2] = 	(((l0[x2+1] + l2[x2-1] + l0[x2-1] + l2[x2+1])>>2))>>sh;
+                rgb[xwy3] 	= 	l1[x2];
+                rgb[xwy3+1] = 	(l0[x2] + l2[x2] + l1[x2-1] + l1[x2+1])>>2;
+                rgb[xwy3+2] = 	(l0[x2+1] + l2[x2-1] + l0[x2-1] + l2[x2+1])>>2;
             }else if (!(y&1) && (x&1)){
-                rgb[xwy3] = 	(((l1[x2-1] + l1[x2+1])>>1))>>sh;
-                rgb[xwy3+1] = 	(l1[x2])>>sh;
-                rgb[xwy3+2] =	(((l0[x2] + l2[x2])>>1))>>sh;
+                rgb[xwy3] = 	(l1[x2-1] + l1[x2+1])>>1;
+                rgb[xwy3+1] = 	l1[x2];
+                rgb[xwy3+2] =	(l0[x2] + l2[x2])>>1;
             }else if ((y&1) && !(x&1)){
-                rgb[xwy3] = 	(((l0[x2] + l2[x2])>>1))>>sh;
-                rgb[xwy3+1] = 	(l1[x2])>>sh;
-                rgb[xwy3+2] =	(((l1[x2-1] + l1[x2+1])>>1))>>sh;
+                rgb[xwy3] = 	(l0[x2] + l2[x2])>>1;
+                rgb[xwy3+1] = 	l1[x2];
+                rgb[xwy3+2] =	(l1[x2-1] + l1[x2+1])>>1;
             }else {
-                rgb[xwy3] = 	(((l0[x2+1] + l2[x2-1] + l0[x2-1] + l2[x2+1])>>2))>>sh;
-                rgb[xwy3+1] = 	(((l0[x2] + l2[x2] + l1[x2-1] + l1[x2+1])>>2))>>sh;
-                rgb[xwy3+2] = 	(l1[x2])>>sh;
+                rgb[xwy3] = 	(l0[x2+1] + l2[x2-1] + l0[x2-1] + l2[x2+1])>>2;
+                rgb[xwy3+1] = 	(l0[x2] + l2[x2] + l1[x2-1] + l1[x2+1])>>2;
+                rgb[xwy3+2] = 	l1[x2];
             }
         }
         tm = l0; l0 = l1; l1 = l2; l2 = tm;
@@ -76,9 +76,9 @@ void utils_bay_to_rgb_bi(const int16 *in, int16 *rgb, int16 *buff, const int w, 
     \param bay		The Bayer grids pattern.
     \param bpp      The bits per pixel.
 */
-void utils_bay_to_grey_bi(const int16 *in, int16 *out, int16 *buff, const int w, const int h, const BayerGrid bay, const int bpp)
+void utils_bay_to_grey_bi(const int16 *in, int16 *out, int16 *buff, const int w, const int h, const BayerGrid bay)
 {
-    int x, x1, x2, xs, ys, y = 0, wy, yw = 0, h1, w1, h2, sh = bpp - 8;
+    int x, x1, x2, xs, ys, y = 0, wy, yw = 0, h1, w1, h2;
     int r, g, b;
     int16 *l0, *l1, *l2, *tm;
     l0 = buff; l1 = &buff[w+2]; l2 = &buff[(w+2)<<1];
@@ -103,21 +103,21 @@ void utils_bay_to_grey_bi(const int16 *in, int16 *out, int16 *buff, const int w,
             x2 = x1 + 1;
 
             if(!(y&1) && !(x&1)){
-                r = (l1[x2])>>sh;
-                g = (((l0[x2] + l2[x2] + l1[x2-1] + l1[x2+1])>>2))>>sh;
-                b = (((l0[x2+1] + l2[x2-1] + l0[x2-1] + l2[x2+1])>>2))>>sh;
+                r = l1[x2];
+                g = (l0[x2] + l2[x2] + l1[x2-1] + l1[x2+1])>>2;
+                b = (l0[x2+1] + l2[x2-1] + l0[x2-1] + l2[x2+1])>>2;
             }else if (!(y&1) && (x&1)){
-                r = (((l1[x2-1] + l1[x2+1])>>1))>>sh;
-                g = (l1[x2])>>sh;
-                b =	(((l0[x2] + l2[x2])>>1))>>sh;
+                r = (l1[x2-1] + l1[x2+1])>>1;
+                g = l1[x2];
+                b =	(l0[x2] + l2[x2])>>1;
             }else if ((y&1) && !(x&1)){
-                r = (((l0[x2] + l2[x2])>>1))>>sh;
-                g = (l1[x2])>>sh;
-                b =	(((l1[x2-1] + l1[x2+1])>>1))>>sh;
+                r = (l0[x2] + l2[x2])>>1;
+                g = l1[x2];
+                b =	(l1[x2-1] + l1[x2+1])>>1;
             }else {
-                r = (((l0[x2+1] + l2[x2-1] + l0[x2-1] + l2[x2+1])>>2))>>sh;
-                g = (((l0[x2] + l2[x2] + l1[x2-1] + l1[x2+1])>>2))>>sh;
-                b = (l1[x2])>>sh;
+                r = (l0[x2+1] + l2[x2-1] + l0[x2-1] + l2[x2+1])>>2;
+                g = (l0[x2] + l2[x2] + l1[x2-1] + l1[x2+1])>>2;
+                b = l1[x2];
             }
             out[wy] = ((306*(r - g) + 117*(b - g))>>10) + g;
 

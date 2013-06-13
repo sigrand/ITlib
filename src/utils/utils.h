@@ -19,11 +19,11 @@ void utils_wb(int16 *in, int *rm, int *bm, uint32 *buff, const int w, const int 
 void utils_wb_rgb(int16 *in, int16 *out, int16 *buff, const int w, const int h, const int bpp);
 void utils_wb_bayer(const int16 *in, int16 *out, int16 *buff, const int w, const int h, const int bpp, const int bg);
 
-void utils_integral_grey(const int16 *in, int *ing, const int w, const int h);
-void utils_integral_bayer(const int16 *in, uint32 *ing, const int w, const int h);
-void utils_integral_grey_br(int16 *in, uint32 *ing, uint32 *buff, const int w, const int h, const int br);
+void utils_integral(int16 *in, uint32 *ing, uint32 *buff, const int w, const int h, const int br);
+void utils_integral_bayer(int16 *in, uint32 *ing, uint32 *buff, const int w, const int h, const int br);
 
 void utils_average(int16 *in, int16 *out, uint32 *buff, const int w, const int h, const int br);
+void utils_average_bayer(int16 *in, int16 *out, uint32 *buff, const int w, const int h, const int br);
 
 void utils_subtract(const int16 *in, const int16 *in1, int16 *out, const int w, const int h, const int bpp);
 

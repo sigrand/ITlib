@@ -402,36 +402,6 @@ void inline static cp_line(int16 *in, uint32 *l, uint32 w, uint32 br)
     for(i=0; i < br; i++) l[i+br+w] = in[w-br-i];
 }
 
-/** \brief Make the integral matrix of 16 bits grey image.
-    \param in	The pointer to a input image.
-    \param ing 	The pointer to a integral matrix.
-    \param w	The image width.
-    \param h	The imahe height.
-*/
-void utils_integral_grey(const int16 *in, int *ing, const int w, const int h)
-{
-    uint32 x, y=0, yw, yx;
-
-    ing[0] = in[0];
-    for(x=1; x < w; x++){
-        ing[x] = ing[x-1] + in[x];
-    }
-    for(y=1; y < h; y++){
-        yw = y*w;
-        ing[yw] = ing[yw-w] + in[yw];
-        for(x=1; x < w; x++){
-            yx = yw + x;
-            ing[yx] = ing[yx-1] + ing[yx-w] - ing[yx-1-w] + in[yx];
-        }
-    }
-    /*
-    for(x=0; x < w*h; x++){
-        sum += in[x];
-    }
-    printf("Check the integral matrix = %d sum = %d\n", ing[w*h-1], sum);
-    */
-}
-
 /** \brief Make the integral matrix of 16 bits grey image with border.
     \param in	The pointer to a input image.
     \param ing 	The pointer to a integral matrix, the size = (w + 2*br)*(h + 2*br)*(sizeof(uint32)).
@@ -440,7 +410,7 @@ void utils_integral_grey(const int16 *in, int *ing, const int w, const int h)
     \param h	The imahe height.
     \param br	The border on the image ing, new w = w + 2*br and new h = h + 2*br;
 */
-void utils_integral_grey_br(int16 *in, uint32 *ing, uint32 *buff, const int w, const int h, const int br)
+void utils_integral(int16 *in, uint32 *ing, uint32 *buff, const int w, const int h, const int br)
 {
     uint32 x, y=0, yw, yx, w1 = w + (br<<1), h1 = h + (br<<1), h2 = h + br - 1;
     uint32 *l[2], *tm; //Two lines buffer
@@ -482,56 +452,75 @@ void utils_integral_grey_br(int16 *in, uint32 *ing, uint32 *buff, const int w, c
     */
 }
 
-
-/** \brief Make the integral matrix for 16 bits bayer image.
+/** \brief Make the integral matrix of 16 bits bayer image with border.
     \param in	The pointer to a input image.
-    \param int 	The pointer to a integral matrix.
+    \param ing 	The pointer to a integral matrix, the size = (w + 2*br)*(h + 2*br)*(sizeof(uint32)).
+    \param buff	The three lines buffer, size should be (w + 2*br)*5*(sizeof(int16)) bytes.
     \param w	The image width.
     \param h	The imahe height.
+    \param br	The border on the image ing, br should be more then 0;
 */
-void utils_integral_bayer(const int16 *in, uint32 *ing, const int w, const int h)
+void utils_integral_bayer(int16 *in, uint32 *ing, uint32 *buff, const int w, const int h, const int br)
 {
-    uint32 x, y=0, yw, yx, w2 = w<<1;
+    uint32 x, y=0, yw, yx, br2 = br<<1, w1 = w + (br2<<1), h1 = h + (br2<<1), h2 = h + br2 - 1;
+    uint32 *l[3], *tm; //Three lines buffer
 
-    ing[0] = in[0];
-    ing[1] = in[1];
-    for(x=2; x < w; x++){
-        ing[x] = ing[x-2] + in[x];
+    l[0] = buff; l[1] = &l[0][w1]; l[2] = &l[1][w1];
+
+    //First two lines
+    cp_line(&in[w*br2], l[0], w, br2);
+    cp_line(&in[w*(br2-1)], l[1], w, br2);
+
+    ing[0] = l[0][0];
+    ing[1] = l[0][1];
+    for(x=2; x < w1; x++) {
+        l[0][x] = l[0][x-2] + l[0][x];
+        ing[x] = l[0][x];
     }
 
-    ing[w]   = in[w];
-    ing[w+1] = in[w+1];
-    for(x=2; x < w; x++){
-        yx = w + x;
-        ing[yx] = ing[yx-2] + in[yx];
+    ing[w1] = l[1][0];
+    ing[w1+1] = l[1][1];
+    for(x=2; x < w1; x++) {
+        l[1][x] = l[1][x-2] + l[1][x];
+        ing[w1+x] = l[1][x];
     }
 
-    for(y=2; y < h; y++){
-        yw = y*w;
-        ing[yw] = ing[yw-w2] + in[yw];
-        ing[yw+1] = ing[yw-w2+1] + in[yw+1];
-        for(x=2; x < w; x++){
+    for(y=2; y < h1; y++){
+        yw = y*w1;
+
+        if(y < br2)     cp_line(&in[w*(br2-y)], l[2], w, br2);
+        else if(y > h2) cp_line(&in[w*(((h-1)<<1)+br2-y)], l[2], w, br2);
+        else            cp_line(&in[w*(y-br2)], l[2], w, br2);
+
+        l[2][0] = l[0][0] + l[2][0];
+        ing[yw] = l[2][0];
+        l[2][1] = l[0][1] + l[2][1];
+        ing[yw+1] = l[2][1];
+
+        for(x=2; x < w1; x++){
             yx = yw + x;
-            ing[yx] = ing[yx-2] + ing[yx-w2] - ing[yx-2-w2] + in[yx];
+            l[2][x] = l[2][x-2] + l[0][x] - l[0][x-2] + l[2][x];
+            ing[yx] = l[2][x];
         }
-    }
 
+        tm = l[0]; l[0] = l[1]; l[1] = l[2]; l[2] = tm;
+    }
     /*
     //For check only
     uint32 sum;
     sum = 0;
-    for(y=0; y < h; y+=2){ yw = y*w; for(x=0; x < w; x+=2) {sum += in[yw + x];}}
+    for(y=0; y < h1; y+=2){ yw = y*w1; for(x=0; x < w1; x+=2) {sum += in[yw + x];}}
     printf("Check the integral sum = %d\n", sum);
     sum = 0;
-    for(y=0; y < h; y+=2){ yw = y*w; for(x=1; x < w; x+=2) {sum += in[yw + x];}}
+    for(y=0; y < h1; y+=2){ yw = y*w1; for(x=1; x < w1; x+=2) {sum += in[yw + x];}}
     printf("Check the integral sum = %d\n", sum);
     sum = 0;
-    for(y=1; y < h; y+=2){ yw = y*w; for(x=0; x < w; x+=2) {sum += in[yw + x];}}
+    for(y=1; y < h1; y+=2){ yw = y*w1; for(x=0; x < w1; x+=2) {sum += in[yw + x];}}
     printf("Check the integral sum = %d\n", sum);
     sum = 0;
-    for(y=1; y < h; y+=2){ yw = y*w; for(x=1; x < w; x+=2) {sum += in[yw + x];}}
+    for(y=1; y < h1; y+=2){ yw = y*w1; for(x=1; x < w1; x+=2) {sum += in[yw + x];}}
     printf("Check the integral sum = %d\n", sum);
-    printf("mat1 = %d mat2 = %d mat3 = %d mat4 = %d\n", in[w*h-w-2], in[w*h-w-1], in[w*h-2], in[w*h-1]);
+    printf("mat1 = %d mat2 = %d mat3 = %d mat4 = %d\n", ing[w1*h1-w1-2], ing[w1*h1-w1-1], ing[w1*h1-2], ing[w1*h1-1]);
     */
 }
 
@@ -562,7 +551,7 @@ void utils_average(int16 *in, int16 *out, uint32 *buff, const int w, const int h
         return;
     }
 
-    utils_integral_grey_br(in, ing, buff, w, h, br+1);
+    utils_integral(in, ing, buff, w, h, br+1);
 
     for(y=0; y < h; y++){
         yw = y*w;
@@ -571,6 +560,54 @@ void utils_average(int16 *in, int16 *out, uint32 *buff, const int w, const int h
             yx = yw + x;
             yx1 = yw1 + x;
             out[yx] = (ing[yx1 + br2 + br2*w1] + ing[yx1] - ing[yx1 + br2] - ing[yx1 + br2*w1])*b>>sh;
+            //out[yx] = (ing[yx1 + br2 + br2*w1] + ing[yx1] - ing[yx1 + br2] - ing[yx1 + br2*w1])/bs;
+            //yx1 = yw1 + x + br + 1;
+            //out[yx] = (ing[yx1 + br + br*w1] + ing[yx1 - (br+1) - (br+1)*w1] - ing[yx1 + br - (br+1)*w1] - ing[yx1 + br*w1 - (br+1)])/bs;
+            //yx1 = yw1 + x + br2;
+            //out[yx] = (ing[yx1 + br + br*w1] + ing[yx1 - br2 - br2*w1] - ing[yx1 + br - br2*w1] - ing[yx1 + br*w1 - br2])/bs;
+        }
+    }
+
+    if(ing) free(ing);
+}
+
+/** \brief Average each pixel in 16 bits bayer image witn br border out of pixel
+    \param in	The input 16 bits image.
+    \param ing 	The output 16 bits image.
+    \param buff	The two lines buffer, size should be (w + 2*br)*2*(sizeof(int16)) bytes.
+    \param w	The image width.
+    \param h	The imahe height.
+    \param br	The border of averaging if br = 1  3x3 = 9 pixel.
+*/
+void utils_average_bayer(int16 *in, int16 *out, uint32 *buff, const int w, const int h, const int br)
+{
+    int i,x, y, yw, yw1, yx, yx1, br2 = (br+1)<<1;
+    int w1 = w + (br2<<1), h1 = h + (br2<<1), bs = ((br<<1)+1)*((br<<1)+1), br4 = (br<<2) + 2;
+    uint32 *ing, sh;
+    int64_t b;
+
+    //Finding b coefficient to change / to *
+    for(i=1; bs>>i; i++);
+    sh = 63 - i - 16;
+    b = (1LL<<sh)/bs;
+    //printf("i = %d b = %lld bs = %d sh = %d\n", i, b, bs, sh);
+
+    ing = (uint32*)malloc(w1*h1*sizeof(uint32));
+    if (ing == NULL) {
+        fprintf(stderr, "Error! utils_average: Can't allocate memory\n");
+        return;
+    }
+
+    //printf("start utils_integral_bayer\n");
+    utils_integral_bayer(in, ing, buff, w, h, br+1);
+
+    for(y=0; y < h; y++){
+        yw = y*w;
+        yw1 = y*w1;
+        for(x=0; x < w; x++){
+            yx = yw + x;
+            yx1 = yw1 + x;
+            out[yx] = (ing[yx1 + br4 + br4*w1] + ing[yx1] - ing[yx1 + br4] - ing[yx1 + br4*w1])*b>>sh;
             //out[yx] = (ing[yx1 + br2 + br2*w1] + ing[yx1] - ing[yx1 + br2] - ing[yx1 + br2*w1])/bs;
             //yx1 = yw1 + x + br + 1;
             //out[yx] = (ing[yx1 + br + br*w1] + ing[yx1 - (br+1) - (br+1)*w1] - ing[yx1 + br - (br+1)*w1] - ing[yx1 + br*w1 - (br+1)])/bs;
@@ -593,9 +630,13 @@ void utils_average(int16 *in, int16 *out, uint32 *buff, const int w, const int h
 void utils_subtract(const int16 *in, const int16 *in1, int16 *out, const int w, const int h, const int bpp)
 {
     int i, j, size = w*h, sh = 1<<(bpp-1), tmp, max = (1<<bpp)-1;
+    uint32 sum = 0;
 
     for(i = 0; i < size; i++) {
         tmp = in[i] - in1[i] + sh;
         out[i] = tmp < 0 ? 0 : (tmp > max ? max : tmp);
+        sum += abs(in[i] - in1[i]);
     }
+    sum = sum/size;
+    printf("diff = %d\n", sum);
 }

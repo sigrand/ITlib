@@ -240,7 +240,7 @@ int readPGM(FILE* in_file, uint8** buff, int* const w, int* const h, int* const 
         return 1;
     }
 
-    if(verb)  print_first_pixels(*buff, 10, *bpp, GREY, *w);
+    if(verb)  print_first_pixels(*buff, 10, 8, GREY, *w);
 
     return 0;
 }
@@ -321,7 +321,7 @@ int main(int argc, const char *argv[]) {
                    "Transform options:\n"
                    "  wb               White balancing.\n"
                    "  bay_to_rgb_bi    Bayer to rgb bilinear interpolation algorithm.\n"
-                   "  bay_to_rgey_bi   Bayer to rgb bilinear interpolation algorithm.\n"
+                   "  bay_to_grey_bi   Bayer to rgb bilinear interpolation algorithm.\n"
                    "  med_filter <a>   3x3 median filter if a = 0 non adaptive, if a = 1 adaptive\n"
                    "  ace              Automatic Color Enhancement transform\n"
                    "  average <x>      Averaging image with window of x radius\n"
@@ -380,7 +380,7 @@ int main(int argc, const char *argv[]) {
 
 
                     if(cr->bpp > 8) {
-                        utils_cnange_bytes(cr->pic[0], cr->w, cr->h);
+                        //utils_cnange_bytes(cr->pic[0], cr->w, cr->h);
                         utils_get_stat(cr->pic[0], cr->w, cr->h, &cr->bpp, &min, &max);
                     } else {
                         copy_image8_to16(cr->pic[0], cr->pic[1], cr->w, cr->h);
@@ -495,8 +495,8 @@ int main(int argc, const char *argv[]) {
 
         } else if (!strcmp(argv[i], "bay_to_rgb_bi") && tr) {
             if(cr->colort == BAYER){
-                utils_bay_to_rgb_bi(cr->pic[0], cr->pic[1], tmpb, cr->w, cr->h, cr->bg, cr->bpp);
-                tmp = cr->pic[0]; cr->pic[0] = cr->pic[1]; cr->pic[1] = tmp; cr->colort = RGB; cr->bpp = 8;
+                utils_bay_to_rgb_bi(cr->pic[0], cr->pic[1], tmpb, cr->w, cr->h, cr->bg);
+                tmp = cr->pic[0]; cr->pic[0] = cr->pic[1]; cr->pic[1] = tmp; cr->colort = RGB;
             } else {
                 fprintf(stderr, "Error! bay_to_rgb_bi: Input image should be in bayer format .\n", out_file);
                 ok = 1; goto End;
@@ -505,8 +505,8 @@ int main(int argc, const char *argv[]) {
 
         }  else if (!strcmp(argv[i], "bay_to_grey_bi") && tr) {
             if(cr->colort == BAYER){
-                utils_bay_to_grey_bi(cr->pic[0], cr->pic[1], tmpb, cr->w, cr->h, cr->bg, cr->bpp);
-                tmp = cr->pic[0]; cr->pic[0] = cr->pic[1]; cr->pic[1] = tmp; cr->colort = GREY; cr->bpp = 8;
+                utils_bay_to_grey_bi(cr->pic[0], cr->pic[1], tmpb, cr->w, cr->h, cr->bg);
+                tmp = cr->pic[0]; cr->pic[0] = cr->pic[1]; cr->pic[1] = tmp; cr->colort = GREY;
             } else {
                 fprintf(stderr, "Error! bay_to_grey_bi: Input image should be in bayer format.\n", out_file);
                 ok = 1; goto End;
@@ -546,11 +546,13 @@ int main(int argc, const char *argv[]) {
             }
             if(verb) printf("ace_local filter\n");
         } else if (!strcmp(argv[i], "average") && tr) {
+            par = strtol(argv[i+1], NULL, 0);
             if(cr->colort == GREY){
-                par = strtol(argv[i+1], NULL, 0);
-
                 utils_average(cr->pic[0], cr->pic[1], tmpb, cr->w, cr->h, par);
-                tmp = cr->pic[0]; cr->pic[0] = cr->pic[1]; cr->pic[1] = tmp; //cr->bpp = 8;
+                tmp = cr->pic[0]; cr->pic[0] = cr->pic[1]; cr->pic[1] = tmp;
+            } else if(cr->colort == BAYER){
+                utils_average_bayer(cr->pic[0], cr->pic[1], tmpb, cr->w, cr->h, par);
+                tmp = cr->pic[0]; cr->pic[0] = cr->pic[1]; cr->pic[1] = tmp;
             } else {
                 fprintf(stderr, "Error! average: Input image should be in bayer or grey format.\n", out_file);
                 ok = 1; goto End;
