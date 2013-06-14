@@ -304,7 +304,7 @@ int main(int argc, const char *argv[]) {
 
     for (i = 1; i < argc; i++) {
         if (!strcmp(argv[i], "-h") || !strcmp(argv[i], "-help")) {
-            printf("Usage: itlib -i[input options [bayer_option]] in_file [-t transform options] [-o[output options] out_file]\n\n"
+            printf("Usage: itlib -i[input options [bayer_option]] in_file [-t transform_options] [-o[output_options] out_file]\n\n"
                    "Input options:\n"
                    "  b  Input file is raw BAYER image.\n"
                    "  g  Input file is grayscale image.\n"
@@ -320,16 +320,14 @@ int main(int argc, const char *argv[]) {
                    "\n"
                    "Transform options:\n"
                    "  wb               White balancing.\n"
-                   "  bay_to_rgb_bi    Bayer to rgb bilinear interpolation algorithm.\n"
-                   "  bay_to_grey_bi   Bayer to rgb bilinear interpolation algorithm.\n"
-                   "  med_filter <a>   3x3 median filter if a = 0 non adaptive, if a = 1 adaptive\n"
+                   "  bay_rgb          Bayer to rgb bilinear interpolation algorithm.\n"
+                   "  bay_grey         Bayer to grey bilinear interpolation algorithm.\n"
+                   "  med <a>          3x3 median filter if a = 0 non adaptive, if a = 1 adaptive\n"
                    "  ace              Automatic Color Enhancement transform\n"
-                   "  average <x>      Averaging image with window of x radius\n"
+                   "  aver <x>         Averaging image with window of x radius\n"
+                   "  sub              Subtract one image from another\n"
                    "\n"
                    "Output options:\n"
-                   "  -crop <x> <y> <w> <h> ... crop output with the given rectangle\n"
-                   "  -scale <w> <h> .......... scale the output (*after* any cropping)\n"
-                   "  -alpha ....... only save the alpha plane.\n"
                    "  -h     ....... this help message.\n"
                    "  -v     ....... verbose \n"
                    );
@@ -493,7 +491,7 @@ int main(int argc, const char *argv[]) {
             }
             if(verb) printf("white balancing \n");
 
-        } else if (!strcmp(argv[i], "bay_to_rgb_bi") && tr) {
+        } else if (!strcmp(argv[i], "bay_rgb") && tr) {
             if(cr->colort == BAYER){
                 utils_bay_to_rgb_bi(cr->pic[0], cr->pic[1], tmpb, cr->w, cr->h, cr->bg);
                 tmp = cr->pic[0]; cr->pic[0] = cr->pic[1]; cr->pic[1] = tmp; cr->colort = RGB;
@@ -503,7 +501,7 @@ int main(int argc, const char *argv[]) {
             }
             if(verb) printf("bay_to_rgb_bi transform\n");
 
-        }  else if (!strcmp(argv[i], "bay_to_grey_bi") && tr) {
+        }  else if (!strcmp(argv[i], "bay_grey") && tr) {
             if(cr->colort == BAYER){
                 utils_bay_to_grey_bi(cr->pic[0], cr->pic[1], tmpb, cr->w, cr->h, cr->bg);
                 tmp = cr->pic[0]; cr->pic[0] = cr->pic[1]; cr->pic[1] = tmp; cr->colort = GREY;
@@ -511,9 +509,9 @@ int main(int argc, const char *argv[]) {
                 fprintf(stderr, "Error! bay_to_grey_bi: Input image should be in bayer format.\n", out_file);
                 ok = 1; goto End;
             }
-            if(verb) printf("bay_to_rgb_bi transform\n");
+            if(verb) printf("bay_to_grey_bi transform\n");
 
-        } else if (!strcmp(argv[i], "median") && tr) {
+        } else if (!strcmp(argv[i], "med") && tr) {
             par = strtol(argv[i+1], NULL, 0);
 
             if(cr->colort == BAYER){
@@ -545,7 +543,7 @@ int main(int argc, const char *argv[]) {
                 ok = 1; goto End;
             }
             if(verb) printf("ace_local filter\n");
-        } else if (!strcmp(argv[i], "average") && tr) {
+        } else if (!strcmp(argv[i], "aver") && tr) {
             par = strtol(argv[i+1], NULL, 0);
             if(cr->colort == GREY){
                 utils_average(cr->pic[0], cr->pic[1], tmpb, cr->w, cr->h, par);
@@ -558,7 +556,7 @@ int main(int argc, const char *argv[]) {
                 ok = 1; goto End;
             }
             if(verb) printf("average filter\n");
-        } else if (!strcmp(argv[i], "subtract") && tr ) {
+        } else if (!strcmp(argv[i], "sub") && tr ) {
             if(fc == 3){
                 if(cr->colort == GREY || cr->colort == BAYER){
                     utils_subtract(cr->pic[0], ts[1].pic[0], cr->pic[1], cr->w, cr->h, cr->bpp);
