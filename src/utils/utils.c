@@ -224,7 +224,7 @@ void utils_wb(int16 *in, int *rm, int *bm, uint32 *buff, const int w, const int 
     //mb = (double)g/(double)b;
     mr = (g<<sh)/r;
     mb = (g<<sh)/b;
-    printf("mr = %d mb = %d mr = %f mb = %f\n",mr, mb,(double)mr/(double)(1<<sh), (double)mb/(double)(1<<sh));
+    //printf("mr = %d mb = %d mr = %f mb = %f\n",mr, mb,(double)mr/(double)(1<<sh), (double)mb/(double)(1<<sh));
 
     //Find threshold for removing dark pixels.
     sum = 0;
@@ -249,7 +249,7 @@ void utils_wb(int16 *in, int *rm, int *bm, uint32 *buff, const int w, const int 
         m = m + s;
         d1 = 0;
         for(i = 0; i < size3; i+=3) d1 += abs(in[i+1] - (in[i]*m>>sh));
-        printf("j = %d d = %d d1 = %d m = %f\n", j, d, d1, (double)m/(double)(1<<sh));
+        //printf("j = %d d = %d d1 = %d m = %f\n", j, d, d1, (double)m/(double)(1<<sh));
         if(!j && d1 > d) s = -s;
         if( j && d1 > d) break;
         d = d1;
@@ -263,7 +263,7 @@ void utils_wb(int16 *in, int *rm, int *bm, uint32 *buff, const int w, const int 
         m = m + s;
         d1 = 0;
         for(i = 0; i < size3; i+=3) d1 += abs(in[i+1] - (in[i+2]*m>>sh));
-        printf("j = %d d = %d d1 = %d m = %f\n", j, d, d1, (double)m/(double)(1<<sh));
+        //printf("j = %d d = %d d1 = %d m = %f\n", j, d, d1, (double)m/(double)(1<<sh));
         if(!j && d1 > d) s = -s;
         if( j && d1 > d) break;
         d = d1;
@@ -526,7 +526,7 @@ void utils_integral_bayer(int16 *in, uint32 *ing, uint32 *buff, const int w, con
 
 /** \brief Average each pixel in 16 bits image witn br border out of pixel
     \param in	The input 16 bits image.
-    \param ing 	The output 16 bits image.
+    \param out 	The output 16 bits image.
     \param buff	The two lines buffer, size should be (w + 2*br)*2*(sizeof(int16)) bytes.
     \param w	The image width.
     \param h	The imahe height.
@@ -573,7 +573,7 @@ void utils_average(int16 *in, int16 *out, uint32 *buff, const int w, const int h
 
 /** \brief Average each pixel in 16 bits bayer image witn br border out of pixel
     \param in	The input 16 bits image.
-    \param ing 	The output 16 bits image.
+    \param out 	The output 16 bits image.
     \param buff	The two lines buffer, size should be (w + 2*br)*2*(sizeof(int16)) bytes.
     \param w	The image width.
     \param h	The imahe height.
@@ -639,4 +639,22 @@ void utils_subtract(const int16 *in, const int16 *in1, int16 *out, const int w, 
     }
     sum = sum/size;
     printf("diff = %d\n", sum);
+}
+
+/** \brief Add two grey images.
+    \param in	The input 16 bits image.
+    \param in1 	The input 16 bits image.
+    \param out	The output 16 bits imafe.
+    \param w	The image width.
+    \param h	The imahe height.
+    \param bpp  The image bits per pixel.
+*/
+void utils_add(const int16 *in, const int16 *in1, int16 *out, const int w, const int h, const int bpp)
+{
+    int i, j, size = w*h, sh = 1<<(bpp-1), tmp, max = (1<<bpp)-1;
+
+    for(i = 0; i < size; i++) {
+        tmp = in[i] + in1[i] - sh;
+        out[i] = tmp < 0 ? 0 : (tmp > max ? max : tmp);
+    }
 }

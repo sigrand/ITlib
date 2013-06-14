@@ -324,7 +324,7 @@ int main(int argc, const char *argv[]) {
                    "  bay_grey         Bayer to grey bilinear interpolation algorithm.\n"
                    "  med <a>          3x3 median filter if a = 0 non adaptive, if a = 1 adaptive\n"
                    "  ace              Automatic Color Enhancement transform\n"
-                   "  aver <x>         Averaging image with window of x radius\n"
+                   "  aver <x>         Averaging image with window of x radius \n"
                    "  sub              Subtract one image from another\n"
                    "\n"
                    "Output options:\n"
@@ -378,7 +378,7 @@ int main(int argc, const char *argv[]) {
 
 
                     if(cr->bpp > 8) {
-                        //utils_cnange_bytes(cr->pic[0], cr->w, cr->h);
+                        utils_cnange_bytes(cr->pic[0], cr->w, cr->h);
                         utils_get_stat(cr->pic[0], cr->w, cr->h, &cr->bpp, &min, &max);
                     } else {
                         copy_image8_to16(cr->pic[0], cr->pic[1], cr->w, cr->h);

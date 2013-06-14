@@ -15,7 +15,6 @@
     \param w		The image width.
     \param h		The image height.
     \param bay		The Bayer grids pattern.
-    \param bpp      The bits per pixel.
     \retval			Output rgb image..
 */
 void utils_bay_to_rgb_bi(const int16 *in, int16 *rgb, int16 *buff, const int w, const int h, const BayerGrid bay)
@@ -74,7 +73,6 @@ void utils_bay_to_rgb_bi(const int16 *in, int16 *rgb, int16 *buff, const int w, 
     \param w		The image width.
     \param h		The image height.
     \param bay		The Bayer grids pattern.
-    \param bpp      The bits per pixel.
 */
 void utils_bay_to_grey_bi(const int16 *in, int16 *out, int16 *buff, const int w, const int h, const BayerGrid bay)
 {

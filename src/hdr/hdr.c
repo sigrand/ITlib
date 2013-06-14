@@ -95,7 +95,6 @@ void hdr_diff(const int16 *in, const int16 *avr, int16 *dif, const int w, const 
     \param out      The output 16 bits bayer image.
     \param buff     The temporary buffer.
     \param bpp      The input image bits per pixel.
-    \param bpp1     The output image bits per pixel.
     \param w        The image width.
     \param h        The image height.
 */
