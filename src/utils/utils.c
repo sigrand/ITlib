@@ -48,9 +48,11 @@ void utils_get_stat(int16 *in, const int w, const int h, int *bpp, int *min, int
                             2 - scale transform grb to rgb image,
     \retval             The output 8 bits image.
 */
-uint8* utils_16_to_8(const int16 *in, uint8 *out, const int w, const int h, const int bpp, const int par)
+uint8* utils_16_to_8(const int16 *in, uint8 *out, const int w, const int h,  int bpp, const int par)
 {
     int i, j, size, sh;
+
+    if(bpp < 8) bpp = 8;
 
     if(par == 0) {
         size = w*h; sh = 0;
@@ -324,7 +326,7 @@ void utils_wb_bayer(const int16 *in, int16 *out, int16 *buff, const int w, const
     //printf("zoom = %d , w1 = %d h1 = %d\n", zoom, w1, h1);
 
     utils_wb(buff, &rm, &bm, (uint32*)buff, w1, h1, sh, bpp);
-    printf("rm = %d bm = %d rm = %f bm = %f \n", rm, bm, (double)rm/(double)(1<<sh), (double)bm/(double)(1<<sh));
+    //printf("rm = %d bm = %d rm = %f bm = %f \n", rm, bm, (double)rm/(double)(1<<sh), (double)bm/(double)(1<<sh));
 
     switch(bg){
     case(BGGR):{
@@ -654,7 +656,7 @@ void utils_add(const int16 *in, const int16 *in1, int16 *out, const int w, const
     int i, j, size = w*h, sh = 1<<(bpp-1), tmp, max = (1<<bpp)-1;
 
     for(i = 0; i < size; i++) {
-        tmp = in[i] + in1[i] - sh;
+        tmp = in1[i]; //in[i] - sh; //in[i] + in1[i] - sh;
         out[i] = tmp < 0 ? 0 : (tmp > max ? max : tmp);
     }
 }
