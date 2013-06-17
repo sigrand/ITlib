@@ -655,7 +655,6 @@ void utils_add(const int16 *in, const int16 *in1, int16 *out, const int w, const
 {
     int i, j, size = w*h, sh = 1<<(bpp-1), tmp, max = (1<<bpp1)-1;
 
-    printf("add: bpp = %d sh = %d\n", bpp, sh);
     for(i = 0; i < size; i++) {
         //out[i] = in[i]; //in[i] + in1[i] - sh;
         tmp = in[i] + in1[i] - sh;

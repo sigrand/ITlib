@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <math.h>
 
 #include "../libit/types.h"
 #include "./filters.h"
@@ -200,4 +201,97 @@ void filters_median_bayer(int16 *in, int16 *out, int16 *buff, const int w, const
         tm = l[0]; l[0] = l[1]; l[1] = l[2]; l[2] = l[3]; l[3] = l[4]; l[4] = tm;
     }
 }
+
+/** \brief The simple Non-Local Means denoise  algorithm.
+    \param in	The input 16 bits bayer image.
+    \param avr	The input 16 bits average image.
+    \param out	The output 16 bits bayer image.
+    \param buff	The temporary buffer.
+    \param br   The radius around the pixel.
+    \param sg   The noise standard deviation.
+    \param w    The image width.
+    \param h 	The image height.
+*/
+void filters_NLM_denoise_bayer(int16 *in, int16 *avr, int16 *out, int16 *buff, const int br, const int sg, const int w, const int h)
+{
+    int i, x, xb, y, yb, yw, yx, yxr, yxb, ybw;
+    int hg = sg*sg;
+    int ex[256], smi, smi1, blm, cf;
+
+    int sh, ns = (br<<1) + 1, bs = ((br>>1)+1)*((br>>1)+1);
+    int w1 = w + (br<<1), h1 = h + (br<<1), h2 = h + br - 1, w2 = w + br - 1, br2 = br<<1;
+    int16 *l[ns], *m[ns];
+    int64_t b;
+
+    //Finding b coefficient to change / to *
+    for(i=1; bs>>i; i++);
+    sh = 63 - i - 16;
+    b = (1LL<<sh)/bs;
+
+    l[0] = buff;
+    for(i=1; i < ns; i++) l[i] = &l[i-1][w1];
+
+    //Make lut table to remove exp
+    for(i=0; i < 256; i++){
+        ex[i] = (int)(exp(-(double)i*i/(double)hg)*512);
+        //printf("%3d exp = %d\n", i, ex[i]);
+    }
+
+    //Prepare firbr lines
+    for(i=0; i < ns - 1; i++){
+        if(i < br) cp_line(&in[w*(br-i)], l[i], w, br);
+        else cp_line(&in[w*(i-br)], l[i], w, br);
+    }
+
+    for(yb = br; yb <= h2; yb++){
+        ybw = yb*w1;
+        if(y > h2) cp_line(&in[w*(((h-1)<<1)+br-y)], l[ns-1], w, br);
+        else       cp_line(&in[w*(y-br)], l[ns-1], w, br);
+
+        for(xb = br; xb <= w2; xb++){
+            yxb = ybw + xb;
+            smi1 = smi = 0;
+
+            for(y=0; y < ns; y+=2){
+                yw = y*w;
+                for(x=xb-br; x <= xb+br; x+=2){
+                    yx = yw + x;
+                    yxr = yx;
+
+                    blm  = abs(l[y][x] - l[br][xb]);
+                    //printf("blm = %d\n", blm);
+
+                    cf = blm > 255 ? 0 : ex[blm];
+                    smi1 += cf;
+                    smi += m[y][x]*cf;
+                }
+            }
+
+
+            for(y=yb-br; y <= yb+br; y+=2){
+                yw = y*w;
+                for(x=xb-br; x <= xb+br; x+=2){
+                    yx = yw + x;
+                    yxr = yx;
+
+                    //blm = block_matching_xy(in, w, h, ws, hs, yxr, yxb)*b>>sh;
+
+                    //blm  = (ing[yxr+ws+whs] + ing[yxr-ws-whs-w-1] - ing[yxr+ws-whs-w] - ing[yxr-ws+whs-1] - avr)/bs;
+                    //blm  = (av[0][yxr] - av[0][yxb] + av[1][yxr] - av[1][yxb])/bs;
+
+                    blm  = (abs(avr[yxr] - avr[yxb]) + abs(in[yxr] - in[yxb]));
+                    //printf("blm = %d\n", blm);
+
+                    cf = blm > 255 ? 0 : ex[blm];
+                    smi1 += cf;
+                    smi += in[yxr]*cf;
+
+                }
+            }
+            out[yxb - br -br*w1] = smi/smi1;
+            //printf("Start x = %d y = %d avr = %d in = %d out = %d blm = %d\n", xb, yb, avr[yxb], in[yxb], out[yxb], blm);
+        }
+    }
+}
+
 
