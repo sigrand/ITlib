@@ -651,12 +651,15 @@ void utils_subtract(const int16 *in, const int16 *in1, int16 *out, const int w, 
     \param h	The imahe height.
     \param bpp  The image bits per pixel.
 */
-void utils_add(const int16 *in, const int16 *in1, int16 *out, const int w, const int h, const int bpp)
+void utils_add(const int16 *in, const int16 *in1, int16 *out, const int w, const int h, const int bpp, const int bpp1)
 {
-    int i, j, size = w*h, sh = 1<<(bpp-1), tmp, max = (1<<bpp)-1;
+    int i, j, size = w*h, sh = 1<<(bpp-1), tmp, max = (1<<bpp1)-1;
 
+    printf("add: bpp = %d sh = %d\n", bpp, sh);
     for(i = 0; i < size; i++) {
-        tmp = in1[i]; //in[i] - sh; //in[i] + in1[i] - sh;
+        //out[i] = in[i]; //in[i] + in1[i] - sh;
+        tmp = in[i] + in1[i] - sh;
         out[i] = tmp < 0 ? 0 : (tmp > max ? max : tmp);
+        //printf("in = %d in1 = %d sh = %d tmp = %d out = %d\n", in[i], in1[i], sh, tmp, out[i]);
     }
 }

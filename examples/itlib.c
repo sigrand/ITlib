@@ -468,6 +468,7 @@ int main(int argc, const char *argv[]) {
                 fc++;
                 //Clone image
                 if(buff1 == NULL){
+                    //printf("main buff = %p\n", buff1);
                     ts[1].w = ts[n].w; ts[1].h = ts[n].h; ts[1].bpp = ts[n].bpp; ts[1].bg = ts[n].bg; ts[1].colort = ts[n].colort;
                     size = ts[n].w*ts[n].h;
                     buff1 = (uint8*)malloc(ts[1].h*ts[1].h*3*4);
@@ -479,8 +480,8 @@ int main(int argc, const char *argv[]) {
                     ts[1].pic[1] = &buff1[ts[1].w*ts[1].h*2*3]; //Temporary buffer
                     copy_image16(ts[n].pic[0], ts[1].pic[0], ts[n].w, ts[n].h);
                 }
-
             }
+            printf("%d ", n);
         } else if (!strcmp(argv[i], "wb") && tr) {
             //White balancing.........................................................................
             if(ts[n].colort == BAYER ){
@@ -566,8 +567,9 @@ int main(int argc, const char *argv[]) {
         } else if (!strcmp(argv[i], "sub") && tr ) {
             if(fc == 3){
                 fc = 0;
+                printf("main: n = %d\n", n);
                 if(ts[n].colort == GREY || ts[n].colort == BAYER){
-                    utils_subtract(ts[n].pic[0], ts[!n].pic[0], ts[n].pic[1], ts[n].w, ts[n].h, ts[n].bpp);
+                    utils_subtract(ts[n].pic[0], ts[1].pic[0], ts[n].pic[1], ts[n].w, ts[n].h, ts[n].bpp);
                     tmp = ts[n].pic[0]; ts[n].pic[0] = ts[n].pic[1]; ts[n].pic[1] = tmp;
                 } else {
                     fprintf(stderr, "Error! subtract: Input image should be in bayer or grey format.\n", out_file);
@@ -581,9 +583,10 @@ int main(int argc, const char *argv[]) {
         } else if (!strcmp(argv[i], "add") && tr ) {
             if(fc == 3){
                 fc = 0;
+                printf("main: n = %d\n", n);
                 if(ts[n].colort == GREY || ts[n].colort == BAYER){
-                    utils_add(ts[n].pic[0], ts[n == 1  ? 0 : 1].pic[0], ts[n].pic[1], ts[n].w, ts[n].h, ts[n].bpp);
-                    tmp = ts[n].pic[0]; ts[n].pic[0] = ts[n].pic[1]; ts[n].pic[1] = tmp;
+                    utils_add(ts[n].pic[0], ts[1].pic[0], ts[n].pic[1], ts[n].w, ts[n].h, ts[n].bpp, ts[1].bpp);
+                    tmp = ts[n].pic[0]; ts[n].pic[0] = ts[n].pic[1]; ts[n].pic[1] = tmp; ts[n].bpp = ts[1].bpp;
                 } else {
                     fprintf(stderr, "Error! add: Input image should be in bayer or grey format.\n", out_file);
                     ok = 1; goto End;

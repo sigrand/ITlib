@@ -25,6 +25,8 @@ void hdr_ace(const int16 *in, int16 *out, int *buff, const int w, const int h, c
 
     hi = buff; //hl = &hi[hs]; hr = &hl[hs]; lt = &hr[hs];
 
+    printf("ace: bpp = %d bpp1 = %d\n", bpp, bpp1);
+
     //Fill historgam
     memset(hi, 0, sizeof(int)*hs);
     for(x=0; x < size; x++) hi[in[x]]++;
