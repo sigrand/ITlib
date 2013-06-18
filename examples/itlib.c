@@ -328,6 +328,7 @@ int main(int argc, const char *argv[]) {
                    "  sub              Subtract one image from another\n"
                    "  add              Add two images\n"
                    "  denoise <x>      Non-Local means denoise algorithm, x - radios around pixels for matching\n"
+                   "  hess             Calculate the determinant of Hessian of grey image\n"
                    "\n"
                    "Output options:\n"
                    "  -h               This help message.\n"
@@ -565,6 +566,15 @@ int main(int argc, const char *argv[]) {
                 ok = 1; goto End;
             }
             if(verb) printf("average filter\n");
+        }  else if (!strcmp(argv[i], "hess") && tr) {
+            if(ts[n].colort == GREY || ts[n].colort == BAYER){
+                filters_hessian(ts[n].pic[0], ts[n].pic[1], tmpb, ts[n].w, ts[n].h);
+                tmp = ts[n].pic[0]; ts[n].pic[0] = ts[n].pic[1]; ts[n].pic[1] = tmp;
+            } else {
+                fprintf(stderr, "Error! hess: Input image should be in bayer or grey format.\n", out_file);
+                ok = 1; goto End;
+            }
+            if(verb) printf("hessian filter\n");
         } else if (!strcmp(argv[i], "sub") && tr ) {
             if(fc == 3){
                 fc = 0;

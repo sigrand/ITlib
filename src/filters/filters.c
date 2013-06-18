@@ -193,7 +193,7 @@ void filters_median_bayer(int16 *in, int16 *out, int16 *buff, const int w, const
             //img1[yx] = max;
             //img2[yx] = max-min;
             //if(img1[yx] == med)
-            //printf(" yx = %d min = %d med = %d max = %d in[x] = %d img1[x] = %d\n",
+            //printf(" yx = %d min = %d med = %d max = %d ing[x] = %d img1[x] = %d\n",
             //       yx, min+shift, med+shift, max+shift, l[2][xs]+shift, img1[yx]+shift);
 
             tm = s[i][0]; s[i][0] = s[i][1]; s[i][1] = s[i][2]; s[i][2] = tm;
@@ -214,13 +214,13 @@ void filters_median_bayer(int16 *in, int16 *out, int16 *buff, const int w, const
 */
 void filters_NLM_denoise_bayer(int16 *in, int16 *avr, int16 *out, int16 *buff, const int br, const int sg, const int w, const int h)
 {
-    int i, x, xb, y, yb, yw, yx, yxr, yxb, ybw;
+    int i, x, xi, y, yi, yw, yx;
     int hg = sg*sg;
     int ex[256], smi, smi1, blm, cf;
 
     int sh, ns = (br<<1) + 1, bs = ((br>>1)+1)*((br>>1)+1);
-    int w1 = w + (br<<1), h1 = h + (br<<1), h2 = h + br - 1, w2 = w + br - 1, br2 = br<<1;
-    int16 *l[ns], *m[ns];
+    int w1 = w + (br<<1);
+    int16 *l[ns], *m[ns], *tm;
     int64_t b;
 
     //Finding b coefficient to change / to *
@@ -228,70 +228,142 @@ void filters_NLM_denoise_bayer(int16 *in, int16 *avr, int16 *out, int16 *buff, c
     sh = 63 - i - 16;
     b = (1LL<<sh)/bs;
 
-    l[0] = buff;
-    for(i=1; i < ns; i++) l[i] = &l[i-1][w1];
-
     //Make lut table to remove exp
     for(i=0; i < 256; i++){
         ex[i] = (int)(exp(-(double)i*i/(double)hg)*512);
-        //printf("%3d exp = %d\n", i, ex[i]);
+        printf("%3d exp = %d\n", i, ex[i]);
     }
 
-    //Prepare firbr lines
+    //Rows buffer for input image
+    l[0] = buff;
+    for(i=1; i < ns; i++) l[i] = &l[i-1][w1];
+
+    //Rows buffer for averasge image
+    m[0] = &l[ns-1][w1];
+    for(i=1; i < ns; i++) m[i] = &m[i-1][w1];
+
+    //Prepare first raws
     for(i=0; i < ns - 1; i++){
         if(i < br) cp_line(&in[w*(br-i)], l[i], w, br);
         else cp_line(&in[w*(i-br)], l[i], w, br);
     }
 
-    for(yb = br; yb <= h2; yb++){
-        ybw = yb*w1;
-        if(y > h2) cp_line(&in[w*(((h-1)<<1)+br-y)], l[ns-1], w, br);
-        else       cp_line(&in[w*(y-br)], l[ns-1], w, br);
+    for(i=0; i < ns - 1; i++){
+        if(i < br) cp_line(&avr[w*(br-i)], m[i], w, br);
+        else cp_line(&avr[w*(i-br)], m[i], w, br);
+    }
 
-        for(xb = br; xb <= w2; xb++){
-            yxb = ybw + xb;
+    for(y = 0; y < h; y++){
+        yw = y*w;
+        if(y+br > h-1) {
+            cp_line(&in[w*(((h-1)<<1)-y)], l[ns-1], w, br);
+            cp_line(&avr[w*(((h-1)<<1)-y)], m[ns-1], w, br);
+        } else {
+            cp_line(&in[w*(y+br)], l[ns-1], w, br);
+            cp_line(&avr[w*(y+br)], m[ns-1], w, br);
+        }
+
+        for(x = 0; x < w; x++){
+            yx = yw + x;
             smi1 = smi = 0;
 
-            for(y=0; y < ns; y+=2){
-                yw = y*w;
-                for(x=xb-br; x <= xb+br; x+=2){
-                    yx = yw + x;
-                    yxr = yx;
+            for(yi=0; yi < ns; yi+=2){
+                for(xi=x; xi <= x+ns; xi+=2){
 
-                    blm  = abs(l[y][x] - l[br][xb]);
+                    blm  = abs(m[yi][xi] - m[br][xi]);
                     //printf("blm = %d\n", blm);
 
                     cf = blm > 255 ? 0 : ex[blm];
                     smi1 += cf;
-                    smi += m[y][x]*cf;
+                    smi += l[yi][xi]*cf;
                 }
             }
+            //tm = l[0]; l[0] = l[1]; l[1] = l[2]; l[2] = tm;
+            out[yx] = smi/smi1;
 
-
-            for(y=yb-br; y <= yb+br; y+=2){
-                yw = y*w;
-                for(x=xb-br; x <= xb+br; x+=2){
-                    yx = yw + x;
-                    yxr = yx;
-
-                    //blm = block_matching_xy(in, w, h, ws, hs, yxr, yxb)*b>>sh;
-
-                    //blm  = (ing[yxr+ws+whs] + ing[yxr-ws-whs-w-1] - ing[yxr+ws-whs-w] - ing[yxr-ws+whs-1] - avr)/bs;
-                    //blm  = (av[0][yxr] - av[0][yxb] + av[1][yxr] - av[1][yxb])/bs;
-
-                    blm  = (abs(avr[yxr] - avr[yxb]) + abs(in[yxr] - in[yxb]));
-                    //printf("blm = %d\n", blm);
-
-                    cf = blm > 255 ? 0 : ex[blm];
-                    smi1 += cf;
-                    smi += in[yxr]*cf;
-
-                }
-            }
-            out[yxb - br -br*w1] = smi/smi1;
-            //printf("Start x = %d y = %d avr = %d in = %d out = %d blm = %d\n", xb, yb, avr[yxb], in[yxb], out[yxb], blm);
+            //printf("Start x = %d y = %d avr = %d in = %d out = %d blm = %d\n", xb, yb, avr[yxb], ing[yxb], out[yxb], blm);
         }
+        tm = l[0];
+        for(i=1; i < ns; i++) l[i-1] = l[i];
+        l[ns-1] =  tm;
+        tm = m[0];
+        for(i=1; i < ns; i++) m[i-1] = m[i];
+        m[ns-1] =  tm;
     }
 }
 
+
+/** \brief Calculate the determinant of Hessian of grey image.
+    \param in 	The input 16 bits image.
+    \param out	The output 16 bits image.
+    \param buff	The temporary buffer.
+    \param w	The image width.
+    \param h	The imahe height.
+*/
+void filters_hessian(int16 *in, int16 *out, uint32 *buff, const int w, const int h)
+{
+    //  Dxx                          Dyy                          Dxy
+    //  0  0  0  0  0  0  0  0  0    0  0  1  1  1  1  1  0  0    0  0  0  0  0  0  0  0  0
+    //  0  0  0  0  0  0  0  0  0    0  0  1  1  1  1  1  0  0    0  1  1  1  0 -1 -1 -1  0
+    //  1  1  1 -2 -2 -2  1  1  1    0  0  1  1  1  1  1  0  0    0  1  1  1  0 -1 -1 -1  0
+    //  1  1  1 -2 -2 -2  1  1  1    0  0 -2 -2 -2 -2 -2  0  0    0  1  1  1  0 -1 -1 -1  0
+    //  1  1  1 -2 -2 -2  1  1  1    0  0 -2 -2 -2 -2 -2  0  0    0  0  0  0  0  0  0  0  0
+    //  1  1  1 -2 -2 -2  1  1  1    0  0 -2 -2 -2 -2 -2  0  0    0 -1 -1 -1  0  1  1  1  0
+    //  1  1  1 -2 -2 -2  1  1  1    0  0  1  1  1  1  1  0  0    0 -1 -1 -1  0  1  1  1  0
+    //  0  0  0  0  0  0  0  0  0    0  0  1  1  1  1  1  0  0    0 -1 -1 -1  0  1  1  1  0
+    //  0  0  0  0  0  0  0  0  0    0  0  1  1  1  1  1  0  0    0  0  0  0  0  0  0  0  0
+    //
+    //  det = Dxx*Dyy - Dxy*Dxy
+
+    int x, y, x1, y1, yw, yw1, yx, yx1;
+    int dxx1, dxx2, dxx3, dyy1, dyy2, dyy3, dxy1, dxy2, dxy3, dxy4;
+    int dxx, dyy, dxy;
+    int br = 5, h1 = h + (br<<1), w1 = w + (br<<1);
+    int w2 = w1*2, w3 = w1*3, w4 = w1*4, w5 = w1*5;
+
+    uint32 *ing;
+
+    ing = (uint32*)malloc(w1*h1*sizeof(uint32));
+    if (ing == NULL) {
+        fprintf(stderr, "Error! utils_average: Can't allocate memory\n");
+        return;
+    }
+
+    utils_integral(in, ing, buff, w, h, br);
+
+    for(y=br, y1 = 0; y1 < h; y++, y1++){
+        yw = y*w1;
+        yw1 = y1*w;
+        for(x=br, x1 = 0; x1 < w; x++, x1++){
+            yx = yw + x;
+            yx1 = yw1 + x1;
+
+            dxx1 = ing[yx+w2-2] + ing[yx-w3-5] - ing[yx-w3-2] - ing[yx+w2-5];
+            dxx2 = ing[yx+w2+1] + ing[yx-w3-2] - ing[yx-w3+1] - ing[yx+w2-2];
+            dxx3 = ing[yx+w2+4] + ing[yx-w3+1] - ing[yx-w3+4] - ing[yx+w2+1];
+            dxx = dxx1 + dxx3 - dxx2*2;
+            //printf("dxx1 = %d dxx2 = %d dxx3 =%d dxx = %d\n", dxx1, dxx2, dxx3, dxx);
+
+            dyy1 = ing[yx-w2+2] + ing[yx-w5-3] - ing[yx-w5+2] - ing[yx-w2-3];
+            dyy2 = ing[yx+w +2] + ing[yx-w2-3] - ing[yx-w2+2] - ing[yx+w -3];
+            dyy3 = ing[yx+w4+2] + ing[yx+w1-3] - ing[yx+w1+2] - ing[yx+w4-3];
+            dyy = dyy1 + dyy3 - dyy2*2;
+            //printf("dyy1 = %d dyy2 = %d dyy3 =%d dyy = %d\n", dyy1, dyy2, dyy3, dyy);
+
+            dxy1 = ing[yx-w1-1] + ing[yx-w4-4] - ing[yx-w4-1] - ing[yx-w1-4];
+            dxy2 = ing[yx-w1+3] + ing[yx-w4  ] - ing[yx-w4+3] - ing[yx-w1  ];
+            dxy3 = ing[yx+w3-1] + ing[yx   -4] - ing[yx   -1] - ing[yx+w3-4];
+            dxy4 = ing[yx+w3+3] + ing[yx     ] - ing[yx   +3] - ing[yx+w3  ];
+            dxy = dxy1 - dxy2 - dxy3 + dxy4;
+            //printf("dxy1 = %d dxy2 = %d dxy3 =%d dxy4 =%d dxy = %d\n", dxy1, dxy2, dxy3, dxy4, dxy);
+            //hs[yx] = abs(dxx*dyy - dxy*dxy);
+            out[yx1] = abs(dxy);
+
+            //det = dxx*dyy - dxy*dxy;
+            //img[yx] = abs(det) > 255 ? 255 : abs(det);
+            //img[yx] = abs(det)>> 14;
+            //printf("yx = %d img = %d\n", yx, det);
+        }
+    }
+}
 
