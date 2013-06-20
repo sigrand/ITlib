@@ -15,6 +15,8 @@ void filters_NLM_denoise_bayer(int16 *in, int16 *avr, int16 *out, int16 *buff, c
 
 void filters_hessian(int16 *in, int16 *out, uint32 *buff, const int w, const int h);
 
+void filters_denoise_regression_bayer(int16 *in, int16 *out, int *buff, const int br, const int w, const int h);
+
 #ifdef __cplusplus
 }
 #endif /* __cplusplus */

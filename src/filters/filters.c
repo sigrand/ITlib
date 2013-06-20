@@ -48,7 +48,21 @@ static inline int16  median_3_16(int16 s0, int16 s1, int16 s2)
                      : (s2 > s0 ? s2 : (s1 > s0 ? s0 : s1));
 }
 
-void inline static cp_line(int16 *in, int16 *l, uint32 w, uint32 sh)
+void inline static clear_line_32(int *in, uint32 w, uint32 sh)
+{
+    uint32 i, w1 = w + (sh<<1);
+    for(i=0; i < w1; i++) in[i] = 0;
+}
+
+void inline static cp_line_32(int16 *in, int *l, uint32 w, uint32 sh)
+{
+    uint32 i;
+    for(i=0; i < sh; i++) l[i] = in[sh-i];
+    for(i=0; i < w ; i++) l[i+sh] = in[i];
+    for(i=0; i < sh; i++) l[i+sh+w] = in[w-sh-i];
+}
+
+void inline static cp_line_16(int16 *in, int16 *l, uint32 w, uint32 sh)
 {
     uint32 i;
     for(i=0; i < sh; i++) l[i] = in[sh-i];
@@ -83,13 +97,13 @@ void filters_median(int16 *in, int16 *out, int16 *buff, const int w, const int h
     for(i=1; i < 3; i++) l[i] = &l[i-1][w2];
 
     //Prepare buffer
-    cp_line(&in[w], l[0], w, sh);
-    cp_line(&in[0], l[1], w, sh);
+    cp_line_16(&in[w], l[0], w, sh);
+    cp_line_16(&in[0], l[1], w, sh);
 
     for(y=0; y < h; y++){
         yw = y*w;
         yw1 = y < h1 ? yw + w : yw - w;
-        cp_line(&in[yw1], l[2], w, sh);
+        cp_line_16(&in[yw1], l[2], w, sh);
 
         sort_16(s[0], l[0][0], l[1][0], l[2][0]);
         sort_16(s[1], l[0][1], l[1][1], l[2][1]);
@@ -151,15 +165,15 @@ void filters_median_bayer(int16 *in, int16 *out, int16 *buff, const int w, const
     for(i=1; i < 5; i++) l[i] = &l[i-1][w2];
 
     //Prepare buffer
-    cp_line(&in[w*2], l[0], w, sh);
-    cp_line(&in[w  ], l[1], w, sh);
-    cp_line(&in[0  ], l[2], w, sh);
-    cp_line(&in[w  ], l[3], w, sh);
+    cp_line_16(&in[w*2], l[0], w, sh);
+    cp_line_16(&in[w  ], l[1], w, sh);
+    cp_line_16(&in[0  ], l[2], w, sh);
+    cp_line_16(&in[w  ], l[3], w, sh);
 
     for(y=0; y < h; y++){
         yw = y*w;
         yw1 = y < h1 ? yw + ws : yw;
-        cp_line(&in[yw1], l[4], w, sh);
+        cp_line_16(&in[yw1], l[4], w, sh);
 
         sort_16(s[0][0], l[0][0], l[2][0], l[4][0]);
         sort_16(s[0][1], l[0][2], l[2][2], l[4][2]);
@@ -244,23 +258,23 @@ void filters_NLM_denoise_bayer(int16 *in, int16 *avr, int16 *out, int16 *buff, c
 
     //Prepare first raws
     for(i=0; i < ns - 1; i++){
-        if(i < br) cp_line(&in[w*(br-i)], l[i], w, br);
-        else cp_line(&in[w*(i-br)], l[i], w, br);
+        if(i < br) cp_line_16(&in[w*(br-i)], l[i], w, br);
+        else cp_line_16(&in[w*(i-br)], l[i], w, br);
     }
 
     for(i=0; i < ns - 1; i++){
-        if(i < br) cp_line(&avr[w*(br-i)], m[i], w, br);
-        else cp_line(&avr[w*(i-br)], m[i], w, br);
+        if(i < br) cp_line_16(&avr[w*(br-i)], m[i], w, br);
+        else cp_line_16(&avr[w*(i-br)], m[i], w, br);
     }
 
     for(y = 0; y < h; y++){
         yw = y*w;
         if(y+br > h-1) {
-            cp_line(&in[w*(((h-1)<<1)-y)], l[ns-1], w, br);
-            cp_line(&avr[w*(((h-1)<<1)-y)], m[ns-1], w, br);
+            cp_line_16(&in[w*(((h-1)<<1)-y)], l[ns-1], w, br);
+            cp_line_16(&avr[w*(((h-1)<<1)-y)], m[ns-1], w, br);
         } else {
-            cp_line(&in[w*(y+br)], l[ns-1], w, br);
-            cp_line(&avr[w*(y+br)], m[ns-1], w, br);
+            cp_line_16(&in[w*(y+br)], l[ns-1], w, br);
+            cp_line_16(&avr[w*(y+br)], m[ns-1], w, br);
         }
 
         for(x = 0; x < w; x++){
@@ -364,6 +378,109 @@ void filters_hessian(int16 *in, int16 *out, uint32 *buff, const int w, const int
             //img[yx] = abs(det)>> 14;
             //printf("yx = %d img = %d\n", yx, det);
         }
+    }
+}
+
+/** \brief The mean square error (MSE) regression of plane denoise filter
+    \param in	The input 16 bits bayer image.
+    \param out	The output 16 bits bayer image.
+    \param buff	The temporary buffer.
+    \param br   The radius around the pixel.
+    \param w    The image width.
+    \param h 	The image height.
+*/
+void filters_denoise_regression_bayer(int16 *in, int16 *out, int *buff, const int br, const int w, const int h)
+{
+    int i, x, xi, y, yi, yw, yx;
+    //int hg = sg*sg;
+    //int ex[256], smi, smi1, blm, cf;
+
+    int sh, ns = (br<<1) + 1, bs = (br+1)*(br+1);
+    int w1 = w + (br<<1);
+    int xa, ya, xa2, ya2, avr, av, bw = w*br;
+    int *l[ns], *m[ns], *tm;
+    int a, b, c;
+    int64_t d;
+
+
+    for(i=1; bs>>i; i++);
+    sh = 63 - i - 16;
+    d = (1LL<<sh)/bs;
+
+    //Precalculate sum(xi**2)
+    xa2 = 0; ya2 = 0;
+    for(y=-br; y <= br ; y+=2){
+        for(x=-br; x <= br ; x+=2){
+            printf("x = %d y = %d\n", x, y);
+            xa2 += x*x;
+            ya2 += y*y;
+        }
+    }
+    printf(" xa2 = %d ya2 = %d bs = %d\n", xa2, ya2, bs);
+
+    //Rows buffer for input image
+    l[0] = buff;
+    for(i=1; i < ns; i++) l[i] = &l[i-1][w1];
+
+    //Rows buffer for averasge image
+    m[0] = &l[ns-1][w1];
+    for(i=1; i < ns; i++) m[i] = &m[i-1][w1];
+
+    //Prepare first raws
+    for(i=0; i < ns - 1; i++){
+        if(i < br) cp_line_32(&in[w*(br-i)], l[i], w, br);
+        else cp_line_32(&in[w*(i-br)], l[i], w, br);
+    }
+
+    for(i=0; i < ns - 1; i++){
+        clear_line_32(m[i], w, br);
+    }
+
+    for(y = 0; y < h; y++){
+        yw = y*w;
+        if(y+br > h-1) {
+            cp_line_32(&in[w*(((h-1)<<1)-y)], l[ns-1], w, br);
+            clear_line_32(m[ns-1], w, br);
+        } else {
+            cp_line_32(&in[w*(y+br)], l[ns-1], w, br);
+            clear_line_32(m[ns-1], w, br);
+        }
+
+        for(x = 0; x < w; x++){
+            yx = yw + x;
+            avr = 0;
+            xa = 0; ya = 0;
+
+            //Calculate plane z = ax + by + c coefficients
+            for(yi=-br; yi <= br; yi+=2){
+                for(xi=-br; xi <= br; xi+=2){
+                    av = l[yi + br][x + xi + br];
+                    avr += av;
+                    xa += av*xi;
+                    ya += av*yi;
+                    //printf("blm = %d\n", blm);
+                }
+            }
+            a = (xa<<10)/xa2; b = (ya<<10)/ya2; c = (avr<<10)/bs;
+
+            for(yi=-br; yi <= br; yi+=2){
+                for(xi=-br; xi <= br; xi+=2){
+                    m[yi + br][x + xi + br] += (a*xi + b*yi + c)>>10;
+                }
+            }
+
+
+            if(y >= br) out[yx - bw] = m[0][x+br]/bs;
+            //yx - bwif(y >= br) printf("a = %d b = %d c = %d in = %d out = %d pl = %d\n", a>>8, b>>8, c>>8, in[yx - bw], out[yx - bw], (c)>>8);
+
+            //printf("Start x = %d y = %d avr = %d in = %d out = %d blm = %d\n", xb, yb, avr[yxb], ing[yxb], out[yxb], blm);
+        }
+        tm = l[0];
+        for(i=1; i < ns; i++) l[i-1] = l[i];
+        l[ns-1] =  tm;
+        tm = m[0];
+        for(i=1; i < ns; i++) m[i-1] = m[i];
+        m[ns-1] =  tm;
     }
 }
 

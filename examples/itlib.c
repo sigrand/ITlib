@@ -327,7 +327,9 @@ int main(int argc, const char *argv[]) {
                    "  aver <x>         Averaging image with window of x radius \n"
                    "  sub              Subtract one image from another\n"
                    "  add              Add two images\n"
-                   "  denoise <x>      Non-Local means denoise algorithm, x - radios around pixels for matching\n"
+                   "  dnois_nlm <x>    Non-Local means denoise algorithm, x - radius around pixels for matching\n"
+                   "  dnois_reg <x>    The mean square error (MSE) regression of plane denoise filter\n"
+                   "                   x - radius around pixels for matching\n"
                    "  hess             Calculate the determinant of Hessian of grey image\n"
                    "\n"
                    "Output options:\n"
@@ -606,7 +608,7 @@ int main(int argc, const char *argv[]) {
                 ok = 1; goto End;
             }
             if(verb) printf("add two image\n");
-        } else if (!strcmp(argv[i], "denoise") && tr ) {
+        } else if (!strcmp(argv[i], "dnois_nlm") && tr) {
             if(fc == 3){
                 fc = 0;
                 par = strtol(argv[i+1], NULL, 0);
@@ -614,14 +616,24 @@ int main(int argc, const char *argv[]) {
                     filters_NLM_denoise_bayer(ts[n].pic[0], ts[1].pic[0], ts[n].pic[1], tmpb, par, 50, ts[n].w, ts[n].h);
                     tmp = ts[n].pic[0]; ts[n].pic[0] = ts[n].pic[1]; ts[n].pic[1] = tmp; ts[n].bpp = ts[1].bpp;
                 } else {
-                    fprintf(stderr, "Error! denois: Input image should be in bayer or grey format.\n", out_file);
+                    fprintf(stderr, "Error! dnois_nlm: Input image should be in bayer or grey format.\n", out_file);
                     ok = 1; goto End;
                 }
             } else {
-                fprintf(stderr, "Error! denois: Should be two image in input.\n", out_file);
+                fprintf(stderr, "Error! dnois_nlm: Should be two image in input.\n", out_file);
                 ok = 1; goto End;
             }
             if(verb) printf("denoise filter\n");
+        } else if (!strcmp(argv[i], "dnois_reg") && tr) {
+            par = strtol(argv[i+1], NULL, 0);
+            if(ts[n].colort == GREY || ts[n].colort == BAYER){
+                filters_denoise_regression_bayer(ts[n].pic[0], ts[n].pic[1], tmpb, par, ts[n].w, ts[n].h);
+                tmp = ts[n].pic[0]; ts[n].pic[0] = ts[n].pic[1]; ts[n].pic[1] = tmp;
+            } else {
+                fprintf(stderr, "Error! dnois_reg: Input image should be in bayer or grey format.\n", out_file);
+                ok = 1; goto End;
+            }
+            if(verb) printf("dnois_reg filter\n");
         }
     }
 
