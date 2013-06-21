@@ -331,6 +331,7 @@ int main(int argc, const char *argv[]) {
                    "  dnois_reg <x>    The mean square error (MSE) regression of plane denoise filter\n"
                    "                   x - radius around pixels for matching\n"
                    "  hess             Calculate the determinant of Hessian of grey image\n"
+                   "  mse <x>          Calculate the MSE, x - radius around pixels for matching \n"
                    "\n"
                    "Output options:\n"
                    "  -h               This help message.\n"
@@ -558,7 +559,7 @@ int main(int argc, const char *argv[]) {
         } else if (!strcmp(argv[i], "aver") && tr) {
             par = strtol(argv[i+1], NULL, 0);
             if(ts[n].colort == GREY){
-                utils_average(ts[n].pic[0], ts[n].pic[1], ts[n].pic[0], ts[1].pic[0], ts[n].pic[1], ts[n].w, ts[n].h, par);
+                utils_average(ts[n].pic[0], ts[n].pic[1], tmpb, ts[n].w, ts[n].h, par);
                 tmp = ts[n].pic[0]; ts[n].pic[0] = ts[n].pic[1]; ts[n].pic[1] = tmp;
             } else if(ts[n].colort == BAYER){
                 utils_average_bayer(ts[n].pic[0], ts[n].pic[1], tmpb, ts[n].w, ts[n].h, par);
@@ -624,6 +625,22 @@ int main(int argc, const char *argv[]) {
                 ok = 1; goto End;
             }
             if(verb) printf("denoise filter\n");
+        } else if (!strcmp(argv[i], "mse") && tr) {
+            if(fc == 3){
+                fc = 0;
+                par = strtol(argv[i+1], NULL, 0);
+                if(ts[n].colort == GREY || ts[n].colort == BAYER){
+                    filters_MSE_bayer(ts[n].pic[0], ts[1].pic[0], ts[n].pic[1], tmpb, par, ts[n].w, ts[n].h);
+                    tmp = ts[n].pic[0]; ts[n].pic[0] = ts[n].pic[1]; ts[n].pic[1] = tmp; ts[n].bpp = ts[1].bpp;
+                } else {
+                    fprintf(stderr, "Error! mse: Input image should be in bayer or grey format.\n", out_file);
+                    ok = 1; goto End;
+                }
+            } else {
+                fprintf(stderr, "Error! mse: Should be two image in input.\n", out_file);
+                ok = 1; goto End;
+            }
+            if(verb) printf("mse\n");
         } else if (!strcmp(argv[i], "dnois_reg") && tr) {
             par = strtol(argv[i+1], NULL, 0);
             if(ts[n].colort == GREY || ts[n].colort == BAYER){
@@ -633,7 +650,7 @@ int main(int argc, const char *argv[]) {
                 fprintf(stderr, "Error! dnois_reg: Input image should be in bayer or grey format.\n", out_file);
                 ok = 1; goto End;
             }
-            if(verb) printf("dnois_reg filter\n");
+            if(verb) printf("denoise  filter\n");
         }
     }
 

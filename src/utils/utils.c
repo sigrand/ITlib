@@ -583,8 +583,8 @@ void utils_average(int16 *in, int16 *out, uint32 *buff, const int w, const int h
 */
 void utils_average_bayer(int16 *in, int16 *out, uint32 *buff, const int w, const int h, const int br)
 {
-    int i,x, y, yw, yw1, yx, yx1, br2 = (br+1)<<1;
-    int w1 = w + (br2<<1), h1 = h + (br2<<1), bs = ((br<<1)+1)*((br<<1)+1), br4 = (br<<2) + 2;
+    int i,x, y, yw, yw1, yx, yx1, br2 = (br+2);
+    int w1 = w + (br2<<1), h1 = h + (br2<<1), bs = (br+1)*(br+1), br4 = (br<<1) + 2;
     uint32 *ing, sh;
     int64_t b;
 
@@ -601,7 +601,7 @@ void utils_average_bayer(int16 *in, int16 *out, uint32 *buff, const int w, const
     }
 
     //printf("start utils_integral_bayer\n");
-    utils_integral_bayer(in, ing, buff, w, h, br+1);
+    utils_integral_bayer(in, ing, buff, w, h, br2);
 
     for(y=0; y < h; y++){
         yw = y*w;

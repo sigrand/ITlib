@@ -232,15 +232,15 @@ void filters_NLM_denoise_bayer(int16 *in, int16 *avr, int16 *out, int16 *buff, c
     int hg = sg*sg;
     int ex[256], smi, smi1, blm, cf;
 
-    int sh, ns = (br<<1) + 1, bs = ((br>>1)+1)*((br>>1)+1);
+    int sh, ns = (br<<1) + 1; //, bs = (br+1)*((br>>1)+1);
     int w1 = w + (br<<1);
     int16 *l[ns], *m[ns], *tm;
     int64_t b;
 
     //Finding b coefficient to change / to *
-    for(i=1; bs>>i; i++);
-    sh = 63 - i - 16;
-    b = (1LL<<sh)/bs;
+    //for(i=1; bs>>i; i++);
+    //sh = 63 - i - 16;
+    //b = (1LL<<sh)/bs;
 
     //Make lut table to remove exp
     for(i=0; i < 256; i++){
@@ -472,6 +472,84 @@ void filters_denoise_regression_bayer(int16 *in, int16 *out, int *buff, const in
 
             if(y >= br) out[yx - bw] = m[0][x+br]/bs;
             //yx - bwif(y >= br) printf("a = %d b = %d c = %d in = %d out = %d pl = %d\n", a>>8, b>>8, c>>8, in[yx - bw], out[yx - bw], (c)>>8);
+
+            //printf("Start x = %d y = %d avr = %d in = %d out = %d blm = %d\n", xb, yb, avr[yxb], ing[yxb], out[yxb], blm);
+        }
+        tm = l[0];
+        for(i=1; i < ns; i++) l[i-1] = l[i];
+        l[ns-1] =  tm;
+        tm = m[0];
+        for(i=1; i < ns; i++) m[i-1] = m[i];
+        m[ns-1] =  tm;
+    }
+}
+
+
+/** \brief The simple MSE calculation in each pixel with radius br.
+    \param in	The input 16 bits bayer image.
+    \param avr	The input 16 bits average image.
+    \param out	The output 16 bits bayer image.
+    \param buff	The temporary buffer.
+    \param br   The radius around the pixel.
+    \param w    The image width.
+    \param h 	The image height.
+*/
+void filters_MSE_bayer(int16 *in, int16 *avr, int16 *out, int16 *buff, const int br, const int w, const int h)
+{
+    int i, x, xi, y, yi, yw, yx;
+    int  blm;
+
+    int sh, ns = (br<<1) + 1, bs = (br+1)*(br+1);
+    int w1 = w + (br<<1);
+    int16 *l[ns], *m[ns], *tm;
+    int64_t b;
+
+    //Finding b coefficient to change / to *
+    for(i=1; bs>>i; i++);
+    sh = 63 - i - 16;
+    //b = (1LL<<sh)/bs;
+    b = (1LL<<sh);
+
+    //Rows buffer for input image
+    l[0] = buff;
+    for(i=1; i < ns; i++) l[i] = &l[i-1][w1];
+
+    //Rows buffer for averasge image
+    m[0] = &l[ns-1][w1];
+    for(i=1; i < ns; i++) m[i] = &m[i-1][w1];
+
+    //Prepare first raws
+    for(i=0; i < ns - 1; i++){
+        if(i < br) cp_line_16(&in[w*(br-i)], l[i], w, br);
+        else cp_line_16(&in[w*(i-br)], l[i], w, br);
+    }
+
+    for(i=0; i < ns - 1; i++){
+        if(i < br) cp_line_16(&avr[w*(br-i)], m[i], w, br);
+        else cp_line_16(&avr[w*(i-br)], m[i], w, br);
+    }
+
+    for(y = 0; y < h; y++){
+        yw = y*w;
+        if(y+br > h-1) {
+            cp_line_16(&in[w*(((h-1)<<1)-y)], l[ns-1], w, br);
+            cp_line_16(&avr[w*(((h-1)<<1)-y)], m[ns-1], w, br);
+        } else {
+            cp_line_16(&in[w*(y+br)], l[ns-1], w, br);
+            cp_line_16(&avr[w*(y+br)], m[ns-1], w, br);
+        }
+
+        for(x = 0; x < w; x++){
+            yx = yw + x;
+            blm = 0;
+            for(yi=0; yi < ns; yi+=2){
+                for(xi=x; xi <= x+ns; xi+=2){
+                    blm  += abs(m[yi][xi] - m[br][xi]);
+                    //printf("blm = %d\n", blm);
+                }
+            }
+            //tm = l[0]; l[0] = l[1]; l[1] = l[2]; l[2] = tm;
+            out[yx] = blm*b>>sh;
 
             //printf("Start x = %d y = %d avr = %d in = %d out = %d blm = %d\n", xb, yb, avr[yxb], ing[yxb], out[yxb], blm);
         }
