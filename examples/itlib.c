@@ -490,10 +490,10 @@ int main(int argc, const char *argv[]) {
         } else if (!strcmp(argv[i], "wb") && tr) {
             //White balancing.........................................................................
             if(ts[n].colort == BAYER ){
-                utils_wb_bayer(ts[n].pic[0], ts[n].pic[1], tmpb, ts[n].w, ts[n].h, ts[n].bpp, ts[n].bg);
+                utils_wb_bayer(ts[n].pic[0], ts[n].pic[1], (int16*)tmpb, ts[n].w, ts[n].h, ts[n].bpp, ts[n].bg);
                 tmp = ts[n].pic[0]; ts[n].pic[0] = ts[n].pic[1]; ts[n].pic[1] = tmp;
             } else if (ts[n].colort == RGB){
-                utils_wb(ts[n].pic[0], ts[n].pic[1], tmpb, ts[n].w, ts[n].h, ts[n].bpp, ts[n].bg);
+                utils_wb_rgb(ts[n].pic[0], ts[n].pic[1], (int16*)tmpb, ts[n].w, ts[n].h, ts[n].bpp);
                 tmp = ts[n].pic[0]; ts[n].pic[0] = ts[n].pic[1]; ts[n].pic[1] = tmp;
             } else {
                 fprintf(stderr, "Error! wb: Input image should be in bayer or rgb format.\n", out_file);
@@ -503,7 +503,7 @@ int main(int argc, const char *argv[]) {
 
         } else if (!strcmp(argv[i], "bay_rgb") && tr) {
             if(ts[n].colort == BAYER){
-                utils_bay_to_rgb_bi(ts[n].pic[0], ts[n].pic[1], tmpb, ts[n].w, ts[n].h, ts[n].bg);
+                utils_bay_to_rgb_bi(ts[n].pic[0], ts[n].pic[1], (int16*)tmpb, ts[n].w, ts[n].h, ts[n].bg);
                 tmp = ts[n].pic[0]; ts[n].pic[0] = ts[n].pic[1]; ts[n].pic[1] = tmp; ts[n].colort = RGB;
             } else {
                 fprintf(stderr, "Error! bay_to_rgb_bi: Input image should be in bayer format .\n", out_file);
@@ -513,7 +513,7 @@ int main(int argc, const char *argv[]) {
 
         }  else if (!strcmp(argv[i], "bay_grey") && tr) {
             if(ts[n].colort == BAYER){
-                utils_bay_to_grey_bi(ts[n].pic[0], ts[n].pic[1], tmpb, ts[n].w, ts[n].h, ts[n].bg);
+                utils_bay_to_grey_bi(ts[n].pic[0], ts[n].pic[1], (int16*)tmpb, ts[n].w, ts[n].h, ts[n].bg);
                 tmp = ts[n].pic[0]; ts[n].pic[0] = ts[n].pic[1]; ts[n].pic[1] = tmp; ts[n].colort = GREY;
             } else {
                 fprintf(stderr, "Error! bay_to_grey_bi: Input image should be in bayer format.\n", out_file);
@@ -525,10 +525,10 @@ int main(int argc, const char *argv[]) {
             par = strtol(argv[i+1], NULL, 0);
 
             if(ts[n].colort == BAYER){
-                filters_median_bayer(ts[n].pic[0], ts[n].pic[1], tmpb, ts[n].w, ts[n].h, par);
+                filters_median_bayer(ts[n].pic[0], ts[n].pic[1], (int16*)tmpb, ts[n].w, ts[n].h, par);
                 tmp = ts[n].pic[0]; ts[n].pic[0] = ts[n].pic[1]; ts[n].pic[1] = tmp;
             } else if(ts[n].colort == GREY){
-                filters_median(ts[n].pic[0], ts[n].pic[1], tmpb, ts[n].w, ts[n].h, par);
+                filters_median(ts[n].pic[0], ts[n].pic[1], (int16*)tmpb, ts[n].w, ts[n].h, par);
                 tmp = ts[n].pic[0]; ts[n].pic[0] = ts[n].pic[1]; ts[n].pic[1] = tmp;
             } else {
                 fprintf(stderr, "Error! median: Input image should be in bayer format.\n", out_file);
@@ -540,7 +540,7 @@ int main(int argc, const char *argv[]) {
             if(!par) par = 8;
             //printf("par = %d\n", par);
             if(ts[n].colort == BAYER || ts[n].colort == GREY){
-                hdr_ace(ts[n].pic[0], ts[n].pic[1], tmpb, ts[n].w, ts[n].h, ts[n].bpp, par);
+                hdr_ace(ts[n].pic[0], ts[n].pic[1], (int*)tmpb, ts[n].w, ts[n].h, ts[n].bpp, par);
                 tmp = ts[n].pic[0]; ts[n].pic[0] = ts[n].pic[1]; ts[n].pic[1] = tmp; ts[n].bpp = par;
             } else {
                 fprintf(stderr, "Error! ace: Input image should be in bayer or grey.\n", out_file);
@@ -549,7 +549,7 @@ int main(int argc, const char *argv[]) {
             if(verb) printf("ace filter\n");
         } else if (!strcmp(argv[i], "ace_local") && tr) {
             if(ts[n].colort == BAYER || ts[n].colort == GREY){
-                hdr_ace_local(ts[n].pic[0], ts[n].pic[1], tmpb, ts[n].w, ts[n].h, ts[n].bpp);
+                hdr_ace_local(ts[n].pic[0], ts[n].pic[1], (int16*)tmpb, ts[n].w, ts[n].h, ts[n].bpp);
                 tmp = ts[n].pic[0]; ts[n].pic[0] = ts[n].pic[1]; ts[n].pic[1] = tmp; ts[n].bpp = 8;
             } else {
                 fprintf(stderr, "Error! ace_local: Input image should be in bayer or grey format.\n", out_file);
@@ -559,10 +559,10 @@ int main(int argc, const char *argv[]) {
         } else if (!strcmp(argv[i], "aver") && tr) {
             par = strtol(argv[i+1], NULL, 0);
             if(ts[n].colort == GREY){
-                utils_average(ts[n].pic[0], ts[n].pic[1], tmpb, ts[n].w, ts[n].h, par);
+                utils_average(ts[n].pic[0], ts[n].pic[1], (uint32*)tmpb, ts[n].w, ts[n].h, par);
                 tmp = ts[n].pic[0]; ts[n].pic[0] = ts[n].pic[1]; ts[n].pic[1] = tmp;
             } else if(ts[n].colort == BAYER){
-                utils_average_bayer(ts[n].pic[0], ts[n].pic[1], tmpb, ts[n].w, ts[n].h, par);
+                utils_average_bayer(ts[n].pic[0], ts[n].pic[1], (uint32*)tmpb, ts[n].w, ts[n].h, par);
                 tmp = ts[n].pic[0]; ts[n].pic[0] = ts[n].pic[1]; ts[n].pic[1] = tmp;
             } else {
                 fprintf(stderr, "Error! average: Input image should be in bayer or grey format.\n", out_file);
@@ -571,7 +571,7 @@ int main(int argc, const char *argv[]) {
             if(verb) printf("average filter\n");
         }  else if (!strcmp(argv[i], "hess") && tr) {
             if(ts[n].colort == GREY || ts[n].colort == BAYER){
-                filters_hessian(ts[n].pic[0], ts[n].pic[1], tmpb, ts[n].w, ts[n].h);
+                filters_hessian(ts[n].pic[0], ts[n].pic[1], (uint32*)tmpb, ts[n].w, ts[n].h);
                 tmp = ts[n].pic[0]; ts[n].pic[0] = ts[n].pic[1]; ts[n].pic[1] = tmp;
             } else {
                 fprintf(stderr, "Error! hess: Input image should be in bayer or grey format.\n", out_file);
@@ -614,7 +614,7 @@ int main(int argc, const char *argv[]) {
                 fc = 0;
                 par = strtol(argv[i+1], NULL, 0);
                 if(ts[n].colort == GREY || ts[n].colort == BAYER){
-                    filters_NLM_denoise_bayer(ts[n].pic[0], ts[1].pic[0], ts[n].pic[1], tmpb, par, 50, ts[n].w, ts[n].h);
+                    filters_NLM_denoise_bayer(ts[n].pic[0], ts[1].pic[0], ts[n].pic[1], (int16*)tmpb, par, 50, ts[n].w, ts[n].h);
                     tmp = ts[n].pic[0]; ts[n].pic[0] = ts[n].pic[1]; ts[n].pic[1] = tmp; ts[n].bpp = ts[1].bpp;
                 } else {
                     fprintf(stderr, "Error! dnois_nlm: Input image should be in bayer or grey format.\n", out_file);
@@ -630,7 +630,7 @@ int main(int argc, const char *argv[]) {
                 fc = 0;
                 par = strtol(argv[i+1], NULL, 0);
                 if(ts[n].colort == GREY || ts[n].colort == BAYER){
-                    filters_MSE_bayer(ts[n].pic[0], ts[1].pic[0], ts[n].pic[1], tmpb, par, ts[n].w, ts[n].h);
+                    filters_MSE_bayer(ts[n].pic[0], ts[1].pic[0], ts[n].pic[1], (int16*)tmpb, par, ts[n].bpp, ts[n].w, ts[n].h);
                     tmp = ts[n].pic[0]; ts[n].pic[0] = ts[n].pic[1]; ts[n].pic[1] = tmp; ts[n].bpp = ts[1].bpp;
                 } else {
                     fprintf(stderr, "Error! mse: Input image should be in bayer or grey format.\n", out_file);
@@ -644,7 +644,7 @@ int main(int argc, const char *argv[]) {
         } else if (!strcmp(argv[i], "dnois_reg") && tr) {
             par = strtol(argv[i+1], NULL, 0);
             if(ts[n].colort == GREY || ts[n].colort == BAYER){
-                filters_denoise_regression_bayer(ts[n].pic[0], ts[n].pic[1], tmpb, par, ts[n].w, ts[n].h);
+                filters_denoise_regression_bayer(ts[n].pic[0], ts[n].pic[1], (int*)tmpb, par, ts[n].w, ts[n].h);
                 tmp = ts[n].pic[0]; ts[n].pic[0] = ts[n].pic[1]; ts[n].pic[1] = tmp;
             } else {
                 fprintf(stderr, "Error! dnois_reg: Input image should be in bayer or grey format.\n", out_file);

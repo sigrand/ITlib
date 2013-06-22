@@ -2,7 +2,10 @@
 #define ITLIB_H_
 
 #include "../libit/types.h"
-
+#include "../filters/filters.h"
+#include "../utils/utils.h"
+#include "../hdr/hdr.h"
+#include "../transforms/transforms.h"
 /**
     \brief The states of image transform
  */

@@ -491,13 +491,14 @@ void filters_denoise_regression_bayer(int16 *in, int16 *out, int *buff, const in
     \param out	The output 16 bits bayer image.
     \param buff	The temporary buffer.
     \param br   The radius around the pixel.
+    \param bpp  The bits per pixel.
     \param w    The image width.
     \param h 	The image height.
 */
-void filters_MSE_bayer(int16 *in, int16 *avr, int16 *out, int16 *buff, const int br, const int w, const int h)
+void filters_MSE_bayer(int16 *in, int16 *avr, int16 *out, int16 *buff, const int br, const int bpp, const int w, const int h)
 {
     int i, x, xi, y, yi, yw, yx;
-    int  blm;
+    int  blm, tmp, max = (1<<bpp) - 1;
 
     int sh, ns = (br<<1) + 1, bs = (br+1)*(br+1);
     int w1 = w + (br<<1);
@@ -507,8 +508,8 @@ void filters_MSE_bayer(int16 *in, int16 *avr, int16 *out, int16 *buff, const int
     //Finding b coefficient to change / to *
     for(i=1; bs>>i; i++);
     sh = 63 - i - 16;
-    //b = (1LL<<sh)/bs;
-    b = (1LL<<sh);
+    b = (1LL<<sh)/bs;
+    //b = (1LL<<sh);
 
     //Rows buffer for input image
     l[0] = buff;
@@ -532,8 +533,8 @@ void filters_MSE_bayer(int16 *in, int16 *avr, int16 *out, int16 *buff, const int
     for(y = 0; y < h; y++){
         yw = y*w;
         if(y+br > h-1) {
-            cp_line_16(&in[w*(((h-1)<<1)-y)], l[ns-1], w, br);
-            cp_line_16(&avr[w*(((h-1)<<1)-y)], m[ns-1], w, br);
+            cp_line_16(&in[w*(((h-1)<<1)-(y+br))], l[ns-1], w, br);
+            cp_line_16(&avr[w*(((h-1)<<1)-(y+br))], m[ns-1], w, br);
         } else {
             cp_line_16(&in[w*(y+br)], l[ns-1], w, br);
             cp_line_16(&avr[w*(y+br)], m[ns-1], w, br);
@@ -549,7 +550,10 @@ void filters_MSE_bayer(int16 *in, int16 *avr, int16 *out, int16 *buff, const int
                 }
             }
             //tm = l[0]; l[0] = l[1]; l[1] = l[2]; l[2] = tm;
-            out[yx] = blm*b>>sh;
+            tmp = blm<<6;
+            out[yx] = tmp > max ? max : tmp;
+            //printf("mean = %d\n", out[yx]);
+            //out[yx] = blm*b>>sh;
 
             //printf("Start x = %d y = %d avr = %d in = %d out = %d blm = %d\n", xb, yb, avr[yxb], ing[yxb], out[yxb], blm);
         }

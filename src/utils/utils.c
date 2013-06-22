@@ -464,7 +464,7 @@ void utils_integral(int16 *in, uint32 *ing, uint32 *buff, const int w, const int
 */
 void utils_integral_bayer(int16 *in, uint32 *ing, uint32 *buff, const int w, const int h, const int br)
 {
-    uint32 x, y=0, yw, yx, br2 = br<<1, w1 = w + (br2<<1), h1 = h + (br2<<1), h2 = h + br2 - 1;
+    uint32 x, y=0, yw, yx, br2 = br, w1 = w + (br2<<1), h1 = h + (br2<<1), h2 = h + br2 - 1;
     uint32 *l[3], *tm; //Three lines buffer
 
     l[0] = buff; l[1] = &l[0][w1]; l[2] = &l[1][w1];
