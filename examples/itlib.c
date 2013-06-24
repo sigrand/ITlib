@@ -437,7 +437,7 @@ int main(int argc, const char *argv[]) {
             } else if(!strcmp(&out_file[strlen(out_file)-4],".png") || !strcmp(&out_file[strlen(out_file)-4],".PNG")){
 
                 if(ts[n].colort == GREY || ts[n].colort == BAYER){
-                    utils_16_to_8(ts[n].pic[0], ts[n].pic[1], ts[n].w, ts[n].h, ts[n].bpp, 1);
+                    utils_16_to_8(ts[n].pic[0], ts[n].pic[1], ts[n].w, ts[n].h, ts[n].bpp, 0);
                     tmp = ts[n].pic[0]; ts[n].pic[0] = ts[n].pic[1]; ts[n].pic[1] = tmp; ts[n].bpp = 8;
 
                     ok = writePNG(OUT_FILE, ts[n].pic[0], ts[n].w, ts[n].h, ts[n].bpp, GREY);

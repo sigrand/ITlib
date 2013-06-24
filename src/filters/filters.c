@@ -501,7 +501,7 @@ void filters_MSE_bayer(int16 *in, int16 *avr, int16 *out, int16 *buff, const int
     int  blm, tmp, max = (1<<bpp) - 1;
 
     int sh, ns = (br<<1) + 1, bs = (br+1)*(br+1);
-    int w1 = w + (br<<1);
+    int w1 = w + (br<<1), s[4];
     int16 *l[ns], *m[ns], *tm;
     int64_t b;
 
@@ -543,14 +543,30 @@ void filters_MSE_bayer(int16 *in, int16 *avr, int16 *out, int16 *buff, const int
         for(x = 0; x < w; x++){
             yx = yw + x;
             blm = 0;
+            s[0] = 0; s[1] = 0; s[2] = 0; s[3] = 0;
+
+            if(l[br][x+br] > 1000) printf("m = %d l = %d\n", m[br][x+br], l[br][x+br]);
             for(yi=0; yi < ns; yi+=2){
                 for(xi=x; xi <= x+ns; xi+=2){
-                    blm  += abs(m[yi][xi] - m[br][xi]);
-                    //printf("blm = %d\n", blm);
+                    if(yi == br) {
+                        s[0] += abs(l[yi][xi] - l[br][x+br]);
+                    } else if (xi-x == yi){
+                        s[1] += abs(l[yi][xi] - l[br][x+br]);
+                    } else if (xi == x+br){
+                        s[2] += abs(l[yi][xi] - l[br][x+br]);
+                    } else if (xi-x == yi-ns){
+                        s[3] += abs(l[yi][xi] - l[br][x+br]);
+                    }
+
+                    blm  += abs(l[yi][xi] - l[br][x+br]);
+                    if(l[br][x+br] > 1000) printf("%6d ", l[yi][xi] - l[br][x+br]);
                 }
+                if(l[br][x+br] > 1000) printf("\n");
             }
+            if(l[br][x+br] > 1000) printf("blm = %d per = %d\n", blm*b>>sh, (blm*b>>sh)*100/l[br][x+br]);
+            if(l[br][x+br] > 1000) printf("s0 = %d s1 = %d s2 = %d s3 = %d\n", s[0], s[1], s[2], s[3]);
             //tm = l[0]; l[0] = l[1]; l[1] = l[2]; l[2] = tm;
-            tmp = blm<<6;
+            tmp = blm*b>>sh;
             out[yx] = tmp > max ? max : tmp;
             //printf("mean = %d\n", out[yx]);
             //out[yx] = blm*b>>sh;

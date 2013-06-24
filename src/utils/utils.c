@@ -50,7 +50,7 @@ void utils_get_stat(int16 *in, const int w, const int h, int *bpp, int *min, int
 */
 uint8* utils_16_to_8(const int16 *in, uint8 *out, const int w, const int h,  int bpp, const int par)
 {
-    int i, j, size, sh;
+    int i, j, size, sh, tmp;
 
     if(bpp < 8) bpp = 8;
 
@@ -64,7 +64,10 @@ uint8* utils_16_to_8(const int16 *in, uint8 *out, const int w, const int h,  int
         size = w*h*3; sh = bpp - 8;
     }
 
-    for(i = 0; i < size; i++) out[i] = in[i] >> sh;
+    for(i = 0; i < size; i++) {
+        tmp = in[i] >> sh;
+        out[i] = tmp > 255 ? 255 : tmp;
+    }
 
     return out;
 }
@@ -617,7 +620,6 @@ void utils_average_bayer(int16 *in, int16 *out, uint32 *buff, const int w, const
             //out[yx] = (ing[yx1 + br + br*w1] + ing[yx1 - br2 - br2*w1] - ing[yx1 + br - br2*w1] - ing[yx1 + br*w1 - br2])/bs;
         }
     }
-
     if(ing) free(ing);
 }
 
