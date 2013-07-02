@@ -469,7 +469,6 @@ void filters_denoise_regression_bayer(int16 *in, int16 *out, int *buff, const in
                 }
             }
 
-
             if(y >= br) out[yx - bw] = m[0][x+br]/bs;
             //yx - bwif(y >= br) printf("a = %d b = %d c = %d in = %d out = %d pl = %d\n", a>>8, b>>8, c>>8, in[yx - bw], out[yx - bw], (c)>>8);
 
@@ -498,10 +497,11 @@ void filters_denoise_regression_bayer(int16 *in, int16 *out, int *buff, const in
 void filters_MSE_bayer(int16 *in, int16 *avr, int16 *out, int16 *buff, const int br, const int bpp, const int w, const int h)
 {
     int i, x, xi, y, yi, yw, yx;
-    int  blm, tmp, max = (1<<bpp) - 1;
+    int  blm, tmp;
 
     int sh, ns = (br<<1) + 1, bs = (br+1)*(br+1);
-    int w1 = w + (br<<1), s[4];
+    int w1 = w + (br<<1), s[4], v[4], per = 0;
+    int min, min1, min2;
     int16 *l[ns], *m[ns], *tm;
     int64_t b;
 
@@ -515,7 +515,7 @@ void filters_MSE_bayer(int16 *in, int16 *avr, int16 *out, int16 *buff, const int
     l[0] = buff;
     for(i=1; i < ns; i++) l[i] = &l[i-1][w1];
 
-    //Rows buffer for averasge image
+    //Rows buffer for average image
     m[0] = &l[ns-1][w1];
     for(i=1; i < ns; i++) m[i] = &m[i-1][w1];
 
@@ -544,30 +544,65 @@ void filters_MSE_bayer(int16 *in, int16 *avr, int16 *out, int16 *buff, const int
             yx = yw + x;
             blm = 0;
             s[0] = 0; s[1] = 0; s[2] = 0; s[3] = 0;
+            v[0] = 0; v[1] = 0; v[2] = 0; v[3] = 0;
 
-            if(l[br][x+br] > 1000) printf("m = %d l = %d\n", m[br][x+br], l[br][x+br]);
+            //if(l[br][x+br] > 100) printf("m = %d l = %d\n", m[br][x+br], l[br][x+br]);
             for(yi=0; yi < ns; yi+=2){
                 for(xi=x; xi <= x+ns; xi+=2){
                     if(yi == br) {
                         s[0] += abs(l[yi][xi] - l[br][x+br]);
+                        v[0] += l[yi][xi];
                     } else if (xi-x == yi){
                         s[1] += abs(l[yi][xi] - l[br][x+br]);
+                        v[1] += l[yi][xi];
                     } else if (xi == x+br){
                         s[2] += abs(l[yi][xi] - l[br][x+br]);
-                    } else if (xi-x == yi-ns){
+                        v[2] += l[yi][xi];
+                    } else if (ns-xi+x-1 == yi){
                         s[3] += abs(l[yi][xi] - l[br][x+br]);
+                        v[3] += l[yi][xi];
                     }
 
                     blm  += abs(l[yi][xi] - l[br][x+br]);
-                    if(l[br][x+br] > 1000) printf("%6d ", l[yi][xi] - l[br][x+br]);
+                    //blm  += l[yi][xi];
+                    //if(l[br][x+br] > 100) printf("%6d ", l[yi][xi]);
                 }
-                if(l[br][x+br] > 1000) printf("\n");
+                //if(l[br][x+br] > 100) printf("\n");
             }
-            if(l[br][x+br] > 1000) printf("blm = %d per = %d\n", blm*b>>sh, (blm*b>>sh)*100/l[br][x+br]);
-            if(l[br][x+br] > 1000) printf("s0 = %d s1 = %d s2 = %d s3 = %d\n", s[0], s[1], s[2], s[3]);
+            v[0] = v[0] - l[br][x+br];
+
+            if(l[br][x+br]) {
+                tmp = ((s[0]+s[1]+s[2]+s[3])>>4)*100/l[br][x+br];
+                //printf("tmp = %d\n", tmp);
+                if(tmp > per){
+
+                    min1 = (s[0] > s[1]) ? 1 : 0;
+                    min2 = (s[2] > s[3]) ? 3 : 2;
+                    min = (s[min2] > s[min1]) ? min1 : min2;
+                    out[yx] = (v[min] + l[br][x+br])/(br+1);
+                } else {
+                    out[yx] = blm/bs;
+                }
+            } else {
+                out[yx] = blm/bs;
+            }
+            /*
+            if(l[br][x+br]){
+                out[yx] = blm/bs;
+            } else {
+                out[yx] = 0;
+            }
+            */
+            //printf("mse = %d val = %d per = %d \n", blm/bs, l[br][x+br], blm*100/(bs*l[br][x+br]));
+
+            //if(l[br][x+br] > 100) printf("blm = %d per = %d out = %d max = %d s = %d v = %d bs+1 = %d\n",
+            //                             blm*b>>sh, (blm*b>>sh)*100/l[br][x+br], out[yx], min, s[min], v[min], br+1);
+            //if(l[br][x+br] > 100) printf("s0 = %d s1 = %d s2 = %d s3 = %d\n", s[0], s[1], s[2], s[3]);
+            //if(l[br][x+br] > 100) printf("s0 = %d s1 = %d s2 = %d s3 = %d\n", v[0], v[1], v[2], v[3]);
+
             //tm = l[0]; l[0] = l[1]; l[1] = l[2]; l[2] = tm;
-            tmp = blm*b>>sh;
-            out[yx] = tmp > max ? max : tmp;
+            //tmp = blm*b>>sh;
+            //out[yx] = tmp > max ? max : tmp;
             //printf("mean = %d\n", out[yx]);
             //out[yx] = blm*b>>sh;
 
@@ -582,3 +617,130 @@ void filters_MSE_bayer(int16 *in, int16 *avr, int16 *out, int16 *buff, const int
     }
 }
 
+
+
+/** \brief Culculate basis fuction for bicubic B-spline.
+    \param n3	The output basis vector.
+    \param t	The t parametr from 1 to 2.
+*/
+static void get_basis(int *n, const float t)
+{
+    float  t1, t2, t3, t4, t5, t6;
+
+    t1 = 1.-t;
+    t2 = 2.-t;
+    t3 = 3.-t;
+    t4 = 4.-t;
+    t5 = 5.-t;
+    t6 = 6.-t;
+
+    n[0] = t4*t4*t4;
+    n[1] = -t1*t4*t4 - t2*t4*t5 - t3*t5*t5;
+    n[2] = t2*t2*t4 + t2*t3*t5 + t3*t3*t6;
+    n[3] = -t3*t3*t3;
+
+    printf("get_basis: n0 = %d n1 = %d n2 = %d n3 = %d\n", n[0], n[1], n[2], n[3]);
+}
+
+/** \brief Interpolation points in the central square
+    \param p0	The 1 row of pixels.
+    \param p1	The 2 row of pixels.
+    \param p2	The 3 row of pixels.
+    \param p3	The 4 row of pixels.
+    \param nx   Basis vector for x direction.
+    \param ny   Basis vector for y direction.
+    \retval     The interpolation point.
+*/
+static inline int16 b_spline_4x4(const int16 *p0, const int16 *p1, const int16 *p2, const int16 *p3, const int *nx, const int *ny)
+{
+    // p0[0]----p0[1]----p0[2]----p0[3]
+    //  |        |        |        |
+    //  |        |        |        |
+    // p1[0]----p1[1]----p1[2]----p1[3]
+    //  |        |  x     |        |
+    //  |        |     x  |        |
+    // p2[0]----p2[1]----p2[2]----p2[3]
+    //  |        |        |        |
+    //  |        |        |        |
+    // p3[0]----p3[1]----p3[2]----p3[3]
+
+    int tm[4], tmp;
+
+    tm[0] = p0[0]*ny[0] + p0[2]*ny[1] + p0[4]*ny[2] + p0[6]*ny[3];
+    tm[1] = p1[0]*ny[0] + p1[2]*ny[1] + p1[4]*ny[2] + p1[6]*ny[3];
+    tm[2] = p2[0]*ny[0] + p2[2]*ny[1] + p2[4]*ny[2] + p2[6]*ny[3];
+    tm[3] = p3[0]*ny[0] + p3[2]*ny[1] + p3[4]*ny[2] + p3[6]*ny[3];
+
+    //printf("p00 = %d p01 = %d p02 = %d p03 = %d\n", p0[0], p0[2], p0[4], p0[6]);
+    //printf("p10 = %d p11 = %d p12 = %d p13 = %d\n", p1[0], p1[2], p1[4], p1[6]);
+    //printf("p20 = %d p21 = %d p22 = %d p23 = %d\n", p2[0], p2[2], p2[4], p2[6]);
+    //printf("p30 = %d p31 = %d p32 = %d p33 = %d\n", p3[0], p3[2], p3[4], p3[6]);
+
+    //tmp = tm[0]*ny[3] + tm[1]*ny[2] + tm[2]*ny[1] + tm[3]*ny[0];
+    tmp = tm[0]*nx[0] + tm[1]*nx[1] + tm[2]*nx[2] + tm[3]*nx[3];
+
+    //printf("tm0 = %d tm1 = %d tm2 = %d tm3 = %d\n", tm[0], tm[1], tm[2], tm[3]);
+    //printf("ny0 = %d ny1 = %d ny2 = %d ny3 = %d\n", ny[0], ny[1], ny[2], ny[3]);
+    //printf("tmp = %d\n", tmp);
+
+    return tmp/36;
+}
+
+/** \brief Bicubic B-spline interpolation of 4x4 pixels patch.
+    \param in	The input 16 bits.
+    \param out	The output 16 bits interpolated image.
+    \param buff	The temporary buffer.
+    \param w    The image width.
+    \param h 	The image height.
+*/
+void  b_spline_aproximation(int16 *in, int16 *out, int16 *buff, const int w, const int h)
+{
+    int i, x, y, yw, yx;
+
+    int br = 2, br2 = br<<1, ns = 7, w1 = w + (br2<<1);
+    int n1[4], n2[4];
+    int16 *l[ns], *tm;
+
+    //Prepare two basis vectors
+    //for x = 1 and x = 2
+    //get_basis(n1, 1.);
+    //get_basis(n2, 2.);
+    get_basis(n1, 3.);
+    get_basis(n2, 4.);
+
+    //Rows buffer for input image
+    l[0] = buff;
+    for(i=1; i < ns; i++) l[i] = &l[i-1][w1];
+
+    //Prepare first raws
+    for(i=0; i < ns - 1; i++){
+        if(i < br) cp_line_16(&in[w*(br-i)], l[i], w, br2);
+        else cp_line_16(&in[w*(i-br)], l[i], w, br2);
+    }
+
+    //for(y = 0; y < 3; y++){
+    for(y = 0; y < h; y++){
+        yw = y*w;
+        if(y+br > h-1) {
+            cp_line_16(&in[w*(((h-1)<<1)-(y+br))], l[ns-1], w, br2);
+        } else {
+            cp_line_16(&in[w*(y+2)], l[ns-1], w, br2);
+        }
+        //for(x = 0; x < 3; x++){
+        for(x = 0; x < w; x++){
+            yx = yw + x;
+
+            out[yx] = b_spline_4x4(&l[0][x + br], &l[2][x + br], &l[4][x + br], &l[6][x + br], n1, n1);
+            //tmp = b_spline_4x4(&l[0][x + br], &l[2][x + br], &l[4][x + br], &l[6][x + br], n2, n2);
+            //printf("x = %d y = %d in = %d 11 = %d 12 = %d 21 = %d 22 = %d\n", x, y, in[yx], out[yx],
+            //       b_spline_4x4(&l[0][x + br], &l[2][x + br], &l[4][x + br], &l[6][x + br], n1, n2),
+            //        b_spline_4x4(&l[0][x + br], &l[2][x + br], &l[4][x + br], &l[6][x + br], n2, n1),
+            //        b_spline_4x4(&l[0][x + br], &l[2][x + br], &l[4][x + br], &l[6][x + br], n2, n2));
+            //
+
+        }
+        tm = l[0];
+        for(i=1; i < ns; i++) l[i-1] = l[i];
+        l[ns-1] =  tm;
+    }
+}

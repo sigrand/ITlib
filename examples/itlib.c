@@ -332,6 +332,7 @@ int main(int argc, const char *argv[]) {
                    "                   x - radius around pixels for matching\n"
                    "  hess             Calculate the determinant of Hessian of grey image\n"
                    "  mse <x>          Calculate the MSE, x - radius around pixels for matching \n"
+                   "  spline           Bicubic B-spline aproximation \n"
                    "\n"
                    "Output options:\n"
                    "  -h               This help message.\n"
@@ -651,6 +652,16 @@ int main(int argc, const char *argv[]) {
                 ok = 1; goto End;
             }
             if(verb) printf("denoise  filter\n");
+        } else if (!strcmp(argv[i], "spline") && tr) {
+            par = strtol(argv[i+1], NULL, 0);
+            if(ts[n].colort == BAYER){
+                b_spline_aproximation(ts[n].pic[0], ts[n].pic[1], (int16*)tmpb, ts[n].w, ts[n].h);
+                tmp = ts[n].pic[0]; ts[n].pic[0] = ts[n].pic[1]; ts[n].pic[1] = tmp;
+            } else {
+                fprintf(stderr, "Error! spline: Input image should be in bayer format.\n", out_file);
+                ok = 1; goto End;
+            }
+            if(verb) printf("spline approximation \n");
         }
     }
 
