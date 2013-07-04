@@ -55,7 +55,7 @@ uint8* utils_16_to_8(const int16 *in, uint8 *out, const int w, const int h,  int
     if(bpp < 8) bpp = 8;
 
     if(par == 0) {
-        size = w*h; sh = 0;
+        size = w*h; sh = 2;
     } else if (par == 1) {
         size = w*h; sh = bpp - 8;
     } else if (par == 2) {

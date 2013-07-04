@@ -563,7 +563,7 @@ void filters_MSE_bayer(int16 *in, int16 *avr, int16 *out, int16 *buff, const int
                         v[3] += l[yi][xi];
                     }
 
-                    blm  += abs(l[yi][xi] - l[br][x+br]);
+                    blm  += abs(l[yi][xi] - m[br][x+br]);
                     //blm  += l[yi][xi];
                     //if(l[br][x+br] > 100) printf("%6d ", l[yi][xi]);
                 }
@@ -571,6 +571,7 @@ void filters_MSE_bayer(int16 *in, int16 *avr, int16 *out, int16 *buff, const int
             }
             v[0] = v[0] - l[br][x+br];
 
+            /*
             if(l[br][x+br]) {
                 tmp = ((s[0]+s[1]+s[2]+s[3])>>4)*100/l[br][x+br];
                 //printf("tmp = %d\n", tmp);
@@ -586,13 +587,9 @@ void filters_MSE_bayer(int16 *in, int16 *avr, int16 *out, int16 *buff, const int
             } else {
                 out[yx] = blm/bs;
             }
-            /*
-            if(l[br][x+br]){
-                out[yx] = blm/bs;
-            } else {
-                out[yx] = 0;
-            }
             */
+            out[yx] = blm/bs;
+
             //printf("mse = %d val = %d per = %d \n", blm/bs, l[br][x+br], blm*100/(bs*l[br][x+br]));
 
             //if(l[br][x+br] > 100) printf("blm = %d per = %d out = %d max = %d s = %d v = %d bs+1 = %d\n",
@@ -634,10 +631,10 @@ static void get_basis(int *n, const float t)
     t5 = 5.-t;
     t6 = 6.-t;
 
-    n[0] = t4*t4*t4;
-    n[1] = -t1*t4*t4 - t2*t4*t5 - t3*t5*t5;
-    n[2] = t2*t2*t4 + t2*t3*t5 + t3*t3*t6;
-    n[3] = -t3*t3*t3;
+    n[0] = (t4*t4*t4)*8.;
+    n[1] = (-t1*t4*t4 - t2*t4*t5 - t3*t5*t5)*8.;
+    n[2] = (t2*t2*t4 + t2*t3*t5 + t3*t3*t6)*8.;
+    n[3] = (-t3*t3*t3)*8.;
 
     printf("get_basis: n0 = %d n1 = %d n2 = %d n3 = %d\n", n[0], n[1], n[2], n[3]);
 }
@@ -664,26 +661,41 @@ static inline int16 b_spline_4x4(const int16 *p0, const int16 *p1, const int16 *
     //  |        |        |        |
     // p3[0]----p3[1]----p3[2]----p3[3]
 
-    int tm[4], tmp;
+    int tm[4];
+    int64_t tmp;
+    int b = (1<<30)/36;
 
+
+    tm[0] = p0[0]*nx[0] + p0[2]*nx[1] + p0[4]*nx[2] + p0[6]*nx[3];
+    tm[1] = p1[0]*nx[0] + p1[2]*nx[1] + p1[4]*nx[2] + p1[6]*nx[3];
+    tm[2] = p2[0]*nx[0] + p2[2]*nx[1] + p2[4]*nx[2] + p2[6]*nx[3];
+    tm[3] = p3[0]*nx[0] + p3[2]*nx[1] + p3[4]*nx[2] + p3[6]*nx[3];
+
+    tmp = tm[0]*ny[0] + tm[1]*ny[1] + tm[2]*ny[2] + tm[3]*ny[3];
+    //tmp = tm[0]*ny[3] + tm[1]*ny[2] + tm[2]*ny[1] + tm[3]*ny[0];
+
+    /*
     tm[0] = p0[0]*ny[0] + p0[2]*ny[1] + p0[4]*ny[2] + p0[6]*ny[3];
     tm[1] = p1[0]*ny[0] + p1[2]*ny[1] + p1[4]*ny[2] + p1[6]*ny[3];
     tm[2] = p2[0]*ny[0] + p2[2]*ny[1] + p2[4]*ny[2] + p2[6]*ny[3];
     tm[3] = p3[0]*ny[0] + p3[2]*ny[1] + p3[4]*ny[2] + p3[6]*ny[3];
 
-    //printf("p00 = %d p01 = %d p02 = %d p03 = %d\n", p0[0], p0[2], p0[4], p0[6]);
-    //printf("p10 = %d p11 = %d p12 = %d p13 = %d\n", p1[0], p1[2], p1[4], p1[6]);
-    //printf("p20 = %d p21 = %d p22 = %d p23 = %d\n", p2[0], p2[2], p2[4], p2[6]);
-    //printf("p30 = %d p31 = %d p32 = %d p33 = %d\n", p3[0], p3[2], p3[4], p3[6]);
-
-    //tmp = tm[0]*ny[3] + tm[1]*ny[2] + tm[2]*ny[1] + tm[3]*ny[0];
     tmp = tm[0]*nx[0] + tm[1]*nx[1] + tm[2]*nx[2] + tm[3]*nx[3];
+    */
+    /*
+    printf("%4d %4d %4d %4d\n", p0[0], p0[2], p0[4], p0[6]);
+    printf("%4d %4d %4d %4d\n", p1[0], p1[2], p1[4], p1[6]);
+    printf("%4d %4d %4d %4d\n", p2[0], p2[2], p2[4], p2[6]);
+    printf("%4d %4d %4d %4d\n\n", p3[0], p3[2], p3[4], p3[6]);
+    */
+    //tmp = tm[0]*nx[3] + tm[1]*nx[2] + tm[2]*nx[1] + tm[3]*nx[0];
 
     //printf("tm0 = %d tm1 = %d tm2 = %d tm3 = %d\n", tm[0], tm[1], tm[2], tm[3]);
     //printf("ny0 = %d ny1 = %d ny2 = %d ny3 = %d\n", ny[0], ny[1], ny[2], ny[3]);
     //printf("tmp = %d\n", tmp);
 
-    return tmp/36;
+    return (tmp>>6)/36;
+    //return (int)(tmp*b>>36);
 }
 
 /** \brief Bicubic B-spline interpolation of 4x4 pixels patch.
@@ -695,10 +707,10 @@ static inline int16 b_spline_4x4(const int16 *p0, const int16 *p1, const int16 *
 */
 void  b_spline_aproximation(int16 *in, int16 *out, int16 *buff, const int w, const int h)
 {
-    int i, x, y, yw, yx;
+    int i,  x, y, yw, yx, st = 2;
 
     int br = 2, br2 = br<<1, ns = 7, w1 = w + (br2<<1);
-    int n1[4], n2[4];
+    int n1[4], n2[4], n3[4];
     int16 *l[ns], *tm;
 
     //Prepare two basis vectors
@@ -706,7 +718,8 @@ void  b_spline_aproximation(int16 *in, int16 *out, int16 *buff, const int w, con
     //get_basis(n1, 1.);
     //get_basis(n2, 2.);
     get_basis(n1, 3.);
-    get_basis(n2, 4.);
+    get_basis(n2, 3.5);
+    //get_basis(n3, 4.);
 
     //Rows buffer for input image
     l[0] = buff;
@@ -722,25 +735,41 @@ void  b_spline_aproximation(int16 *in, int16 *out, int16 *buff, const int w, con
     for(y = 0; y < h; y++){
         yw = y*w;
         if(y+br > h-1) {
-            cp_line_16(&in[w*(((h-1)<<1)-(y+br))], l[ns-1], w, br2);
+            cp_line_16(&in[w*(((h-1)<<1)-(y+br2))], l[ns-1], w, br2);
         } else {
-            cp_line_16(&in[w*(y+2)], l[ns-1], w, br2);
+            cp_line_16(&in[w*(y+br2)], l[ns-1], w, br2);
         }
         //for(x = 0; x < 3; x++){
         for(x = 0; x < w; x++){
             yx = yw + x;
+            if(!(x&1) && !(y&1)) {
 
-            out[yx] = b_spline_4x4(&l[0][x + br], &l[2][x + br], &l[4][x + br], &l[6][x + br], n1, n1);
-            //tmp = b_spline_4x4(&l[0][x + br], &l[2][x + br], &l[4][x + br], &l[6][x + br], n2, n2);
-            //printf("x = %d y = %d in = %d 11 = %d 12 = %d 21 = %d 22 = %d\n", x, y, in[yx], out[yx],
-            //       b_spline_4x4(&l[0][x + br], &l[2][x + br], &l[4][x + br], &l[6][x + br], n1, n2),
-            //        b_spline_4x4(&l[0][x + br], &l[2][x + br], &l[4][x + br], &l[6][x + br], n2, n1),
-            //        b_spline_4x4(&l[0][x + br], &l[2][x + br], &l[4][x + br], &l[6][x + br], n2, n2));
-            //
-
+                out[yx] = in[yx]; out[yx+1] = in[yx]; out[yx+w] =in[yx]; out[yx+w+1] = in[yx];
+/*
+                out[yx] = b_spline_4x4(&l[0][x + br], &l[2][x + br], &l[4][x + br], &l[6][x + br], n1, n1);
+                out[yx+1] = b_spline_4x4(&l[0][x + br], &l[2][x + br], &l[4][x + br], &l[6][x + br], n2, n1);
+                out[yx+w] = b_spline_4x4(&l[0][x + br], &l[2][x + br], &l[4][x + br], &l[6][x + br], n1, n2);
+                out[yx+w+1] = b_spline_4x4(&l[0][x + br], &l[2][x + br], &l[4][x + br], &l[6][x + br], n2, n2);
+*/
+                /*
+                printf("x = %d y = %d\n", x, y);
+                printf(" %4d %4d\n %4d %4d\n\n", in[yx], in[yx+st], in[yx+w*st], in[yx+st+w*st]);
+                printf(" %4d %4d %4d\n %4d %4d %4d\n %4d %4d %4d\n\n",
+                       b_spline_4x4(&l[0][x + br], &l[2][x + br], &l[4][x + br], &l[6][x + br], n1, n1),
+                        b_spline_4x4(&l[0][x + br], &l[2][x + br], &l[4][x + br], &l[6][x + br], n2, n1),
+                        b_spline_4x4(&l[0][x + br], &l[2][x + br], &l[4][x + br], &l[6][x + br], n3, n1),
+                        b_spline_4x4(&l[0][x + br], &l[2][x + br], &l[4][x + br], &l[6][x + br], n1, n2),
+                        b_spline_4x4(&l[0][x + br], &l[2][x + br], &l[4][x + br], &l[6][x + br], n2, n2),
+                        b_spline_4x4(&l[0][x + br], &l[2][x + br], &l[4][x + br], &l[6][x + br], n3, n2),
+                        b_spline_4x4(&l[0][x + br], &l[2][x + br], &l[4][x + br], &l[6][x + br], n1, n3),
+                        b_spline_4x4(&l[0][x + br], &l[2][x + br], &l[4][x + br], &l[6][x + br], n2, n3),
+                        b_spline_4x4(&l[0][x + br], &l[2][x + br], &l[4][x + br], &l[6][x + br], n3, n3));
+                */
+            }
         }
         tm = l[0];
         for(i=1; i < ns; i++) l[i-1] = l[i];
         l[ns-1] =  tm;
+
     }
 }
