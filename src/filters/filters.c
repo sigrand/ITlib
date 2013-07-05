@@ -639,7 +639,7 @@ static void get_basis(int *n, const float t)
     printf("get_basis: n0 = %d n1 = %d n2 = %d n3 = %d\n", n[0], n[1], n[2], n[3]);
 }
 
-/** \brief Interpolation points in the central square
+/** \brief Interpolation points in the central square for red and blue color
     \param p0	The 1 row of pixels.
     \param p1	The 2 row of pixels.
     \param p2	The 3 row of pixels.
@@ -648,18 +648,18 @@ static void get_basis(int *n, const float t)
     \param ny   Basis vector for y direction.
     \retval     The interpolation point.
 */
-static inline int16 b_spline_4x4(const int16 *p0, const int16 *p1, const int16 *p2, const int16 *p3, const int *nx, const int *ny)
+static inline int16 b_spline_rb(const int16 *p0, const int16 *p1, const int16 *p2, const int16 *p3, const int *nx, const int *ny)
 {
-    // p0[0]----p0[1]----p0[2]----p0[3]
+    // p0[0]----p0[2]----p0[4]----p0[6]
     //  |        |        |        |
     //  |        |        |        |
-    // p1[0]----p1[1]----p1[2]----p1[3]
+    // p1[0]----p1[2]----p1[4]----p1[6]
     //  |        |  x     |        |
     //  |        |     x  |        |
-    // p2[0]----p2[1]----p2[2]----p2[3]
+    // p2[0]----p2[2]----p2[4]----p2[6]
     //  |        |        |        |
     //  |        |        |        |
-    // p3[0]----p3[1]----p3[2]----p3[3]
+    // p3[0]----p3[2]----p3[4]----p3[6]
 
     int tm[4];
     int64_t tmp;
@@ -672,54 +672,83 @@ static inline int16 b_spline_4x4(const int16 *p0, const int16 *p1, const int16 *
     tm[3] = p3[0]*nx[0] + p3[2]*nx[1] + p3[4]*nx[2] + p3[6]*nx[3];
 
     tmp = tm[0]*ny[0] + tm[1]*ny[1] + tm[2]*ny[2] + tm[3]*ny[3];
-    //tmp = tm[0]*ny[3] + tm[1]*ny[2] + tm[2]*ny[1] + tm[3]*ny[0];
-
-    /*
-    tm[0] = p0[0]*ny[0] + p0[2]*ny[1] + p0[4]*ny[2] + p0[6]*ny[3];
-    tm[1] = p1[0]*ny[0] + p1[2]*ny[1] + p1[4]*ny[2] + p1[6]*ny[3];
-    tm[2] = p2[0]*ny[0] + p2[2]*ny[1] + p2[4]*ny[2] + p2[6]*ny[3];
-    tm[3] = p3[0]*ny[0] + p3[2]*ny[1] + p3[4]*ny[2] + p3[6]*ny[3];
-
-    tmp = tm[0]*nx[0] + tm[1]*nx[1] + tm[2]*nx[2] + tm[3]*nx[3];
-    */
-    /*
-    printf("%4d %4d %4d %4d\n", p0[0], p0[2], p0[4], p0[6]);
-    printf("%4d %4d %4d %4d\n", p1[0], p1[2], p1[4], p1[6]);
-    printf("%4d %4d %4d %4d\n", p2[0], p2[2], p2[4], p2[6]);
-    printf("%4d %4d %4d %4d\n\n", p3[0], p3[2], p3[4], p3[6]);
-    */
-    //tmp = tm[0]*nx[3] + tm[1]*nx[2] + tm[2]*nx[1] + tm[3]*nx[0];
-
-    //printf("tm0 = %d tm1 = %d tm2 = %d tm3 = %d\n", tm[0], tm[1], tm[2], tm[3]);
-    //printf("ny0 = %d ny1 = %d ny2 = %d ny3 = %d\n", ny[0], ny[1], ny[2], ny[3]);
-    //printf("tmp = %d\n", tmp);
 
     return (tmp>>6)/36;
     //return (int)(tmp*b>>36);
 }
 
-/** \brief Bicubic B-spline interpolation of 4x4 pixels patch.
-    \param in	The input 16 bits.
-    \param out	The output 16 bits interpolated image.
-    \param buff	The temporary buffer.
-    \param w    The image width.
-    \param h 	The image height.
+/** \brief Interpolation points in the central square for green color
+    \param p0	The 1 row of pixels.
+    \param p1	The 2 row of pixels.
+    \param p2	The 3 row of pixels.
+    \param p3	The 4 row of pixels.
+    \param p4	The 4 row of pixels.
+    \param p5	The 5 row of pixels.
+    \param p6	The 6 row of pixels.
+    \param nx   Basis vector for x direction.
+    \param ny   Basis vector for y direction.
+    \retval     The interpolation point.
 */
-void  b_spline_aproximation(int16 *in, int16 *out, int16 *buff, const int w, const int h)
+static inline int16 b_spline_g(const int16 *p0, const int16 *p1, const int16 *p2, const int16 *p3,
+                                const int16 *p4, const int16 *p5, const int16 *p6, const int *nx, const int *ny)
 {
-    int i,  x, y, yw, yx, st = 2;
+    //                p0[3]
+    //              /      \
+    //           p1[2]----p1[4]
+    //          /     \ /     \
+    //      p2[1]----p2[3]----p2[5]
+    //     /     \  /     \  /    \
+    // p3[0]----p3[2]----p3[4]----p3[6]
+    //     \     /  \   /    \    /
+    //      p4[1]----p4[3]----p4[5]
+    //          \    /    \    /
+    //           p5[2]----p5[4]
+    //              \      /
+    //                p6[3]
 
-    int br = 2, br2 = br<<1, ns = 7, w1 = w + (br2<<1);
+    int tm[4];
+    int64_t tmp;
+    int b = (1<<30)/36;
+
+
+    tm[0] = p0[3]*nx[0] + p1[4]*nx[1] + p2[5]*nx[2] + p3[6]*nx[3];
+    tm[1] = p1[2]*nx[0] + p2[3]*nx[1] + p3[4]*nx[2] + p4[5]*nx[3];
+    tm[2] = p2[1]*nx[0] + p3[2]*nx[1] + p4[3]*nx[2] + p5[4]*nx[3];
+    tm[3] = p3[0]*nx[0] + p4[1]*nx[1] + p5[2]*nx[2] + p6[3]*nx[3];
+
+    tmp = tm[0]*ny[0] + tm[1]*ny[1] + tm[2]*ny[2] + tm[3]*ny[3];
+
+    return (tmp>>6)/36;
+    //return tmp*b>>36;
+}
+
+/** \brief Bicubic B-spline interpolation of 4x4 pixels patch.
+    \param in       The input 16 bits bayer image.
+    \param out      The output 16 bits RGB interpolated image.
+    \param buff     The temporary buffer.
+    \param w        The image width.
+    \param h        The image height.
+    \param bay		The Bayer grids pattern.
+*/
+void  b_spline_interpolation(int16 *in, int16 *out, int16 *buff, const int w, const int h, const int bay)
+{
+    int i,  x, y, yw, yx, yx3, st = 2, w3 = w*3;
+
+    int br = 2, br1 = br-1, br2 = br<<1, br3 = br+1, ns = 8, w1 = w + (br2<<1);
     int n1[4], n2[4], n3[4];
     int16 *l[ns], *tm;
-
+    /*
+    switch(bay){
+        case(BGGR):{ xs = 1; ys = 1; w1 = w+1; h1 = h+1; break; }
+        case(GRBG):{ xs = 1; ys = 0; w1 = w+1; h1 = h;   break; }
+        case(GBRG):{ xs = 0; ys = 1; w1 = w;   h1 = h+1; break; }
+        case(RGGB):{ xs = 0; ys = 0; w1 = w;   h1 = h;   break; }
+    }
+*/
     //Prepare two basis vectors
-    //for x = 1 and x = 2
-    //get_basis(n1, 1.);
-    //get_basis(n2, 2.);
     get_basis(n1, 3.);
     get_basis(n2, 3.5);
-    //get_basis(n3, 4.);
+    get_basis(n3, 4.);
 
     //Rows buffer for input image
     l[0] = buff;
@@ -727,14 +756,14 @@ void  b_spline_aproximation(int16 *in, int16 *out, int16 *buff, const int w, con
 
     //Prepare first raws
     for(i=0; i < ns - 1; i++){
-        if(i < br) cp_line_16(&in[w*(br-i)], l[i], w, br2);
-        else cp_line_16(&in[w*(i-br)], l[i], w, br2);
+        if(i < br3) cp_line_16(&in[w*(br3-i)], l[i], w, br2);
+        else cp_line_16(&in[w*(i-br3)], l[i], w, br2);
     }
 
     //for(y = 0; y < 3; y++){
     for(y = 0; y < h; y++){
         yw = y*w;
-        if(y+br > h-1) {
+        if(y+br2 > h-1) {
             cp_line_16(&in[w*(((h-1)<<1)-(y+br2))], l[ns-1], w, br2);
         } else {
             cp_line_16(&in[w*(y+br2)], l[ns-1], w, br2);
@@ -742,34 +771,55 @@ void  b_spline_aproximation(int16 *in, int16 *out, int16 *buff, const int w, con
         //for(x = 0; x < 3; x++){
         for(x = 0; x < w; x++){
             yx = yw + x;
+            yx3 = yx*3;
             if(!(x&1) && !(y&1)) {
-
-                out[yx] = in[yx]; out[yx+1] = in[yx]; out[yx+w] =in[yx]; out[yx+w+1] = in[yx];
-/*
-                out[yx] = b_spline_4x4(&l[0][x + br], &l[2][x + br], &l[4][x + br], &l[6][x + br], n1, n1);
-                out[yx+1] = b_spline_4x4(&l[0][x + br], &l[2][x + br], &l[4][x + br], &l[6][x + br], n2, n1);
-                out[yx+w] = b_spline_4x4(&l[0][x + br], &l[2][x + br], &l[4][x + br], &l[6][x + br], n1, n2);
-                out[yx+w+1] = b_spline_4x4(&l[0][x + br], &l[2][x + br], &l[4][x + br], &l[6][x + br], n2, n2);
-*/
-                /*
-                printf("x = %d y = %d\n", x, y);
-                printf(" %4d %4d\n %4d %4d\n\n", in[yx], in[yx+st], in[yx+w*st], in[yx+st+w*st]);
-                printf(" %4d %4d %4d\n %4d %4d %4d\n %4d %4d %4d\n\n",
-                       b_spline_4x4(&l[0][x + br], &l[2][x + br], &l[4][x + br], &l[6][x + br], n1, n1),
-                        b_spline_4x4(&l[0][x + br], &l[2][x + br], &l[4][x + br], &l[6][x + br], n2, n1),
-                        b_spline_4x4(&l[0][x + br], &l[2][x + br], &l[4][x + br], &l[6][x + br], n3, n1),
-                        b_spline_4x4(&l[0][x + br], &l[2][x + br], &l[4][x + br], &l[6][x + br], n1, n2),
-                        b_spline_4x4(&l[0][x + br], &l[2][x + br], &l[4][x + br], &l[6][x + br], n2, n2),
-                        b_spline_4x4(&l[0][x + br], &l[2][x + br], &l[4][x + br], &l[6][x + br], n3, n2),
-                        b_spline_4x4(&l[0][x + br], &l[2][x + br], &l[4][x + br], &l[6][x + br], n1, n3),
-                        b_spline_4x4(&l[0][x + br], &l[2][x + br], &l[4][x + br], &l[6][x + br], n2, n3),
-                        b_spline_4x4(&l[0][x + br], &l[2][x + br], &l[4][x + br], &l[6][x + br], n3, n3));
-                */
+                //Red
+                out[yx3]        = b_spline_rb(&l[1][x+br], &l[3][x+br], &l[5][x+br], &l[7][x+br], n1, n1);
+                out[yx3+3]      = b_spline_rb(&l[1][x+br], &l[3][x+br], &l[5][x+br], &l[7][x+br], n2, n1);
+                out[yx3+w3]     = b_spline_rb(&l[1][x+br], &l[3][x+br], &l[5][x+br], &l[7][x+br], n1, n2);
+                out[yx3+w3+3]   = b_spline_rb(&l[1][x+br], &l[3][x+br], &l[5][x+br], &l[7][x+br], n2, n2);
+                //out[yx3] = 0; out[yx3+3] = 0; out[yx3+w3] = 0; out[yx3+w3+3]  = 0;
+                //Green
+                //out[yx3+1] = b_spline_g(&l[0][x+br1], &l[1][x+br1], &l[2][x+br1], &l[3][x+br1], &l[4][x+br1], &l[5][x+br1], &l[6][x+br1], n2, n2);
+                //out[yx3+4] = b_spline_g(&l[0][x+br1], &l[1][x+br1], &l[2][x+br1], &l[3][x+br1], &l[4][x+br1], &l[5][x+br1], &l[6][x+br1], n3, n1);
+                out[yx3+1] = 0; out[yx3+4] = 0;
+            } else if ((x&1) && (y&1)){
+                //Blue
+                //out[yx3+2]      = b_spline_rb(&l[1][x+br], &l[3][x+br], &l[5][x+br], &l[7][x+br], n1, n1);
+                //out[yx3+5]      = b_spline_rb(&l[1][x+br], &l[3][x+br], &l[5][x+br], &l[7][x+br], n2, n1);
+                //out[yx3+w3+2]   = b_spline_rb(&l[1][x+br], &l[3][x+br], &l[5][x+br], &l[7][x+br], n1, n2);
+                //out[yx3+w3+5]   = b_spline_rb(&l[1][x+br], &l[3][x+br], &l[5][x+br], &l[7][x+br], n2, n2);
+                out[yx3+2] = 0; out[yx3+5] = 0; out[yx3+w3+2] = 0; out[yx3+w3+5] = 0;
+                //Green
+                //out[yx3+1] = b_spline_g(&l[0][x+br1], &l[1][x+br1], &l[2][x+br1], &l[3][x+br1], &l[4][x+br1], &l[5][x+br1], &l[6][x+br1], n2, n2);
+                //out[yx3+4] = b_spline_g(&l[0][x+br1], &l[1][x+br1], &l[2][x+br1], &l[3][x+br1], &l[4][x+br1], &l[5][x+br1], &l[6][x+br1], n3, n1);
+                out[yx3+1] = 0; out[yx3+4] = 0;
             }
+            /*
+            //out[yx] = in[yx]; out[yx+1] = in[yx]; out[yx+w] =in[yx]; out[yx+w+1] = in[yx];
+            out[yx] = b_spline_4x4(&l[0][x + br], &l[2][x + br], &l[4][x + br], &l[6][x + br], n1, n1);
+            out[yx+1] = b_spline_4x4(&l[0][x + br], &l[2][x + br], &l[4][x + br], &l[6][x + br], n2, n1);
+            out[yx+w] = b_spline_4x4(&l[0][x + br], &l[2][x + br], &l[4][x + br], &l[6][x + br], n1, n2);
+            out[yx+w+1] = b_spline_4x4(&l[0][x + br], &l[2][x + br], &l[4][x + br], &l[6][x + br], n2, n2);
+
+
+            printf("x = %d y = %d\n", x, y);
+            printf(" %4d %4d\n %4d %4d\n\n", in[yx], in[yx+st], in[yx+w*st], in[yx+st+w*st]);
+            printf(" %4d %4d %4d\n %4d %4d %4d\n %4d %4d %4d\n\n",
+                   b_spline_4x4(&l[0][x + br], &l[2][x + br], &l[4][x + br], &l[6][x + br], n1, n1),
+                    b_spline_4x4(&l[0][x + br], &l[2][x + br], &l[4][x + br], &l[6][x + br], n2, n1),
+                    b_spline_4x4(&l[0][x + br], &l[2][x + br], &l[4][x + br], &l[6][x + br], n3, n1),
+                    b_spline_4x4(&l[0][x + br], &l[2][x + br], &l[4][x + br], &l[6][x + br], n1, n2),
+                    b_spline_4x4(&l[0][x + br], &l[2][x + br], &l[4][x + br], &l[6][x + br], n2, n2),
+                    b_spline_4x4(&l[0][x + br], &l[2][x + br], &l[4][x + br], &l[6][x + br], n3, n2),
+                    b_spline_4x4(&l[0][x + br], &l[2][x + br], &l[4][x + br], &l[6][x + br], n1, n3),
+                    b_spline_4x4(&l[0][x + br], &l[2][x + br], &l[4][x + br], &l[6][x + br], n2, n3),
+                    b_spline_4x4(&l[0][x + br], &l[2][x + br], &l[4][x + br], &l[6][x + br], n3, n3));
+            */
         }
         tm = l[0];
         for(i=1; i < ns; i++) l[i-1] = l[i];
         l[ns-1] =  tm;
-
     }
+
 }

@@ -443,7 +443,7 @@ int main(int argc, const char *argv[]) {
 
                     ok = writePNG(OUT_FILE, ts[n].pic[0], ts[n].w, ts[n].h, ts[n].bpp, GREY);
                 } else if (ts[n].colort == RGB){
-                    utils_16_to_8(ts[n].pic[0], ts[n].pic[1], ts[n].w, ts[n].h, ts[n].bpp, 3);
+                    utils_16_to_8(ts[n].pic[0], ts[n].pic[1], ts[n].w, ts[n].h, ts[n].bpp, 2);
                     tmp = ts[n].pic[0]; ts[n].pic[0] = ts[n].pic[1]; ts[n].pic[1] = tmp; ts[n].bpp = 8;
 
                     ok = writePNG(OUT_FILE, ts[n].pic[0], ts[n].w, ts[n].h, ts[n].bpp, ts[n].colort);
@@ -477,9 +477,9 @@ int main(int argc, const char *argv[]) {
                     //printf("main buff = %p\n", buff1);
                     ts[1].w = ts[n].w; ts[1].h = ts[n].h; ts[1].bpp = ts[n].bpp; ts[1].bg = ts[n].bg; ts[1].colort = ts[n].colort;
                     size = ts[n].w*ts[n].h;
-                    buff1 = (uint8*)malloc(ts[1].h*ts[1].h*3*4);
+                    buff1 = (uint8*)malloc(ts[1].w*ts[1].h*3*4);
                     if (ts[1].pic[1] == NULL) {
-                        fprintf(stderr, "Error! readPNG: Can't allocate memory buff1.\n");
+                        fprintf(stderr, "Error! Can't allocate memory buff1.\n");
                         ok = 1; goto End;
                     }
                     ts[1].pic[0] = buff1;
@@ -540,8 +540,8 @@ int main(int argc, const char *argv[]) {
             par = strtol(argv[i+1], NULL, 0);
             if(!par) par = 8;
             //printf("par = %d\n", par);
-            if(ts[n].colort == BAYER || ts[n].colort == GREY){
-                hdr_ace(ts[n].pic[0], ts[n].pic[1], (int*)tmpb, ts[n].w, ts[n].h, ts[n].bpp, par);
+            if(ts[n].colort < RGBA){
+                hdr_ace(ts[n].pic[0], ts[n].pic[1], (int*)tmpb, ts[n].w, ts[n].h, ts[n].bpp, par, ts[n].colort);
                 tmp = ts[n].pic[0]; ts[n].pic[0] = ts[n].pic[1]; ts[n].pic[1] = tmp; ts[n].bpp = par;
             } else {
                 fprintf(stderr, "Error! ace: Input image should be in bayer or grey.\n", out_file);
@@ -655,8 +655,8 @@ int main(int argc, const char *argv[]) {
         } else if (!strcmp(argv[i], "spline") && tr) {
             par = strtol(argv[i+1], NULL, 0);
             if(ts[n].colort == BAYER){
-                b_spline_aproximation(ts[n].pic[0], ts[n].pic[1], (int16*)tmpb, ts[n].w, ts[n].h);
-                tmp = ts[n].pic[0]; ts[n].pic[0] = ts[n].pic[1]; ts[n].pic[1] = tmp;
+                b_spline_interpolation(ts[n].pic[0], ts[n].pic[1], (int16*)tmpb, ts[n].w, ts[n].h, ts[n].bg);
+                tmp = ts[n].pic[0]; ts[n].pic[0] = ts[n].pic[1]; ts[n].pic[1] = tmp; ts[n].colort = RGB;
             } else {
                 fprintf(stderr, "Error! spline: Input image should be in bayer format.\n", out_file);
                 ok = 1; goto End;

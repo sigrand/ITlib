@@ -9,19 +9,34 @@
 
 
 /**	\brief Automatic Color Enhancement algorithm.
-    \param in       The input 16 bits bayer image.
-    \param out      The output 16 bits bayer image.
+    \param in       The input 16 bits image.
+    \param out      The output 16 bits image.
     \param buff     The temporary buffer.
     \param bpp      The input image bits per pixel.
     \param bpp1     The output image bits per pixel.
     \param w        The image width.
     \param h        The image height.
+    \param cs      The type of input image ColorSpace.
 */
-void hdr_ace(const int16 *in, int16 *out, int *buff, const int w, const int h, const int bpp, const int bpp1)
+void hdr_ace(const int16 *in, int16 *out, int *buff, const int w, const int h, const int bpp, const int bpp1, const int cs)
 {
-    int x, y, yx, yw, hs = 1<<bpp, size = w*h, sum;
+    int x, y, yx, yw, hs = 1<<bpp, size;
     int *hi;
-    int b = (1<<30)/size, shb = 30 - bpp1;
+    int64_t b, sum, shb = 40 - bpp1;
+
+    if(cs == BAYER || cs == GREY){
+        size = w*h;
+    } else if(cs == RGB || cs == YUV444){
+        size = w*h*3;
+    } else if (cs == YUV420){
+        size = w*h*3>>1;
+    } else {
+        fprintf(stderr, "hdr_ace Error! Can't support image format %d\n", cs);
+        return;
+    }
+
+    b = (1LL<<40)/size;
+    //printf("b = %d w*h = %d size = %d\n", b, w*h, size);
 
     hi = buff; //hl = &hi[hs]; hr = &hl[hs]; lt = &hr[hs];
 
@@ -34,8 +49,12 @@ void hdr_ace(const int16 *in, int16 *out, int *buff, const int w, const int h, c
     for(x=0; x < hs; x++) {
         sum += hi[x];
         hi[x] = sum*b>>shb;
+        //printf("%d %d\n", x, hi[x]);
+        //hi[x] = (sum<<bpp1)/size;
     }
 
+    for(x=0; x < size; x++) out[x] = hi[in[x]];
+    /*
     for(y=0; y < h; y++){
         yw = y*w;
         for(x=0; x < w; x++){
@@ -46,6 +65,7 @@ void hdr_ace(const int16 *in, int16 *out, int *buff, const int w, const int h, c
             //if(out[yx] < 0 || out[yx] > 255) printf("yx = %d out = %d in = %d lt = %d\n", yx, out[yx], in[yx], lt[in[yx]]);
         }
     }
+    */
 }
 
 /**	\brief Get the differnce between 16 bits  original and averaged bayer image.
@@ -105,8 +125,8 @@ void hdr_ace_local(int16 *in, int16 *out, int16 *buff, const int w, const int h,
 
     filters_median_bayer(in, out, buff, w, h, 0);
     hdr_diff(in, out, dif, w, h, bpp);
-    hdr_ace(in, out, (int*)buff, w, h, bpp, 8);
-    hdr_ace(dif, in, (int*)buff, w, h, bpp, 6);
+    hdr_ace(in, out, (int*)buff, w, h, bpp, 8, GREY);
+    hdr_ace(dif, in, (int*)buff, w, h, bpp, 6, GREY);
 
     for(i=0; i < size; i++) out[i] = in[i] + out[i] - 32;
 }
