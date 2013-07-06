@@ -333,6 +333,7 @@ int main(int argc, const char *argv[]) {
                    "  hess             Calculate the determinant of Hessian of grey image\n"
                    "  mse <x>          Calculate the MSE, x - radius around pixels for matching \n"
                    "  spline           Bicubic B-spline aproximation \n"
+                   "  dnois            Denoise algorithm base on sum of difference\n"
                    "\n"
                    "Output options:\n"
                    "  -h               This help message.\n"
@@ -642,6 +643,22 @@ int main(int argc, const char *argv[]) {
                 ok = 1; goto End;
             }
             if(verb) printf("mse\n");
+        } else if (!strcmp(argv[i], "dnois") && tr) {
+            if(fc == 3){
+                fc = 0;
+                //par = strtol(argv[i+1], NULL, 0);
+                if(ts[n].colort == GREY || ts[n].colort == BAYER){
+                    filters_denoise(ts[n].pic[0], ts[1].pic[0], ts[n].pic[1], (int*)tmpb, ts[n].bpp, ts[n].w, ts[n].h);
+                    tmp = ts[n].pic[0]; ts[n].pic[0] = ts[n].pic[1]; ts[n].pic[1] = tmp; ts[n].bpp = ts[1].bpp;
+                } else {
+                    fprintf(stderr, "Error! dnois: Input image should be in bayer or grey format.\n", out_file);
+                    ok = 1; goto End;
+                }
+            } else {
+                fprintf(stderr, "Error! dnois: Should be two image in input.\n", out_file);
+                ok = 1; goto End;
+            }
+            if(verb) printf("dnois\n");
         } else if (!strcmp(argv[i], "dnois_reg") && tr) {
             par = strtol(argv[i+1], NULL, 0);
             if(ts[n].colort == GREY || ts[n].colort == BAYER){

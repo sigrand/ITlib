@@ -17,9 +17,11 @@ void filters_hessian(int16 *in, int16 *out, uint32 *buff, const int w, const int
 
 void filters_denoise_regression_bayer(int16 *in, int16 *out, int *buff, const int br, const int w, const int h);
 
-void filters_MSE_bayer(int16 *in, int16 *avr, int16 *out, int16 *buff, const int br, const int bpp, const int w, const int h);
+void filters_MSE_bayer(int16 *avr, int16 *in,  int16 *out, int16 *buff, const int br, const int bpp, const int w, const int h);
 
 void  b_spline_interpolation(int16 *in, int16 *out, int16 *buff, const int w, const int h, const int bay);
+
+void filters_denoise(int16 *mse, int16 *in,  int16 *out, int *buff, const int bpp, const int w, const int h);
 #ifdef __cplusplus
 }
 #endif /* __cplusplus */
