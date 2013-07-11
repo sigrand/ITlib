@@ -68,6 +68,7 @@ void hdr_ace(const int16 *in, int16 *out, int *buff, const int w, const int h, c
     */
 }
 
+
 /**	\brief Get the differnce between 16 bits  original and averaged bayer image.
     \param in       The input 16 bits bayer image.
     \param avr      The input 16 bits averaged bayer image.

@@ -551,7 +551,7 @@ void filters_MSE_bayer( int16 *avr, int16 *in, int16 *out, int16 *buff, const in
                     //if(l[br][x+br] > 100) printf("%6d ", l[yi][xi]);
                 }
              }
-            out[yx] = blm/bs  > 35 ? in[yx] : avr[yx];
+            out[yx] = blm/bs; //  > 35 ? in[yx] : avr[yx];
 
             //printf("Start x = %d y = %d avr = %d in = %d out = %d blm = %d\n", xb, yb, avr[yxb], ing[yxb], out[yxb], blm);
         }
@@ -589,7 +589,7 @@ void filters_denoise(int16 *mse, int16 *in, int16 *out, int *buff, const int bpp
 
 /** \brief Culculate basis fuction for bicubic B-spline.
     \param n3	The output basis vector.
-    \param t	The t parametr from 1 to 2.
+    \param t	The t parametr from 3 to 4.
 */
 static void get_basis(int *n, const float t)
 {
@@ -703,7 +703,7 @@ static inline int16 b_spline_g(const int16 *p0, const int16 *p1, const int16 *p2
 */
 void  b_spline_interpolation(int16 *in, int16 *out, int16 *buff, const int w, const int h, const int bay)
 {
-    int i,  x, x1, xs, xt, y, ys, yt, yw, yx, yx3, st = 2, w3 = w*3;
+    int i,  x, x1, xs, xt, y, ys, yt, yw, yx, yx3, dis = 0, size = w*h;
 
     int br = 2, br1 = br-1, br2 = br<<1, br3 = br+1, ns = 8, w1 = w + (br2<<1);
     int n1[4], n2[4], n3[4];
@@ -745,7 +745,7 @@ void  b_spline_interpolation(int16 *in, int16 *out, int16 *buff, const int w, co
             yx3 = yx*3;
             x1 = x-1;
             xt = x + xs; yt = y + ys;
-            //for RGGB only
+
             if(!(xt&1) && !(yt&1)) {
                 //Red
                 out[yx3]   = b_spline_rb(&l[1][x+br], &l[3][x+br], &l[5][x+br], &l[7][x+br], n1, n1);
@@ -753,22 +753,25 @@ void  b_spline_interpolation(int16 *in, int16 *out, int16 *buff, const int w, co
                 out[yx3+1] = b_spline_g(&l[0][x+br1], &l[1][x+br1], &l[2][x+br1], &l[3][x+br1], &l[4][x+br1], &l[5][x+br1], &l[6][x+br1], n2, n2);
                 //Blue
                 out[yx3+2] = b_spline_rb(&l[0][x1+br], &l[2][x1+br], &l[4][x1+br], &l[6][x1+br], n2, n2);
+                dis += abs(in[yx] - out[yx3]);
 
             } else if ((xt&1) && !(yt&1)){
                 //Red
-                out[yx3]      = b_spline_rb(&l[1][x1+br], &l[3][x1+br], &l[5][x1+br], &l[7][x1+br], n2, n1);
+                out[yx3]   = b_spline_rb(&l[1][x1+br], &l[3][x1+br], &l[5][x1+br], &l[7][x1+br], n2, n1);
                 //Green
                 out[yx3+1] = b_spline_g(&l[0][x1+br1], &l[1][x1+br1], &l[2][x1+br1], &l[3][x1+br1], &l[4][x1+br1], &l[5][x1+br1], &l[6][x1+br1], n3, n1);
                 //Blue
-                out[yx3+2]      = b_spline_rb(&l[0][x+br], &l[2][x+br], &l[4][x+br], &l[6][x+br], n1, n2);
+                out[yx3+2] = b_spline_rb(&l[0][x+br], &l[2][x+br], &l[4][x+br], &l[6][x+br], n1, n2);
+                dis += abs(in[yx] - out[yx3+1]);
 
             } else if (!(xt&1) && (yt&1)){
                 //Red
-                out[yx3]     = b_spline_rb(&l[0][x+br], &l[2][x+br], &l[4][x+br], &l[6][x+br], n1, n2);
+                out[yx3]   = b_spline_rb(&l[0][x+br], &l[2][x+br], &l[4][x+br], &l[6][x+br], n1, n2);
                 //Green
                 out[yx3+1] = b_spline_g(&l[0][x1+br1], &l[1][x1+br1], &l[2][x1+br1], &l[3][x1+br1], &l[4][x1+br1], &l[5][x1+br1], &l[6][x1+br1], n3, n1);
                 //Blue
-                out[yx3+2]   = b_spline_rb(&l[1][x1+br], &l[3][x1+br], &l[5][x1+br], &l[7][x1+br], n2, n1);
+                out[yx3+2] = b_spline_rb(&l[1][x1+br], &l[3][x1+br], &l[5][x1+br], &l[7][x1+br], n2, n1);
+                dis += abs(in[yx] - out[yx3+1]);
 
             } else if ((xt&1) && (yt&1)){
                 //Red
@@ -777,7 +780,8 @@ void  b_spline_interpolation(int16 *in, int16 *out, int16 *buff, const int w, co
                 //Green
                 out[yx3+1] = b_spline_g(&l[0][x+br1], &l[1][x+br1], &l[2][x+br1], &l[3][x+br1], &l[4][x+br1], &l[5][x+br1], &l[6][x+br1], n2, n2);
                 //Blue
-                out[yx3+2]   = b_spline_rb(&l[1][x+br], &l[3][x+br], &l[5][x+br], &l[7][x+br], n1, n1);
+                out[yx3+2] = b_spline_rb(&l[1][x+br], &l[3][x+br], &l[5][x+br], &l[7][x+br], n1, n1);
+                dis += abs(in[yx] - out[yx3+2]);
             }
             //out[yx3] = 0;
             //out[yx3+1] = 0;
@@ -802,6 +806,7 @@ void  b_spline_interpolation(int16 *in, int16 *out, int16 *buff, const int w, co
         for(i=1; i < ns; i++) l[i-1] = l[i];
         l[ns-1] =  tm;
     }
+    printf("dist = %d\n", dis/size);
 
     //for(i=0; i< 20; i++) printf("r = %d g = %d b = %d\n", out[i*3], out[i*3+1], out[i*3+2]);
 }
