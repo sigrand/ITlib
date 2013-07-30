@@ -19,8 +19,6 @@ void filters_denoise_regression_bayer(int16 *in, int16 *out, int *buff, const in
 
 void filters_MSE_bayer(int16 *avr, int16 *in,  int16 *out, int16 *buff, const int br, const int bpp, const int w, const int h);
 
-void  b_spline_interpolation(int16 *in, int16 *out, int16 *buff, const int w, const int h, const int bay);
-
 void filters_denoise(int16 *mse, int16 *in,  int16 *out, int *buff, const int bpp, const int w, const int h);
 #ifdef __cplusplus
 }

@@ -320,8 +320,9 @@ int main(int argc, const char *argv[]) {
                    "\n"
                    "Transform options:\n"
                    "  wb               White balancing.\n"
-                   "  bay_rgb          Bayer to rgb bilinear interpolation algorithm.\n"
-                   "  bay_grey         Bayer to grey bilinear interpolation algorithm.\n"
+                   "  bay_rgb_bi       Bayer to rgb bilinear interpolation algorithm.\n"
+                   "  bay_grey_bi      Bayer to grey bilinear interpolation algorithm.\n"
+                   "  bay_grey_s       Bayer to rgb bicubic B-spline aproximation \n"
                    "  med <a>          3x3 median filter if a = 0 non adaptive, if a = 1 adaptive\n"
                    "  ace <b>          Automatic Color Enhancement transform b - the bits per pixel for output image\n"
                    "  aver <x>         Averaging image with window of x radius \n"
@@ -332,8 +333,11 @@ int main(int argc, const char *argv[]) {
                    "                   x - radius around pixels for matching\n"
                    "  hess             Calculate the determinant of Hessian of grey image\n"
                    "  mse <x>          Calculate the MSE, x - radius around pixels for matching \n"
-                   "  spline           Bicubic B-spline aproximation \n"
                    "  dnois            Denoise algorithm base on sum of difference\n"
+                   "  rgb_yuv444       rgb to yuv444 transform\n"
+                   "  rgb_yuv420       rgb to yuv420 transform\n"
+                   "\n"
+                   "  grad <x>         The image gradient, x - gardient threshould, if less than th,  = 0 \n"
                    "\n"
                    "Output options:\n"
                    "  -h               This help message.\n"
@@ -438,7 +442,7 @@ int main(int argc, const char *argv[]) {
 
             } else if(!strcmp(&out_file[strlen(out_file)-4],".png") || !strcmp(&out_file[strlen(out_file)-4],".PNG")){
 
-                if(ts[n].colort == GREY || ts[n].colort == BAYER){
+                if(ts[n].colort == GREY || ts[n].colort == BAYER || ts[n].colort == YUV444 || ts[n].colort == YUV420){
                     utils_16_to_8(ts[n].pic[0], ts[n].pic[1], ts[n].w, ts[n].h, ts[n].bpp, 0);
                     tmp = ts[n].pic[0]; ts[n].pic[0] = ts[n].pic[1]; ts[n].pic[1] = tmp; ts[n].bpp = 8;
 
@@ -503,9 +507,9 @@ int main(int argc, const char *argv[]) {
             }
             if(verb) printf("white balancing \n");
 
-        } else if (!strcmp(argv[i], "bay_rgb") && tr) {
+        } else if (!strcmp(argv[i], "bay_rgb_bi") && tr) {
             if(ts[n].colort == BAYER){
-                utils_bay_to_rgb_bi(ts[n].pic[0], ts[n].pic[1], (int16*)tmpb, ts[n].w, ts[n].h, ts[n].bg);
+                trans_bay_to_rgb_bi(ts[n].pic[0], ts[n].pic[1], (int16*)tmpb, ts[n].w, ts[n].h, ts[n].bg);
                 tmp = ts[n].pic[0]; ts[n].pic[0] = ts[n].pic[1]; ts[n].pic[1] = tmp; ts[n].colort = RGB;
             } else {
                 fprintf(stderr, "Error! bay_to_rgb_bi: Input image should be in bayer format .\n", out_file);
@@ -513,9 +517,9 @@ int main(int argc, const char *argv[]) {
             }
             if(verb) printf("bay_to_rgb_bi transform\n");
 
-        }  else if (!strcmp(argv[i], "bay_grey") && tr) {
+        }  else if (!strcmp(argv[i], "bay_grey_bi") && tr) {
             if(ts[n].colort == BAYER){
-                utils_bay_to_grey_bi(ts[n].pic[0], ts[n].pic[1], (int16*)tmpb, ts[n].w, ts[n].h, ts[n].bg);
+                trans_bay_to_grey_bi(ts[n].pic[0], ts[n].pic[1], (int16*)tmpb, ts[n].w, ts[n].h, ts[n].bg);
                 tmp = ts[n].pic[0]; ts[n].pic[0] = ts[n].pic[1]; ts[n].pic[1] = tmp; ts[n].colort = GREY;
             } else {
                 fprintf(stderr, "Error! bay_to_grey_bi: Input image should be in bayer format.\n", out_file);
@@ -560,7 +564,7 @@ int main(int argc, const char *argv[]) {
             if(verb) printf("ace_local filter\n");
         } else if (!strcmp(argv[i], "aver") && tr) {
             par = strtol(argv[i+1], NULL, 0);
-            if(ts[n].colort == GREY){
+            if(ts[n].colort == GREY || ts[n].colort == YUV444 || ts[n].colort == YUV420){
                 utils_average(ts[n].pic[0], ts[n].pic[1], (uint32*)tmpb, ts[n].w, ts[n].h, par);
                 tmp = ts[n].pic[0]; ts[n].pic[0] = ts[n].pic[1]; ts[n].pic[1] = tmp;
             } else if(ts[n].colort == BAYER){
@@ -572,7 +576,7 @@ int main(int argc, const char *argv[]) {
             }
             if(verb) printf("average filter\n");
         }  else if (!strcmp(argv[i], "hess") && tr) {
-            if(ts[n].colort == GREY || ts[n].colort == BAYER){
+            if(ts[n].colort == GREY || ts[n].colort == BAYER || ts[n].colort == YUV444 || ts[n].colort == YUV420){
                 filters_hessian(ts[n].pic[0], ts[n].pic[1], (uint32*)tmpb, ts[n].w, ts[n].h);
                 tmp = ts[n].pic[0]; ts[n].pic[0] = ts[n].pic[1]; ts[n].pic[1] = tmp;
             } else {
@@ -669,16 +673,45 @@ int main(int argc, const char *argv[]) {
                 ok = 1; goto End;
             }
             if(verb) printf("denoise  filter\n");
-        } else if (!strcmp(argv[i], "spline") && tr) {
+        } else if (!strcmp(argv[i], "bay_rgb_s") && tr) {
             par = strtol(argv[i+1], NULL, 0);
             if(ts[n].colort == BAYER){
-                b_spline_interpolation(ts[n].pic[0], ts[n].pic[1], (int16*)tmpb, ts[n].w, ts[n].h, ts[n].bg);
+                trans_bay_to_rgb_b_spline(ts[n].pic[0], ts[n].pic[1], (int16*)tmpb, ts[n].w, ts[n].h, ts[n].bg);
                 tmp = ts[n].pic[0]; ts[n].pic[0] = ts[n].pic[1]; ts[n].pic[1] = tmp; ts[n].colort = RGB;
             } else {
-                fprintf(stderr, "Error! spline: Input image should be in bayer format.\n", out_file);
+                fprintf(stderr, "Error! bay_rgb_s: Input image should be in bayer format.\n", out_file);
                 ok = 1; goto End;
             }
-            if(verb) printf("spline approximation \n");
+            if(verb) printf("bay_rgb_s spline approximation \n");
+
+        } else if (!strcmp(argv[i], "rgb_yuv444") && tr) {
+            if(ts[n].colort == RGB){
+                trans_rgb_to_yuv444(ts[n].pic[0], ts[n].pic[1], &((int16*)ts[n].pic[1])[ts[n].w*ts[n].h], &((int16*)ts[n].pic[1])[ts[n].w*ts[n].h<<1], ts[n].w, ts[n].h);
+                tmp = ts[n].pic[0]; ts[n].pic[0] = ts[n].pic[1]; ts[n].pic[1] = tmp; ts[n].colort = YUV444;
+            } else {
+                fprintf(stderr, "Error! rgb_yuv444: Input image should be in rgb format.\n", out_file);
+                ok = 1; goto End;
+            }
+            if(verb) printf("rgb_yuv444 transform \n");
+        } else if (!strcmp(argv[i], "rgb_yuv420") && tr) {
+            if(ts[n].colort == RGB){
+                trans_rgb_to_yuv420(ts[n].pic[0], ts[n].pic[1], &((int16*)ts[n].pic[1])[ts[n].w*ts[n].h], &((int16*)ts[n].pic[1])[ts[n].w*ts[n].h<<1], ts[n].w, ts[n].h);
+                tmp = ts[n].pic[0]; ts[n].pic[0] = ts[n].pic[1]; ts[n].pic[1] = tmp; ts[n].colort = YUV420;
+            } else {
+                fprintf(stderr, "Error! rgb_yuv420: Input image should be in rgb format.\n", out_file);
+                ok = 1; goto End;
+            }
+            if(verb) printf("rgb_yuv420 transform \n");
+        } else if (!strcmp(argv[i], "grad") && tr) {
+            par = strtol(argv[i+1], NULL, 0);
+            if(ts[n].colort == GREY || ts[n].colort == YUV444 || ts[n].colort == YUV420){
+                seg_grad(ts[n].pic[0], ts[n].pic[1], (int16*)tmpb, ts[n].w, ts[n].h, par);
+                tmp = ts[n].pic[0]; ts[n].pic[0] = ts[n].pic[1]; ts[n].pic[1] = tmp;
+            } else {
+                fprintf(stderr, "Error! grad: Input image should be in grey format.\n", out_file);
+                ok = 1; goto End;
+            }
+            if(verb) printf("gradient transform \n");
         }
     }
 
