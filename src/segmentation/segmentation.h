@@ -9,6 +9,7 @@ extern "C"
 #endif /* __cplusplus */
 
 void seg_grad(int16 *in, int16 *out, int16 *buff, const int w, const int h, const int th);
+uint32 seg_local_max(int16 *in, int16 *out, int16 *buff, const int w, const int h);
 
 #ifdef __cplusplus
 }

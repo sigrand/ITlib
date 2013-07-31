@@ -150,15 +150,26 @@ static inline uint32 loc_max(const int16 *img, const int *dr, const int yx, cons
     return img[yx];
 }
 
+static inline uint32 loc_max1(int16 *l0, int16 *l1, int16 *l2, int16 *l3, int16 *l4, const int x)
+{
+    int i = 0;
+    for(i=-2; i < 3; i++) if(l2[x-i] > l2[x]) return 0;
+    for(i=-2; i < 3; i++) if(l0[x-i] > l2[x]) return 0;
+    for(i=-2; i < 3; i++) if(l1[x-i] > l2[x]) return 0;
+    for(i=-2; i < 3; i++) if(l3[x-i] > l2[x]) return 0;
+    for(i=-2; i < 3; i++) if(l4[x-i] > l2[x]) return 0;
+    if(l2[x]) l2[x] = 252;
+    return l2[x];
+}
+
 /**	\brief	Gradient of 16 bits grey image.
     \param	in		The input 16 bit image.
     \param	out     The output 16 bit gradient image.
     \param	buff    The 3 lines  buffer.
     \param	w       The image width.
     \param  h       The image height.
-    \param  th      The local max threshould (if < th = 0).
 */
-uint32 seg_local_max(int16 *in, int16 *out, int16 *buff, uint32 w, uint32 h, uint32 th)
+uint32 seg_local_max(int16 *in, int16 *out, int16 *buff, const int w, const int h)
 {
     //Direction dr[24]
     //
@@ -169,18 +180,16 @@ uint32 seg_local_max(int16 *in, int16 *out, int16 *buff, uint32 w, uint32 h, uin
     // 19 20 21 22 23
     //
     //int w2 = w<<1, max;
-    /*
-    int dr[24] = {   -1-w, -w, +1-w, 1, 1+w, w, -1+w, -1,
-                    -2-w2, -1-w2, -w2, 1-w2, 2-w2,
-                    -2-w, 2-w,
-                    -2, 2,
-                    -2+w, 2+w,
-                    -2+w2, -1+w2, w2, 1+w2, 2+w2
-                 };
-                 */
-    uint32 i, y, x, x2, yx, yw, yw1,  sh = 2, h1 = h-sh, w2 = w + (sh<<1), w1 = w<<1, max; //, sh1 = sh+1;
-
+    int i, j, y, x, yx, yx1, yw, yw1,  sh = 2, h1 = h-sh, w2 = w + (sh<<1), w3 = w2<<1, w1 = w<<1, max, sz = w*h; //, sh1 = sh+1;
     int16 *l[5], *tm;
+
+    int dr[24] = {  -1-w2, -w2, +1-w2, 1, 1+w2, w2, -1+w2, -1,
+                    -2-w3, -1-w3, -w3, 1-w3, 2-w3,
+                    -2-w2, 2-w2,
+                    -2, 2,
+                    -2+w2, 2+w2,
+                    -2+w3, -1+w3, w3, 1+w3, 2+w3
+                 };
 
     l[0] = buff;
 
@@ -192,26 +201,30 @@ uint32 seg_local_max(int16 *in, int16 *out, int16 *buff, uint32 w, uint32 h, uin
     cp_line_16(&in[0  ], l[2], w, sh);
     cp_line_16(&in[w  ], l[3], w, sh);
 
+    //Copy image
+    for(j=0; j < sz; j++) out[j] = in[j];
+
     i = 0;
     for(y=0; y < h; y++){
         yw = y*w;
         yw1 = y < h1 ? yw + w1 : w*(((h-1)<<1)-y);
-        cp_line_16(&in[yw1], l[2], w, sh);
+        cp_line_16(&in[yw1], l[4], w, sh);
 
         for(x=0; x < w; x++){
             yx = yw + x;
-            //x2 = x + sh1;
-            //max = loc_max(in, dr, yx, w);
-            //if(l[2][x+2]
+            yx1 =  x + 2 + w3;
 
-
+            //max = loc_max(l[0], dr, yx1, w2);
+            max = loc_max1(l[0], l[1], l[2], l[3], l[4], x+2);
             if(max) {
                 out[yx] = 252;
                 i++;
-            } else out[yx] = in[yx];
+                //x+=2;
+            }// else out[yx] = in[yx];
         }
         tm = l[0]; l[0] = l[1]; l[1] = l[2]; l[2] = l[3]; l[3] = l[4]; l[4] = tm;
     }
+
 
     printf("Local maxs = %d\n",i);
     return i;

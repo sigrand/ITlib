@@ -338,6 +338,7 @@ int main(int argc, const char *argv[]) {
                    "  rgb_yuv420       rgb to yuv420 transform\n"
                    "\n"
                    "  grad <x>         The image gradient, x - gardient threshould, if less than th,  = 0 \n"
+                   "  lmax             Find local maximums \n"
                    "\n"
                    "Output options:\n"
                    "  -h               This help message.\n"
@@ -712,6 +713,16 @@ int main(int argc, const char *argv[]) {
                 ok = 1; goto End;
             }
             if(verb) printf("gradient transform \n");
+        } else if (!strcmp(argv[i], "lmax") && tr) {
+            //par = strtol(argv[i+1], NULL, 0);
+            if(ts[n].colort == GREY || ts[n].colort == YUV444 || ts[n].colort == YUV420){
+                seg_local_max(ts[n].pic[0], ts[n].pic[1], (int16*)tmpb, ts[n].w, ts[n].h);
+                tmp = ts[n].pic[0]; ts[n].pic[0] = ts[n].pic[1]; ts[n].pic[1] = tmp;
+            } else {
+                fprintf(stderr, "Error! lmax: Input image should be in grey format.\n", out_file);
+                ok = 1; goto End;
+            }
+            if(verb) printf("Find local maximum\n");
         }
     }
 

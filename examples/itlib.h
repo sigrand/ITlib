@@ -6,6 +6,7 @@
 #include "../utils/utils.h"
 #include "../hdr/hdr.h"
 #include "../transforms/transforms.h"
+#include "../segmentation/segmentation.h"
 /**
     \brief The states of image transform
  */
