@@ -339,6 +339,7 @@ int main(int argc, const char *argv[]) {
                    "\n"
                    "  grad <x>         The image gradient, x - gardient threshould, if less than th,  = 0 \n"
                    "  lmax             Find local maximums \n"
+                   "  edge             Edge detection \n"
                    "\n"
                    "Output options:\n"
                    "  -h               This help message.\n"
@@ -442,15 +443,18 @@ int main(int argc, const char *argv[]) {
                 //if(verb) printf("Write %s file\n", out_file);
 
             } else if(!strcmp(&out_file[strlen(out_file)-4],".png") || !strcmp(&out_file[strlen(out_file)-4],".PNG")){
-
                 if(ts[n].colort == GREY || ts[n].colort == BAYER || ts[n].colort == YUV444 || ts[n].colort == YUV420){
-                    utils_16_to_8(ts[n].pic[0], ts[n].pic[1], ts[n].w, ts[n].h, ts[n].bpp, 0);
-                    tmp = ts[n].pic[0]; ts[n].pic[0] = ts[n].pic[1]; ts[n].pic[1] = tmp; ts[n].bpp = 8;
+                    if(ts[n].bpp != 8) {
+                        utils_16_to_8(ts[n].pic[0], ts[n].pic[1], ts[n].w, ts[n].h, ts[n].bpp, 0);
+                        tmp = ts[n].pic[0]; ts[n].pic[0] = ts[n].pic[1]; ts[n].pic[1] = tmp; ts[n].bpp = 8;
+                    }
 
                     ok = writePNG(OUT_FILE, ts[n].pic[0], ts[n].w, ts[n].h, ts[n].bpp, GREY);
-                } else if (ts[n].colort == RGB){
-                    utils_16_to_8(ts[n].pic[0], ts[n].pic[1], ts[n].w, ts[n].h, ts[n].bpp, 2);
-                    tmp = ts[n].pic[0]; ts[n].pic[0] = ts[n].pic[1]; ts[n].pic[1] = tmp; ts[n].bpp = 8;
+                } else if (ts[n].colort == RGB){                    
+                    if(ts[n].bpp != 8) {
+                        utils_16_to_8(ts[n].pic[0], ts[n].pic[1], ts[n].w, ts[n].h, ts[n].bpp, 2);
+                        tmp = ts[n].pic[0]; ts[n].pic[0] = ts[n].pic[1]; ts[n].pic[1] = tmp; ts[n].bpp = 8;
+                    }
 
                     ok = writePNG(OUT_FILE, ts[n].pic[0], ts[n].w, ts[n].h, ts[n].bpp, ts[n].colort);
                 } else {
@@ -548,7 +552,7 @@ int main(int argc, const char *argv[]) {
             //printf("par = %d\n", par);
             if(ts[n].colort < RGBA){
                 hdr_ace(ts[n].pic[0], ts[n].pic[1], (int*)tmpb, ts[n].w, ts[n].h, ts[n].bpp, par, ts[n].colort);
-                tmp = ts[n].pic[0]; ts[n].pic[0] = ts[n].pic[1]; ts[n].pic[1] = tmp; ts[n].bpp = par;
+                tmp = ts[n].pic[0]; ts[n].pic[0] = ts[n].pic[1]; ts[n].pic[1] = tmp; //ts[n].bpp = par;
             } else {
                 fprintf(stderr, "Error! ace: Input image should be in bayer or grey.\n", out_file);
                 ok = 1; goto End;
@@ -557,7 +561,7 @@ int main(int argc, const char *argv[]) {
         } else if (!strcmp(argv[i], "ace_local") && tr) {
             if(ts[n].colort == BAYER || ts[n].colort == GREY){
                 hdr_ace_local(ts[n].pic[0], ts[n].pic[1], (int16*)tmpb, ts[n].w, ts[n].h, ts[n].bpp);
-                tmp = ts[n].pic[0]; ts[n].pic[0] = ts[n].pic[1]; ts[n].pic[1] = tmp; ts[n].bpp = 8;
+                tmp = ts[n].pic[0]; ts[n].pic[0] = ts[n].pic[1];  ts[n].pic[1] = tmp; //ts[n].bpp = 8;
             } else {
                 fprintf(stderr, "Error! ace_local: Input image should be in bayer or grey format.\n", out_file);
                 ok = 1; goto End;
@@ -568,9 +572,11 @@ int main(int argc, const char *argv[]) {
             if(ts[n].colort == GREY || ts[n].colort == YUV444 || ts[n].colort == YUV420){
                 utils_average(ts[n].pic[0], ts[n].pic[1], (uint32*)tmpb, ts[n].w, ts[n].h, par);
                 tmp = ts[n].pic[0]; ts[n].pic[0] = ts[n].pic[1]; ts[n].pic[1] = tmp;
+
             } else if(ts[n].colort == BAYER){
                 utils_average_bayer(ts[n].pic[0], ts[n].pic[1], (uint32*)tmpb, ts[n].w, ts[n].h, par);
                 tmp = ts[n].pic[0]; ts[n].pic[0] = ts[n].pic[1]; ts[n].pic[1] = tmp;
+
             } else {
                 fprintf(stderr, "Error! average: Input image should be in bayer or grey format.\n", out_file);
                 ok = 1; goto End;
@@ -580,6 +586,7 @@ int main(int argc, const char *argv[]) {
             if(ts[n].colort == GREY || ts[n].colort == BAYER || ts[n].colort == YUV444 || ts[n].colort == YUV420){
                 filters_hessian(ts[n].pic[0], ts[n].pic[1], (uint32*)tmpb, ts[n].w, ts[n].h);
                 tmp = ts[n].pic[0]; ts[n].pic[0] = ts[n].pic[1]; ts[n].pic[1] = tmp;
+
             } else {
                 fprintf(stderr, "Error! hess: Input image should be in bayer or grey format.\n", out_file);
                 ok = 1; goto End;
@@ -592,6 +599,7 @@ int main(int argc, const char *argv[]) {
                     //hdr_diff(ts[n].pic[0], ts[1].pic[0], ts[n].pic[1], ts[n].w, ts[n].h, ts[n].bpp);
                     utils_subtract(ts[n].pic[0], ts[1].pic[0], ts[n].pic[1], ts[n].w, ts[n].h, ts[n].bpp);
                     tmp = ts[n].pic[0]; ts[n].pic[0] = ts[n].pic[1]; ts[n].pic[1] = tmp;
+
                 } else {
                     fprintf(stderr, "Error! subtract: Input image should be in bayer or grey format.\n", out_file);
                     ok = 1; goto End;
@@ -606,7 +614,8 @@ int main(int argc, const char *argv[]) {
                 fc = 0;
                 if(ts[n].colort == GREY || ts[n].colort == BAYER){
                     utils_add(ts[n].pic[0], ts[1].pic[0], ts[n].pic[1], ts[n].w, ts[n].h, ts[n].bpp, ts[1].bpp);
-                    tmp = ts[n].pic[0]; ts[n].pic[0] = ts[n].pic[1]; ts[n].pic[1] = tmp; ts[n].bpp = ts[1].bpp;
+                    tmp = ts[n].pic[0]; ts[n].pic[0] = ts[n].pic[1];  ts[n].bpp = ts[1].bpp; ts[n].pic[1] = tmp;
+
                 } else {
                     fprintf(stderr, "Error! add: Input image should be in bayer or grey format.\n", out_file);
                     ok = 1; goto End;
@@ -622,7 +631,8 @@ int main(int argc, const char *argv[]) {
                 par = strtol(argv[i+1], NULL, 0);
                 if(ts[n].colort == GREY || ts[n].colort == BAYER){
                     filters_NLM_denoise_bayer(ts[n].pic[0], ts[1].pic[0], ts[n].pic[1], (int16*)tmpb, par, 50, ts[n].w, ts[n].h);
-                    tmp = ts[n].pic[0]; ts[n].pic[0] = ts[n].pic[1]; ts[n].pic[1] = tmp; ts[n].bpp = ts[1].bpp;
+                    tmp = ts[n].pic[0]; ts[n].pic[0] = ts[n].pic[1];  ts[n].bpp = ts[1].bpp; ts[n].pic[1] = tmp;
+
                 } else {
                     fprintf(stderr, "Error! dnois_nlm: Input image should be in bayer or grey format.\n", out_file);
                     ok = 1; goto End;
@@ -636,9 +646,10 @@ int main(int argc, const char *argv[]) {
             if(fc == 3){
                 fc = 0;
                 par = strtol(argv[i+1], NULL, 0);
-                if(ts[n].colort == GREY || ts[n].colort == BAYER){
+                if(ts[n].colort == GREY || ts[n].colort == BAYER || ts[n].colort == YUV444 || ts[n].colort == YUV420){
                     filters_MSE_bayer(ts[n].pic[0], ts[1].pic[0], ts[n].pic[1], (int16*)tmpb, par, ts[n].bpp, ts[n].w, ts[n].h);
-                    tmp = ts[n].pic[0]; ts[n].pic[0] = ts[n].pic[1]; ts[n].pic[1] = tmp; ts[n].bpp = ts[1].bpp;
+                    tmp = ts[n].pic[0]; ts[n].pic[0] = ts[n].pic[1]; ts[n].bpp = ts[1].bpp; ts[n].pic[1] = tmp;
+
                 } else {
                     fprintf(stderr, "Error! mse: Input image should be in bayer or grey format.\n", out_file);
                     ok = 1; goto End;
@@ -654,7 +665,8 @@ int main(int argc, const char *argv[]) {
                 //par = strtol(argv[i+1], NULL, 0);
                 if(ts[n].colort == GREY || ts[n].colort == BAYER){
                     filters_denoise(ts[n].pic[0], ts[1].pic[0], ts[n].pic[1], (int*)tmpb, ts[n].bpp, ts[n].w, ts[n].h);
-                    tmp = ts[n].pic[0]; ts[n].pic[0] = ts[n].pic[1]; ts[n].pic[1] = tmp; ts[n].bpp = ts[1].bpp;
+                    tmp = ts[n].pic[0]; ts[n].pic[0] = ts[n].pic[1]; ts[n].bpp = ts[1].bpp; ts[n].pic[1] = tmp;
+
                 } else {
                     fprintf(stderr, "Error! dnois: Input image should be in bayer or grey format.\n", out_file);
                     ok = 1; goto End;
@@ -669,6 +681,7 @@ int main(int argc, const char *argv[]) {
             if(ts[n].colort == GREY || ts[n].colort == BAYER){
                 filters_denoise_regression_bayer(ts[n].pic[0], ts[n].pic[1], (int*)tmpb, par, ts[n].w, ts[n].h);
                 tmp = ts[n].pic[0]; ts[n].pic[0] = ts[n].pic[1]; ts[n].pic[1] = tmp;
+
             } else {
                 fprintf(stderr, "Error! dnois_reg: Input image should be in bayer or grey format.\n", out_file);
                 ok = 1; goto End;
@@ -678,7 +691,8 @@ int main(int argc, const char *argv[]) {
             par = strtol(argv[i+1], NULL, 0);
             if(ts[n].colort == BAYER){
                 trans_bay_to_rgb_b_spline(ts[n].pic[0], ts[n].pic[1], (int16*)tmpb, ts[n].w, ts[n].h, ts[n].bg);
-                tmp = ts[n].pic[0]; ts[n].pic[0] = ts[n].pic[1]; ts[n].pic[1] = tmp; ts[n].colort = RGB;
+                tmp = ts[n].pic[0]; ts[n].pic[0] = ts[n].pic[1]; ts[n].colort = RGB; ts[n].pic[1] = tmp;
+
             } else {
                 fprintf(stderr, "Error! bay_rgb_s: Input image should be in bayer format.\n", out_file);
                 ok = 1; goto End;
@@ -688,7 +702,8 @@ int main(int argc, const char *argv[]) {
         } else if (!strcmp(argv[i], "rgb_yuv444") && tr) {
             if(ts[n].colort == RGB){
                 trans_rgb_to_yuv444(ts[n].pic[0], ts[n].pic[1], &((int16*)ts[n].pic[1])[ts[n].w*ts[n].h], &((int16*)ts[n].pic[1])[ts[n].w*ts[n].h<<1], ts[n].w, ts[n].h);
-                tmp = ts[n].pic[0]; ts[n].pic[0] = ts[n].pic[1]; ts[n].pic[1] = tmp; ts[n].colort = YUV444;
+                tmp = ts[n].pic[0]; ts[n].pic[0] = ts[n].pic[1]; ts[n].colort = YUV444; ts[n].pic[1] = tmp;
+
             } else {
                 fprintf(stderr, "Error! rgb_yuv444: Input image should be in rgb format.\n", out_file);
                 ok = 1; goto End;
@@ -697,7 +712,8 @@ int main(int argc, const char *argv[]) {
         } else if (!strcmp(argv[i], "rgb_yuv420") && tr) {
             if(ts[n].colort == RGB){
                 trans_rgb_to_yuv420(ts[n].pic[0], ts[n].pic[1], &((int16*)ts[n].pic[1])[ts[n].w*ts[n].h], &((int16*)ts[n].pic[1])[ts[n].w*ts[n].h<<1], ts[n].w, ts[n].h);
-                tmp = ts[n].pic[0]; ts[n].pic[0] = ts[n].pic[1]; ts[n].pic[1] = tmp; ts[n].colort = YUV420;
+                tmp = ts[n].pic[0]; ts[n].pic[0] = ts[n].pic[1]; ts[n].colort = YUV420; ts[n].pic[1] = tmp;
+
             } else {
                 fprintf(stderr, "Error! rgb_yuv420: Input image should be in rgb format.\n", out_file);
                 ok = 1; goto End;
@@ -706,8 +722,9 @@ int main(int argc, const char *argv[]) {
         } else if (!strcmp(argv[i], "grad") && tr) {
             par = strtol(argv[i+1], NULL, 0);
             if(ts[n].colort == GREY || ts[n].colort == YUV444 || ts[n].colort == YUV420){
-                seg_grad(ts[n].pic[0], ts[n].pic[1], (int16*)tmpb, ts[n].w, ts[n].h, par);
+                seg_gradient(ts[n].pic[0], ts[n].pic[1], (int16*)tmpb, ts[n].w, ts[n].h, par);
                 tmp = ts[n].pic[0]; ts[n].pic[0] = ts[n].pic[1]; ts[n].pic[1] = tmp;
+
             } else {
                 fprintf(stderr, "Error! grad: Input image should be in grey format.\n", out_file);
                 ok = 1; goto End;
@@ -723,6 +740,16 @@ int main(int argc, const char *argv[]) {
                 ok = 1; goto End;
             }
             if(verb) printf("Find local maximum\n");
+        } else if (!strcmp(argv[i], "edge") && tr) {
+            //par = strtol(argv[i+1], NULL, 0);
+            if(ts[n].colort == GREY || ts[n].colort == YUV444 || ts[n].colort == YUV420){
+                seg_edge_detection(ts[n].pic[0], ts[n].pic[1], ts[n].w, ts[n].h);
+                tmp = ts[n].pic[0]; ts[n].pic[0] = ts[n].pic[1]; ts[n].pic[1] = tmp;  ts[n].bpp = 8;
+            } else {
+                fprintf(stderr, "Error! edge: Input image should be in grey format.\n", out_file);
+                ok = 1; goto End;
+            }
+            if(verb) printf("Edge detection\n");
         }
     }
 
