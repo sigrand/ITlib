@@ -664,3 +664,32 @@ void utils_add(const int16 *in, const int16 *in1, int16 *out, const int w, const
         //printf("in = %d in1 = %d sh = %d tmp = %d out = %d\n", in[i], in1[i], sh, tmp, out[i]);
     }
 }
+
+/** \brief Two times downsampling image.
+    \param in	The input 16 bits image.
+    \param out 	The output 16 bits image.
+    \param buff	One line buffer
+    \param w	The image width.
+    \param h	The imahe height.
+*/
+void utils_resize_down_2(const int16 *in, int16 *out, int16 *buff, const int w, const int h)
+{
+    int x, y, yw, yx, yw1, yw2, w1 = w>>1, h1 = h>>1;
+    int16 *l = buff;
+
+    //wn = ((w-2)>>1); hn = ((h-2)>>1);
+    //w1 = w>>1; h1 = h>>1;
+
+    for(y=0; y < h1; y++){
+        yw1 = (y<<1)*w;
+        for(x=0; x < w1; x++) l[x]  = in[yw1 + (x<<1)] + in[yw1 + (x<<1)+1];
+        yw1 = yw1 + w;
+        for(x=0; x < w1; x++) l[x] += in[yw1 + (x<<1)] + in[yw1 + (x<<1)+1];
+        yw = y*w1;
+
+        for(x=0; x < w1; x++){
+            yx = yw + x;
+            out[yx] = l[x]>>2;
+        }
+    }
+}

@@ -73,6 +73,108 @@ void seg_gradient(int16 *in, int16 *out, int16 *buff, const int w, const int h, 
     }
 }
 
+/**	\brief	Canny edge detection.
+    \param	in		The input 16 bit image.
+    \param	out     The output 16 bit gradient image.
+    \param	buff    The 3 lines  buffer.
+    \param	w       The image width.
+    \param  h       The image height.
+    \param  th      The gradient threshould (if < th = 0).
+*/
+void seg_canny_edge(int16 *in, int16 *out, int16 *buff, const int w, const int h, const int th)
+{
+    uint32 i, y, x, x2, yx, yx1, yw, yw1, h1 = h-1, sh = 1, w2 = w + (sh<<1); //, sh1 = sh+1;
+    int16  *tm, *l[3], *gr[3];
+    int g, max, min[2];
+    uint8 *dr[2], *tm1;
+
+    //Buffer for image
+    l[0] = buff;
+    for(i=1; i < 3; i++) l[i] = &l[i-1][w2];
+    //Buffer for gradient
+    gr[0] = &l[2][w2];
+    for(i=1; i < 3; i++) gr[i] = &gr[i-1][w2];
+    //Direction line
+    dr[0] = (uint8*)&gr[2][w2];
+    //for(i=1; i < 3; i++) dr[i] = &dr[i-1][w2];
+    dr[1] = &dr[0][w2];
+    dr[2] = &dr[1][w2];
+
+    //Prepare buffer
+    cp_line_16(&in[w], l[0], w, sh);
+    cp_line_16(&in[0], l[1], w, sh);
+
+    for(y=0; y < h; y++){
+        yw = y*w;
+        yw1 = y < h1 ? yw + w : yw - w;
+        cp_line_16(&in[yw1], l[2], w, sh);
+
+        for(x=0; x < w; x++){
+            yx = yw + x;
+            //x2 = x + sh1;
+            max = 0;
+            //printf("x = %d y = %d\n", x, y);
+            g = abs(l[1][x]   - l[1][x+2]);  if(g > th && max < g) { max = g; i = 0; }
+            g = abs(l[0][x]   - l[2][x+2]);  if(g > th && max < g) { max = g; i = 1; }
+            g = abs(l[0][x+1] - l[2][x+1]);  if(g > th && max < g) { max = g; i = 2; }
+            g = abs(l[0][x+2] - l[2][x]  );  if(g > th && max < g) { max = g; i = 3; }
+
+            gr[2][x] = max;
+            dr[2][x] = i;
+            //printf("x = %d y = %d gr = %d dir = %d \n", x, y, max, i);
+
+            yx1 = yx-w-1;
+
+            if(x > 1 && y > 1) {
+                out[yx-w-1] = 0;
+                //out[yx-w-1] = gr[1][x-1];
+                if       (dr[1][x-1] == 0){
+                    if(gr[1][x-2] < gr[1][x-1] && gr[1][x] < gr[1][x-1]) out[yx1] = gr[1][x-1];
+                } else if(dr[1][x-1] == 1){
+                    if(gr[0][x-2] < gr[1][x-1] && gr[2][x] < gr[1][x-1]) out[yx1] = gr[1][x-1];
+                } else if(dr[1][x-1] == 2){
+                    if(gr[0][x-1] < gr[1][x-1] && gr[2][x-1] < gr[1][x-1]) out[yx1] = gr[1][x-1];
+                } else if(dr[1][x-1] == 3){
+                    if(gr[0][x] < gr[1][x-1] && gr[2][x-2] < gr[1][x-1]) out[yx1] = gr[1][x-1];
+                }
+
+                //Check for neighborhood
+                // x    x x   x x    x
+                // x x    x   x    x x
+                /*
+                if(out[yx1]) {
+                    if     (out[yx1-1] && out[yx1-w-1]) out[yx1-1] = gr[1][x-1]; //out[yx1-1] = 0;
+                    else if(out[yx1-w] && out[yx1-w-1]) out[yx1-w] = gr[1][x-1]; //out[yx1-1] = 0;
+                    else if(out[yx1-w] && out[yx1-w+1]) out[yx1-w] = gr[1][x-1]; //out[yx1-1] = 0;
+                    else if(out[yx1-1] && out[yx1-w  ]) out[yx1]   = gr[1][x-1]; //out[yx1]   = 0;
+                }
+                */
+                /*
+                if(out[yx1]) {
+                    if     (out[yx1-1] && out[yx1-w-1]) out[yx1-1] = 0;
+                    else if(out[yx1-w] && out[yx1-w-1]) out[yx1-w] = 0;
+                    else if(out[yx1-w] && out[yx1-w+1]) out[yx1-w] = 0;
+                    else if(out[yx1-1] && out[yx1-w  ]) out[yx1]   = 0;
+                }*/
+
+                //if(out[yx1]) out[yx1] = 255;
+                //else out[yx1] = gr[1][x-1];
+
+                /*
+                printf("out[%d] = %d \n", yx-w-1, out[yx-w-1]);
+                printf(" %3d  %3d  %3d\n %3d  %3d  %3d\n %3d  %3d  %3d\n\n",
+                       gr[0][x-2], gr[0][x-1], gr[0][x],  gr[1][x-2], gr[1][x-1], gr[1][x],  gr[2][x-2], gr[2][x-1], gr[2][x]);
+                printf(" %3d  %3d  %3d\n %3d  %3d  %3d\n %3d  %3d  %3d\n\n",
+                       dr[0][x-2], dr[0][x-1], dr[0][x],  dr[1][x-2], dr[1][x-1], dr[1][x],  dr[2][x-2], dr[2][x-1], dr[2][x]);
+                */
+            }
+        }
+        tm = l[0]; l[0] = l[1]; l[1] = l[2]; l[2] = tm;
+        tm =  gr[0]; gr[0] = gr[1]; gr[1] = gr[2]; gr[2] = tm;
+        tm1 = dr[0]; dr[0] = dr[1]; dr[1] = dr[2]; dr[2] = tm1;
+    }
+}
+
 /**	\brief	Check is a pixel the local maximum.
     \param	img		The pointer to gradient image.
     \param	dr		The pointer to search direction.

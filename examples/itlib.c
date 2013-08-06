@@ -336,11 +336,13 @@ int main(int argc, const char *argv[]) {
                    "  dnois            Denoise algorithm base on sum of difference\n"
                    "  rgb_yuv444       rgb to yuv444 transform\n"
                    "  rgb_yuv420       rgb to yuv420 transform\n"
+                   "  res_down_2       Two times downsampling image\n"
                    "\n"
                    "  grad <x>         The image gradient, x - gardient threshould, if less than th,  = 0 \n"
                    "  lmax             Find local maximums \n"
                    "  edge             Edge detection \n"
-                   "\n"
+                   "  canny <x>        Canny edge detection, x - gardient threshould, if less than th,  = 0 \n"
+                    "\n"
                    "Output options:\n"
                    "  -h               This help message.\n"
                    "  -v               Verbose \n"
@@ -750,6 +752,27 @@ int main(int argc, const char *argv[]) {
                 ok = 1; goto End;
             }
             if(verb) printf("Edge detection\n");
+        } else if (!strcmp(argv[i], "canny") && tr) {
+            par = strtol(argv[i+1], NULL, 0);
+            if(ts[n].colort == GREY || ts[n].colort == YUV444 || ts[n].colort == YUV420){
+                seg_canny_edge(ts[n].pic[0], ts[n].pic[1], (int16*)tmpb, ts[n].w, ts[n].h, par);
+                tmp = ts[n].pic[0]; ts[n].pic[0] = ts[n].pic[1]; ts[n].pic[1] = tmp;
+            } else {
+                fprintf(stderr, "Error! canny: Input image should be in grey format.\n", out_file);
+                ok = 1; goto End;
+            }
+            if(verb) printf("Canny edge detection\n");
+        } else if (!strcmp(argv[i], "res_down_2") && tr) {
+            //par = strtol(argv[i+1], NULL, 0);
+            if(ts[n].colort == GREY || ts[n].colort == YUV444 || ts[n].colort == YUV420){
+                utils_resize_down_2(ts[n].pic[0], ts[n].pic[1], (int16*)tmpb, ts[n].w, ts[n].h);
+                tmp = ts[n].pic[0]; ts[n].pic[0] = ts[n].pic[1]; ts[n].pic[1] = tmp;
+                ts[n].w = ts[n].w>>1; ts[n].h = ts[n].h>>1;
+            } else {
+                fprintf(stderr, "Error! res_down_2: Input image should be in grey format.\n", out_file);
+                ok = 1; goto End;
+            }
+            if(verb) printf("Two times downsampling image\n");
         }
     }
 

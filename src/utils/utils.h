@@ -28,6 +28,8 @@ void utils_average_bayer(int16 *in, int16 *out, uint32 *buff, const int w, const
 void utils_subtract(const int16 *in, const int16 *in1, int16 *out, const int w, const int h, const int bpp);
 void utils_add(const int16 *in, const int16 *in1, int16 *out, const int w, const int h, const int bpp, const int bpp1);
 
+void utils_resize_down_2(const int16 *in, int16 *out, int16 *buff, const int w, const int h);
+
 #ifdef __cplusplus
 }
 #endif /* __cplusplus */
