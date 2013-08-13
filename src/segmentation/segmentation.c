@@ -55,7 +55,7 @@ void seg_gradient(int16 *in, int16 *out, int16 *buff, const int w, const int h, 
             max = (g[0] + g[1] + g[2] + g[3]);
             out[yx] = (max-th) > 0 ? (max > 251 ? 251 : max) : 0;
             */
-
+            /*
             g[0] = abs(l[1][x] - l[1][x+2]);    min[0] = g[0];
             g[2] = abs(l[0][x+1] - l[2][x+1]);  min[0] = min[0] > g[2] ? g[2] : min[0];
 
@@ -67,10 +67,35 @@ void seg_gradient(int16 *in, int16 *out, int16 *buff, const int w, const int h, 
                 out[yx] = max > 251 ? 251 : max;
                 //printf("max = %d out = %d\n", max, out[yx]);
             } else out[yx] = 0;
+            */
+            max = 0;
+            g[0] = abs(l[1][x]   - l[1][x+2]);  if(g[0] > th && max < g[0]) { max = g[0]; i = 1; }
+            g[1] = abs(l[0][x]   - l[2][x+2]);  if(g[1] > th && max < g[1]) { max = g[1]; i = 2; }
+            g[2] = abs(l[0][x+1] - l[2][x+1]);  if(g[2] > th && max < g[2]) { max = g[2]; i = 3; }
+            g[3] = abs(l[0][x+2] - l[2][x]  );  if(g[3] > th && max < g[3]) { max = g[3]; i = 4; }
+
+            out[yx] = max ? ((g[0]+g[1]+g[2]+g[3])>>2) : 0;
+
 
         }
         tm = l[0]; l[0] = l[1]; l[1] = l[2]; l[2] = tm;
     }
+}
+
+/**	\brief	Average direction filter.
+    \param	l0		The pointer to 1 line.
+    \param	l1		The pointer to 2 line.
+    \param	l2		The pointer to 3 line.
+    \param  x		Coordinate pixel in x direction.
+    \retval			0 - if not
+*/
+static inline uint32  avr_dir(uint8 *l0, uint8 *l1, uint8 *l2, const int x)
+{
+    int tmp;
+    tmp =   l0[x-1] + l0[x] + l0[x+1] +
+            l1[x-1] + l1[x] + l1[x+1] +
+            l2[x-1] + l2[x] + l2[x+1];
+    return tmp/9;
 }
 
 /**	\brief	Canny edge detection.
@@ -85,8 +110,8 @@ void seg_canny_edge(int16 *in, int16 *out, int16 *buff, const int w, const int h
 {
     uint32 i, y, x, x2, yx, yx1, yw, yw1, h1 = h-1, sh = 1, w2 = w + (sh<<1); //, sh1 = sh+1;
     int16  *tm, *l[3], *gr[3];
-    int g, max, min[2];
-    uint8 *dr[2], *tm1;
+    int g[4], max, min[2];
+    uint8 *dr[2], *tm1, drt;
 
     //Buffer for image
     l[0] = buff;
@@ -114,27 +139,40 @@ void seg_canny_edge(int16 *in, int16 *out, int16 *buff, const int w, const int h
             //x2 = x + sh1;
             max = 0;
             //printf("x = %d y = %d\n", x, y);
-            g = abs(l[1][x]   - l[1][x+2]);  if(g > th && max < g) { max = g; i = 0; }
-            g = abs(l[0][x]   - l[2][x+2]);  if(g > th && max < g) { max = g; i = 1; }
-            g = abs(l[0][x+1] - l[2][x+1]);  if(g > th && max < g) { max = g; i = 2; }
-            g = abs(l[0][x+2] - l[2][x]  );  if(g > th && max < g) { max = g; i = 3; }
-
+            /*
+            g = abs(l[1][x]   - l[1][x+2]);  if(g > th && max < g) { max = g; i = 1; }
+            g = abs(l[0][x]   - l[2][x+2]);  if(g > th && max < g) { max = g; i = 2; }
+            g = abs(l[0][x+1] - l[2][x+1]);  if(g > th && max < g) { max = g; i = 3; }
+            g = abs(l[0][x+2] - l[2][x]  );  if(g > th && max < g) { max = g; i = 4; }
             gr[2][x] = max;
+            */
+            g[0] = abs(l[1][x]   - l[1][x+2]);  if(g[0] > th && max < g[0]) { max = g[0]; i = 1; }
+            g[1] = abs(l[0][x]   - l[2][x+2]);  if(g[1] > th && max < g[1]) { max = g[1]; i = 2; }
+            g[2] = abs(l[0][x+1] - l[2][x+1]);  if(g[2] > th && max < g[2]) { max = g[2]; i = 3; }
+            g[3] = abs(l[0][x+2] - l[2][x]  );  if(g[3] > th && max < g[3]) { max = g[3]; i = 4; }
+
+            gr[2][x] = max ? ((g[0]+g[1]+g[2]+g[3])>>2) : 0;
             dr[2][x] = i;
+
+
             //printf("x = %d y = %d gr = %d dir = %d \n", x, y, max, i);
 
             yx1 = yx-w-1;
 
             if(x > 1 && y > 1) {
-                out[yx-w-1] = 0;
+                drt = dr[1][x-1];
+                //Avarage direction filter
+                //drt = avr_dir(dr[0], dr[1], dr[2], x-1);
+
+                out[yx1] = 0;
                 //out[yx-w-1] = gr[1][x-1];
-                if       (dr[1][x-1] == 0){
+                if       (drt == 1){
                     if(gr[1][x-2] < gr[1][x-1] && gr[1][x] < gr[1][x-1]) out[yx1] = gr[1][x-1];
-                } else if(dr[1][x-1] == 1){
+                } else if(drt == 2){
                     if(gr[0][x-2] < gr[1][x-1] && gr[2][x] < gr[1][x-1]) out[yx1] = gr[1][x-1];
-                } else if(dr[1][x-1] == 2){
+                } else if(drt == 3){
                     if(gr[0][x-1] < gr[1][x-1] && gr[2][x-1] < gr[1][x-1]) out[yx1] = gr[1][x-1];
-                } else if(dr[1][x-1] == 3){
+                } else if(drt == 4){
                     if(gr[0][x] < gr[1][x-1] && gr[2][x-2] < gr[1][x-1]) out[yx1] = gr[1][x-1];
                 }
 
@@ -149,13 +187,13 @@ void seg_canny_edge(int16 *in, int16 *out, int16 *buff, const int w, const int h
                     else if(out[yx1-1] && out[yx1-w  ]) out[yx1]   = gr[1][x-1]; //out[yx1]   = 0;
                 }
                 */
-                /*
+
                 if(out[yx1]) {
                     if     (out[yx1-1] && out[yx1-w-1]) out[yx1-1] = 0;
                     else if(out[yx1-w] && out[yx1-w-1]) out[yx1-w] = 0;
                     else if(out[yx1-w] && out[yx1-w+1]) out[yx1-w] = 0;
                     else if(out[yx1-1] && out[yx1-w  ]) out[yx1]   = 0;
-                }*/
+                }
 
                 //if(out[yx1]) out[yx1] = 255;
                 //else out[yx1] = gr[1][x-1];
@@ -175,11 +213,96 @@ void seg_canny_edge(int16 *in, int16 *out, int16 *buff, const int w, const int h
     }
 }
 
-/**	\brief	Check is a pixel the local maximum.
-    \param	img		The pointer to gradient image.
-    \param	dr		The pointer to search direction.
-    \param	yx		The pixel coordinate (yx = y*w + x)
-    \param  w		The image width.
+
+/**	\brief	Corner detector of 16 bits grey image.
+    \param	in		The input 16 bit image.
+    \param	out     The output 16 bit gradient image.
+    \param	buff    The 5 lines  buffer.
+    \param	w       The image width.
+    \param  h       The image height.
+    \param  th      The gradient threshould (if < th = 0).
+*/
+void seg_corners(int16 *in, int16 *out, int16 *buff, const int w, const int h, const int th)
+{
+    int i, j, y, x, x5, x2, yx, sum, yw, yw1,  sh = 2, h1 = h-sh, w2 = w + (sh<<1), w3 = w2<<1, w1 = w<<1, max, sz = w*h; //, sh1 = sh+1;
+    int16 *l[5], *tm;
+    int more, less, dif, mo;
+
+    l[0] = buff;
+
+    for(i=1; i < 5; i++) l[i] = &l[i-1][w2];
+
+    //Prepare buffer
+    cp_line_16(&in[w*2], l[0], w, sh);
+    cp_line_16(&in[w  ], l[1], w, sh);
+    cp_line_16(&in[0  ], l[2], w, sh);
+    cp_line_16(&in[w  ], l[3], w, sh);
+
+    //Copy image
+    for(j=0; j < sz; j++) out[j] = in[j];
+
+    i = 0;
+    for(y=0; y < h; y++){
+        yw = y*w;
+        yw1 = y < h1 ? yw + w1 : w*(((h-1)<<1)-y);
+        cp_line_16(&in[yw1], l[4], w, sh);
+
+        for(x=0; x < w; x++){
+            yx = yw + x;
+            //yx1 =  x + 2 + w3;
+            x5 = x+5;
+            x2 = x+2;
+            sum = 0; more = 0; less = 0;
+            /*
+            for(i=x; i < x5; i++) sum += l[0][i] - l[2][x+2];
+            for(i=x; i < x5; i++) sum += l[1][i] - l[2][x+2];
+            for(i=x; i < x5; i++) sum += l[2][i] - l[2][x+2];
+            for(i=x; i < x5; i++) sum += l[3][i] - l[2][x+2];
+            for(i=x; i < x5; i++) sum += l[4][i] - l[2][x+2];
+            */
+            for(j=0; j < 5; j++){
+                for(i=x; i < x5; i++){
+                    dif = l[j][i] - l[2][x+2];
+                    if(abs(dif) > th){
+                        if(dif > 0) more++;
+                        else less++;
+                    }
+                }
+            }
+            dif = l[0][0] - l[2][x+2];
+            if(abs(dif) > th){
+                if(dif > 0) { more++; mo = 1; }
+                else { less++; mo = 0; }
+            }
+            dif = l[0][1] - l[2][x+2];
+            if(abs(dif) > th){
+                if(dif > 0) { more++; mo = 1; }
+                else { less++; mo = 0; }
+            }
+            dif = l[1][0] - l[2][x+2];
+            if(abs(dif) > th){
+                if(dif > 0) { more++; mo = 1; }
+                else { less++; mo = 0; }
+            }
+
+
+            //printf("more = %d less = %d\n", more, less);
+            out[yx] = abs(more-less)*10;
+        }
+        tm = l[0]; l[0] = l[1]; l[1] = l[2]; l[2] = l[3]; l[3] = l[4]; l[4] = tm;
+    }
+
+    //printf("Local maxs = %d\n",i);
+    //return i;
+}
+
+/**	\brief	Check if a pixel the local maximum.
+    \param	l0		The pointer to 1 line.
+    \param	l1		The pointer to 2 line.
+    \param	l2		The pointer to 3 line.
+    \param	l3		The pointer to 4 line.
+    \param	l4		The pointer to 5 line.
+    \param  x		Coordinate pixel in x direction.
     \retval			0 - if not
 */
 static inline uint32 loc_max(int16 *l0, int16 *l1, int16 *l2, int16 *l3, int16 *l4, const int x)
@@ -194,7 +317,7 @@ static inline uint32 loc_max(int16 *l0, int16 *l1, int16 *l2, int16 *l3, int16 *
     return l2[x];
 }
 
-/**	\brief	Gradient of 16 bits grey image.
+/**	\brief	Find local maxumum in 5x5 window of 16 bits grey image.
     \param	in		The input 16 bit image.
     \param	out     The output 16 bit gradient image.
     \param	buff    The 5 lines  buffer.
@@ -227,10 +350,10 @@ uint32 seg_local_max(int16 *in, int16 *out, int16 *buff, const int w, const int 
 
         for(x=0; x < w; x++){
             yx = yw + x;
-            yx1 =  x + 2 + w3;
+
 
             //max = loc_max(l[0], dr, yx1, w2);
-            max = loc_max(l[0], l[1], l[2], l[3], l[4], x+2);
+            max = loc_max(l[0], l[1], l[2], l[3], l[4], x+sh);
             if(max) {
                 out[yx] = 252;
                 i++;
@@ -244,6 +367,93 @@ uint32 seg_local_max(int16 *in, int16 *out, int16 *buff, const int w, const int 
     return i;
 }
 
+/**	\brief	Check if a pixel the end of edge.
+    \param	l0		The pointer to 1 line.
+    \param	l1		The pointer to 2 line.
+    \param	l2		The pointer to 3 line.
+    \param  x		Coordinate pixel in x direction.
+    \retval			0 - if not
+*/
+static inline uint32 end_of_edge(int16 *l0, int16 *l1, int16 *l2, const int x)
+{
+    int i = 0;
+    /*
+    if(l1[x-1]) i++;
+    if(i<2 && l0[x-1]) i++;
+    else return 0;
+    if(i<2 && l0[x]) i++;
+    else return 0;
+    if(i<2 && l0[x+1]) i++;
+    else return 0;
+    if(i<2 && l1[x+1]) i++;
+    else return 0;
+    if(i<2 && l2[x+1]) i++;
+    else return 0;
+    if(i<2 && l2[x]) i++;
+    else return 0;
+    if(i<2 && l2[x-1]) i++;
+    else return 0;
+    if(i>1) return 0;
+    */
+    if(l1[x-1]) i++;
+    if(l0[x-1]) i++;
+    if(l0[x  ]) i++;
+    if(l0[x+1]) i++;
+    if(l1[x+1]) i++;
+    if(l2[x+1]) i++;
+    if(l2[x  ]) i++;
+    if(l2[x-1]) i++;
+
+    if(i == 1) return 1;
+    else return 0;
+}
+
+
+/**	\brief	Find ends of edges of 16 bits grey image.
+    \param	in		The input 16 bit image.
+    \param	out     The output 16 bit gradient image.
+    \param	buff    The 5 lines  buffer.
+    \param	w       The image width.
+    \param  h       The image height.
+*/
+uint32 seg_end_of_edges(int16 *in, int16 *out, int16 *buff, const int w, const int h)
+{
+    int i, j, y, x, yx, yx1, yw, yw1,  sh = 1, h1 = h-sh, w2 = w + (sh<<1), w1 = w<<(sh-1), max, sz = w*h; //, sh1 = sh+1;
+    int16 *l[3], *tm;
+
+    l[0] = buff;
+
+    for(i=1; i < 3; i++) l[i] = &l[i-1][w2];
+
+    //Prepare buffer
+    //cp_line_16(&in[w*2], l[0], w, sh);
+    cp_line_16(&in[w  ], l[0], w, sh);
+    cp_line_16(&in[0  ], l[1], w, sh);
+    //cp_line_16(&in[w  ], l[3], w, sh);
+
+    //Copy image
+    for(j=0; j < sz; j++) out[j] = in[j];
+
+    i = 0;
+    for(y=0; y < h; y++){
+        yw = y*w;
+        yw1 = y < h1 ? yw + w1 : w*(((h-1)<<1)-y);
+        cp_line_16(&in[yw1], l[2], w, sh);
+
+        for(x=0; x < w; x++){
+            yx = yw + x;
+
+            if(l[1][x+sh]) {
+                if(end_of_edge(l[0], l[1], l[2], x+sh)) { out[yx] = 252; i++; }
+            }
+
+        }
+        tm = l[0]; l[0] = l[1]; l[1] = l[2]; l[2] = tm;
+    }
+
+    printf("End of edges = %d\n",i);
+    return i;
+}
 
 static inline uint32 check_max(int16 *img, int *dr, int yx, uint8 val)
 {

@@ -340,8 +340,10 @@ int main(int argc, const char *argv[]) {
                    "\n"
                    "  grad <x>         The image gradient, x - gardient threshould, if less than th,  = 0 \n"
                    "  lmax             Find local maximums \n"
+                   "  end_edge         Find end of edges \n"
                    "  edge             Edge detection \n"
                    "  canny <x>        Canny edge detection, x - gardient threshould, if less than th,  = 0 \n"
+                   "  corner <x>       Corners detection, x - threshould, if less than th,  = 0 \n"
                     "\n"
                    "Output options:\n"
                    "  -h               This help message.\n"
@@ -773,6 +775,26 @@ int main(int argc, const char *argv[]) {
                 ok = 1; goto End;
             }
             if(verb) printf("Two times downsampling image\n");
+        } else if (!strcmp(argv[i], "end_edge") && tr) {
+            //par = strtol(argv[i+1], NULL, 0);
+            if(ts[n].colort == GREY || ts[n].colort == YUV444 || ts[n].colort == YUV420){
+                seg_end_of_edges(ts[n].pic[0], ts[n].pic[1], (int16*)tmpb, ts[n].w, ts[n].h);
+                tmp = ts[n].pic[0]; ts[n].pic[0] = ts[n].pic[1]; ts[n].pic[1] = tmp;
+            } else {
+                fprintf(stderr, "Error! end_of_edges: Input image should be in grey format.\n", out_file);
+                ok = 1; goto End;
+            }
+            if(verb) printf("Found end of edges\n");
+        } else if (!strcmp(argv[i], "corner") && tr) {
+            par = strtol(argv[i+1], NULL, 0);
+            if(ts[n].colort == GREY || ts[n].colort == YUV444 || ts[n].colort == YUV420){
+                seg_corners(ts[n].pic[0], ts[n].pic[1], (int16*)tmpb, ts[n].w, ts[n].h, par);
+                tmp = ts[n].pic[0]; ts[n].pic[0] = ts[n].pic[1]; ts[n].pic[1] = tmp;
+            } else {
+                fprintf(stderr, "Error! corners: Input image should be in grey format.\n", out_file);
+                ok = 1; goto End;
+            }
+            if(verb) printf("Corners detection\n");
         }
     }
 
