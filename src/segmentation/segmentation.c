@@ -108,7 +108,7 @@ static inline uint32  avr_dir(uint8 *l0, uint8 *l1, uint8 *l2, const int x)
 */
 void seg_canny_edge(int16 *in, int16 *out, int16 *buff, const int w, const int h, const int th)
 {
-    uint32 i, y, x, x2, yx, yx1, yw, yw1, h1 = h-1, sh = 1, w2 = w + (sh<<1); //, sh1 = sh+1;
+    uint32 i, j, y, x, x2, yx, yx1, yw, yw1, h1 = h-1, sh = 1, w2 = w + (sh<<1); //, sh1 = sh+1;
     int16  *tm, *l[3], *gr[3];
     int g[4], max, min[2];
     uint8 *dr[2], *tm1, drt;
@@ -150,6 +150,9 @@ void seg_canny_edge(int16 *in, int16 *out, int16 *buff, const int w, const int h
             g[1] = abs(l[0][x]   - l[2][x+2]);  if(g[1] > th && max < g[1]) { max = g[1]; i = 2; }
             g[2] = abs(l[0][x+1] - l[2][x+1]);  if(g[2] > th && max < g[2]) { max = g[2]; i = 3; }
             g[3] = abs(l[0][x+2] - l[2][x]  );  if(g[3] > th && max < g[3]) { max = g[3]; i = 4; }
+
+            //i = 0;
+            //for(j=0; j < 4; j++) if(max == g[j]) i += (1<<j);
 
             gr[2][x] = max ? ((g[0]+g[1]+g[2]+g[3])>>2) : 0;
             dr[2][x] = i;
@@ -224,14 +227,23 @@ void seg_canny_edge(int16 *in, int16 *out, int16 *buff, const int w, const int h
 */
 void seg_corners(int16 *in, int16 *out, int16 *buff, const int w, const int h, const int th)
 {
-    int i, j, y, x, x5, x2, yx, sum, yw, yw1,  sh = 2, h1 = h-sh, w2 = w + (sh<<1), w3 = w2<<1, w1 = w<<1, max, sz = w*h; //, sh1 = sh+1;
+    int i, j, y, x, x5, x2, yx, sum, yw, yw1,   max, sz = w*h; //, sh1 = sh+1;
+    int more, less, dif, num, ncon = 0;
+    uint8 f[16] = { 0, 0, 0, 0, 0,
+                    1, 2, 3,
+                    4, 4, 4, 4, 4,
+                    3, 2, 1 };
+    uint8 s[16] = { 0,
+                    1, 2, 3,
+                    4, 4, 4, 4, 4,
+                    3, 2, 1,
+                    0, 0, 0, 0 };
+    int8 v[16];
+
+    int sh = 2, h1 = h-sh, w2 = w + (sh<<1), w3 = w2<<1, w1 = w<<1;
     int16 *l[5], *tm;
-    int more, less, dif, mo;
-
     l[0] = buff;
-
     for(i=1; i < 5; i++) l[i] = &l[i-1][w2];
-
     //Prepare buffer
     cp_line_16(&in[w*2], l[0], w, sh);
     cp_line_16(&in[w  ], l[1], w, sh);
@@ -239,7 +251,7 @@ void seg_corners(int16 *in, int16 *out, int16 *buff, const int w, const int h, c
     cp_line_16(&in[w  ], l[3], w, sh);
 
     //Copy image
-    for(j=0; j < sz; j++) out[j] = in[j];
+    //for(j=0; j < sz; j++) out[j] = in[j];
 
     i = 0;
     for(y=0; y < h; y++){
@@ -260,39 +272,32 @@ void seg_corners(int16 *in, int16 *out, int16 *buff, const int w, const int h, c
             for(i=x; i < x5; i++) sum += l[3][i] - l[2][x+2];
             for(i=x; i < x5; i++) sum += l[4][i] - l[2][x+2];
             */
-            for(j=0; j < 5; j++){
-                for(i=x; i < x5; i++){
-                    dif = l[j][i] - l[2][x+2];
-                    if(abs(dif) > th){
-                        if(dif > 0) more++;
-                        else less++;
-                    }
-                }
-            }
-            dif = l[0][0] - l[2][x+2];
-            if(abs(dif) > th){
-                if(dif > 0) { more++; mo = 1; }
-                else { less++; mo = 0; }
-            }
-            dif = l[0][1] - l[2][x+2];
-            if(abs(dif) > th){
-                if(dif > 0) { more++; mo = 1; }
-                else { less++; mo = 0; }
-            }
-            dif = l[1][0] - l[2][x+2];
-            if(abs(dif) > th){
-                if(dif > 0) { more++; mo = 1; }
-                else { less++; mo = 0; }
+            num = 0;
+            for(i=0; i < 16; i++){
+                dif = l[f[i]][x+s[i]] - l[2][x+2];
+                if(abs(dif) > th){
+                    if(dif > 0) { num++; v[i] = 1; }
+                    else { num--; v[i] = -1; }
+                } else { num = 0; v[i] = 0; }
+
+                if(abs(num) == 11) {
+                    ncon++;
+                    printf("%3d %3d %3d %3d %3d \n", v[0], v[1], v[2], v[3], v[4]);
+                    printf("%3d             %3d \n", v[15], v[5]);
+                    printf("%3d             %3d \n", v[14], v[6]);
+                    printf("%3d             %3d \n", v[13], v[7]);
+                    printf("%3d %3d %3d %3d %3d \n\n", v[12], v[11], v[10], v[9], v[8]);
+                    out[yx] = 252;
+                    break;
+                } else out[yx] = 0;
             }
 
 
-            //printf("more = %d less = %d\n", more, less);
-            out[yx] = abs(more-less)*10;
         }
         tm = l[0]; l[0] = l[1]; l[1] = l[2]; l[2] = l[3]; l[3] = l[4]; l[4] = tm;
     }
 
-    //printf("Local maxs = %d\n",i);
+    printf("Corners = %d\n",ncon);
     //return i;
 }
 
@@ -377,24 +382,6 @@ uint32 seg_local_max(int16 *in, int16 *out, int16 *buff, const int w, const int 
 static inline uint32 end_of_edge(int16 *l0, int16 *l1, int16 *l2, const int x)
 {
     int i = 0;
-    /*
-    if(l1[x-1]) i++;
-    if(i<2 && l0[x-1]) i++;
-    else return 0;
-    if(i<2 && l0[x]) i++;
-    else return 0;
-    if(i<2 && l0[x+1]) i++;
-    else return 0;
-    if(i<2 && l1[x+1]) i++;
-    else return 0;
-    if(i<2 && l2[x+1]) i++;
-    else return 0;
-    if(i<2 && l2[x]) i++;
-    else return 0;
-    if(i<2 && l2[x-1]) i++;
-    else return 0;
-    if(i>1) return 0;
-    */
     if(l1[x-1]) i++;
     if(l0[x-1]) i++;
     if(l0[x  ]) i++;
@@ -408,6 +395,52 @@ static inline uint32 end_of_edge(int16 *l0, int16 *l1, int16 *l2, const int x)
     else return 0;
 }
 
+/**	\brief	Finish the end of edge.
+    \param	l0		The pointer to 1 line.
+    \param	l1		The pointer to 2 line.
+    \param	l2		The pointer to 3 line.
+    \param	l3		The pointer to 4 line.
+    \param	l4		The pointer to 5 line.
+    \param  x		Coordinate pixel in x direction.
+    \retval			0 - if not
+*/
+static inline uint32 connect_edge(int16 *l0, int16 *l1, int16 *l2, int16 *l3, int16 *l4, const int x)
+{
+    int i = 0, j = 0;
+    if(l2[x-1]) { i++; j += 1;   }
+    if(l1[x-1]) { i++; j += 2;   }
+    if(l1[x  ]) { i++; j += 4;   }
+    if(l1[x+1]) { i++; j += 8;   }
+    if(l2[x+1]) { i++; j += 16;  }
+    if(l3[x+1]) { i++; j += 32;  }
+    if(l3[x  ]) { i++; j += 64;  }
+    if(l3[x-1]) { i++; j += 128; }
+
+    if(i == 1) {
+        if(l2[x-2]) { i++; j += 1;   }
+        if(l1[x-2]) { i++; j += 2;   }
+        if(l0[x-2]) { i++; j += 4;   }
+        if(l0[x-1]) { i++; j += 8;   }
+        if(l0[x  ]) { i++; j += 16;  }
+        if(l0[x+1]) { i++; j += 32;  }
+        if(l0[x+2]) { i++; j += 64;  }
+        if(l1[x+2]) { i++; j += 128; }
+        if(l2[x+2]) { i++; j += 256; }
+        if(l3[x+2]) { i++; j += 512; }
+        if(l4[x+2]) { i++; j += 1024; }
+        if(l4[x+1]) { i++; j += 2048; }
+        if(l4[x  ]) { i++; j += 4096; }
+        if(l4[x-1]) { i++; j += 8192; }
+        if(l4[x-2]) { i++; j += 16384; }
+        if(l3[x-2]) { i++; j += 32768; }
+
+        if(i > 1) {
+
+        }
+         return 1;
+    }
+    else return 0;
+}
 
 /**	\brief	Find ends of edges of 16 bits grey image.
     \param	in		The input 16 bit image.
@@ -418,18 +451,18 @@ static inline uint32 end_of_edge(int16 *l0, int16 *l1, int16 *l2, const int x)
 */
 uint32 seg_end_of_edges(int16 *in, int16 *out, int16 *buff, const int w, const int h)
 {
-    int i, j, y, x, yx, yx1, yw, yw1,  sh = 1, h1 = h-sh, w2 = w + (sh<<1), w1 = w<<(sh-1), max, sz = w*h; //, sh1 = sh+1;
-    int16 *l[3], *tm;
+    int i, j, y, x, yx, yx1, yw, yw1, max, sz = w*h; //, sh1 = sh+1;
 
+    int sh = 2, ls = (sh<<1)+1, h1 = h-sh, w2 = w + (sh<<1), w1 = w<<(sh-1);
+    int16 *l[ls], *tm;
     l[0] = buff;
-
-    for(i=1; i < 3; i++) l[i] = &l[i-1][w2];
+    for(i=1; i < ls; i++) l[i] = &l[i-1][w2];
 
     //Prepare buffer
-    //cp_line_16(&in[w*2], l[0], w, sh);
-    cp_line_16(&in[w  ], l[0], w, sh);
-    cp_line_16(&in[0  ], l[1], w, sh);
-    //cp_line_16(&in[w  ], l[3], w, sh);
+    cp_line_16(&in[w<<1], l[0], w, sh);
+    cp_line_16(&in[w  ], l[1], w, sh);
+    cp_line_16(&in[0  ], l[2], w, sh);
+    cp_line_16(&in[w  ], l[3], w, sh);
 
     //Copy image
     for(j=0; j < sz; j++) out[j] = in[j];
@@ -438,17 +471,17 @@ uint32 seg_end_of_edges(int16 *in, int16 *out, int16 *buff, const int w, const i
     for(y=0; y < h; y++){
         yw = y*w;
         yw1 = y < h1 ? yw + w1 : w*(((h-1)<<1)-y);
-        cp_line_16(&in[yw1], l[2], w, sh);
+        cp_line_16(&in[yw1], l[4], w, sh);
 
         for(x=0; x < w; x++){
             yx = yw + x;
 
-            if(l[1][x+sh]) {
-                if(end_of_edge(l[0], l[1], l[2], x+sh)) { out[yx] = 252; i++; }
+            if(l[2][x+sh]) {
+                if(end_of_edge(l[1], l[2], l[3], x+sh)) { out[yx] = 252; i++; }
             }
 
         }
-        tm = l[0]; l[0] = l[1]; l[1] = l[2]; l[2] = tm;
+        tm = l[0]; l[0] = l[1]; l[1] = l[2]; l[2] = l[3]; l[3] = l[4]; l[4] = tm;
     }
 
     printf("End of edges = %d\n",i);

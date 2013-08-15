@@ -616,7 +616,7 @@ int main(int argc, const char *argv[]) {
         } else if (!strcmp(argv[i], "add") && tr ) {
             if(fc == 3){
                 fc = 0;
-                if(ts[n].colort == GREY || ts[n].colort == BAYER){
+                if(ts[n].colort == GREY || ts[n].colort == BAYER || ts[n].colort == YUV444 || ts[n].colort == YUV420){
                     utils_add(ts[n].pic[0], ts[1].pic[0], ts[n].pic[1], ts[n].w, ts[n].h, ts[n].bpp, ts[1].bpp);
                     tmp = ts[n].pic[0]; ts[n].pic[0] = ts[n].pic[1];  ts[n].bpp = ts[1].bpp; ts[n].pic[1] = tmp;
 

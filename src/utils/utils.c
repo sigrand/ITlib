@@ -658,9 +658,9 @@ void utils_add(const int16 *in, const int16 *in1, int16 *out, const int w, const
     int i, j, size = w*h, sh = 1<<(bpp-1), tmp, max = (1<<bpp1)-1;
 
     for(i = 0; i < size; i++) {
-        //out[i] = in[i]; //in[i] + in1[i] - sh;
-        tmp = in[i] + in1[i] - sh;
-        out[i] = tmp < 0 ? 0 : (tmp > max ? max : tmp);
+        //tmp = in[i] + in1[i] - sh;
+        //out[i] = tmp < 0 ? 0 : (tmp > max ? max : tmp);
+        out[i] = in1[i] ? in1[i] : in[i];
         //printf("in = %d in1 = %d sh = %d tmp = %d out = %d\n", in[i], in1[i], sh, tmp, out[i]);
     }
 }
