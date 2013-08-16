@@ -417,27 +417,45 @@ static inline uint32 connect_edge(int16 *l0, int16 *l1, int16 *l2, int16 *l3, in
     if(l3[x-1]) { i++; j += 128; }
 
     if(i == 1) {
-        if(l2[x-2]) { i++; j += 1;   }
-        if(l1[x-2]) { i++; j += 2;   }
-        if(l0[x-2]) { i++; j += 4;   }
-        if(l0[x-1]) { i++; j += 8;   }
-        if(l0[x  ]) { i++; j += 16;  }
-        if(l0[x+1]) { i++; j += 32;  }
-        if(l0[x+2]) { i++; j += 64;  }
-        if(l1[x+2]) { i++; j += 128; }
-        if(l2[x+2]) { i++; j += 256; }
-        if(l3[x+2]) { i++; j += 512; }
-        if(l4[x+2]) { i++; j += 1024; }
-        if(l4[x+1]) { i++; j += 2048; }
-        if(l4[x  ]) { i++; j += 4096; }
-        if(l4[x-1]) { i++; j += 8192; }
+        i = 0;
+        if(l2[x-2]) { i++; j += 1;     }
+        if(l1[x-2]) { i++; j += 2;     }
+        if(l0[x-2]) { i++; j += 4;     }
+        if(l0[x-1]) { i++; j += 8;     }
+        if(l0[x  ]) { i++; j += 16;    }
+        if(l0[x+1]) { i++; j += 32;    }
+        if(l0[x+2]) { i++; j += 64;    }
+        if(l1[x+2]) { i++; j += 128;   }
+        if(l2[x+2]) { i++; j += 256;   }
+        if(l3[x+2]) { i++; j += 512;   }
+        if(l4[x+2]) { i++; j += 1024;  }
+        if(l4[x+1]) { i++; j += 2048;  }
+        if(l4[x  ]) { i++; j += 4096;  }
+        if(l4[x-1]) { i++; j += 8192;  }
         if(l4[x-2]) { i++; j += 16384; }
         if(l3[x-2]) { i++; j += 32768; }
 
         if(i > 1) {
+            if(j & 1    ) if(!l1[x-1] && !l2[x-1] && !l3[x-1])   l2[x-1] = l2[x-2];
+            if(j & 2    ) if(!l1[x-1] && !l2[x-1])               l2[x-1] = l1[x-2];
+            if(j & 4    ) if(!l1[x-1])                           l1[x-1] = l0[x-2];
+            if(j & 8    ) if(!l1[x-1] && !l1[x  ])               l1[x  ] = l0[x-1];
+            if(j & 16   ) if(!l1[x-1] && !l1[x  ] && !l1[x+1])   l1[x  ] = l0[x  ];
+            if(j & 32   ) if(!l1[x  ] && !l1[x+1])               l1[x  ] = l0[x+1];
+            if(j & 64   ) if(!l1[x+1])                           l1[x+1] = l0[x+2];
+            if(j & 128  ) if(!l1[x+1] && !l2[x+1])               l2[x+1] = l1[x+2];
+            if(j & 256  ) if(!l1[x+1] && !l2[x+1] && !l3[x+1])   l2[x+1] = l2[x+2];
+            if(j & 512  ) if(!l2[x+1] && !l3[x+1])               l2[x+1] = l3[x+2];
+            if(j & 1024 ) if(!l3[x+1])                           l3[x+1] = l4[x+2];
+            if(j & 2048 ) if(!l3[x+1] && !l3[x  ])               l3[x  ] = l4[x+1];
+            if(j & 4096 ) if(!l3[x+1] && !l3[x  ] && !l3[x-1])   l3[x  ] = l4[x  ];
+            if(j & 8192 ) if(!l3[x  ] && !l3[x-1])               l3[x  ] = l4[x-1];
+            if(j & 16384) if(!l3[x-1])                           l3[x-1] = l4[x  ];
+            if(j & 32768) if(!l3[x-1] && !l2[x-1])               l2[x-1] = l3[x-2];
+            return 0;
 
         }
-         return 1;
+        return 1;
     }
     else return 0;
 }
@@ -477,7 +495,8 @@ uint32 seg_end_of_edges(int16 *in, int16 *out, int16 *buff, const int w, const i
             yx = yw + x;
 
             if(l[2][x+sh]) {
-                if(end_of_edge(l[1], l[2], l[3], x+sh)) { out[yx] = 252; i++; }
+                //if(end_of_edge(l[1], l[2], l[3], x+sh)) { out[yx] = 252; i++; }
+                if(connect_edge(l[0], l[1], l[2], l[3], l[4], x+sh)) { out[yx] = 252; i++; }
             }
 
         }
