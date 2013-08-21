@@ -146,11 +146,17 @@ void seg_canny_edge(int16 *in, int16 *out, int16 *buff, const int w, const int h
             g = abs(l[0][x+2] - l[2][x]  );  if(g > th && max < g) { max = g; i = 4; }
             gr[2][x] = max;
             */
+
             g[0] = abs(l[1][x]   - l[1][x+2]);  if(g[0] > th && max < g[0]) { max = g[0]; i = 1; }
             g[1] = abs(l[0][x]   - l[2][x+2]);  if(g[1] > th && max < g[1]) { max = g[1]; i = 2; }
             g[2] = abs(l[0][x+1] - l[2][x+1]);  if(g[2] > th && max < g[2]) { max = g[2]; i = 3; }
             g[3] = abs(l[0][x+2] - l[2][x]  );  if(g[3] > th && max < g[3]) { max = g[3]; i = 4; }
-
+            /*
+            g[0] = abs(l[1][x]  -l[1][x+1]) + abs(l[1][x+1]-l[1][x+2]);  if(g[0] > th && max < g[0]) { max = g[0]; i = 1; }
+            g[1] = abs(l[0][x]  -l[1][x+1]) + abs(l[1][x+1]-l[2][x+2]);  if(g[1] > th && max < g[1]) { max = g[1]; i = 2; }
+            g[2] = abs(l[0][x+1]-l[1][x+1]) + abs(l[1][x+1]-l[2][x+1]);  if(g[2] > th && max < g[2]) { max = g[2]; i = 3; }
+            g[3] = abs(l[0][x+2]-l[1][x+1]) + abs(l[1][x+1]-l[2][x]  );  if(g[3] > th && max < g[3]) { max = g[3]; i = 4; }
+            */
             //i = 0;
             //for(j=0; j < 4; j++) if(max == g[j]) i += (1<<j);
 
@@ -392,21 +398,26 @@ static inline uint32 end_of_edge(int16 *l0, int16 *l1, int16 *l2, const int x)
     if(l2[x-1]) i++;
 
     if(i == 1) return 1;
+    else if(i == 0) return 2;
     else return 0;
 }
 
 /**	\brief	Finish the end of edge.
+    \param	out		The output image.
     \param	l0		The pointer to 1 line.
     \param	l1		The pointer to 2 line.
     \param	l2		The pointer to 3 line.
     \param	l3		The pointer to 4 line.
     \param	l4		The pointer to 5 line.
     \param  x		Coordinate pixel in x direction.
+    \param  yx		Coordinate pixel output image,
+    \param  w		The width of output image.
     \retval			0 - if not
 */
-static inline uint32 connect_edge(int16 *l0, int16 *l1, int16 *l2, int16 *l3, int16 *l4, const int x)
+static inline uint32 connect_edge(int16* out, int16 *l0, int16 *l1, int16 *l2, int16 *l3, int16 *l4, int16 *l5, const int x,const int yx, const int w)
 {
-    int i = 0, j = 0;
+    int i = 0, j = 0, end;
+    /*
     if(l2[x-1]) { i++; j += 1;   }
     if(l1[x-1]) { i++; j += 2;   }
     if(l1[x  ]) { i++; j += 4;   }
@@ -415,9 +426,11 @@ static inline uint32 connect_edge(int16 *l0, int16 *l1, int16 *l2, int16 *l3, in
     if(l3[x+1]) { i++; j += 32;  }
     if(l3[x  ]) { i++; j += 64;  }
     if(l3[x-1]) { i++; j += 128; }
-
-    if(i == 1) {
-        i = 0;
+    */
+    end = end_of_edge(l1, l2, l3, x);
+    if(end == 1) {
+        i = 0; j = 0;
+        /*
         if(l2[x-2]) { i++; j += 1;     }
         if(l1[x-2]) { i++; j += 2;     }
         if(l0[x-2]) { i++; j += 4;     }
@@ -426,38 +439,47 @@ static inline uint32 connect_edge(int16 *l0, int16 *l1, int16 *l2, int16 *l3, in
         if(l0[x+1]) { i++; j += 32;    }
         if(l0[x+2]) { i++; j += 64;    }
         if(l1[x+2]) { i++; j += 128;   }
-        if(l2[x+2]) { i++; j += 256;   }
-        if(l3[x+2]) { i++; j += 512;   }
-        if(l4[x+2]) { i++; j += 1024;  }
-        if(l4[x+1]) { i++; j += 2048;  }
-        if(l4[x  ]) { i++; j += 4096;  }
-        if(l4[x-1]) { i++; j += 8192;  }
-        if(l4[x-2]) { i++; j += 16384; }
-        if(l3[x-2]) { i++; j += 32768; }
+        */
+        if(l2[x+2] && end_of_edge(l1, l2, l3, x+2)) { i++; j += 256;   }
+        if(l3[x+2] && end_of_edge(l2, l3, l4, x+2)) { i++; j += 512;   }
+        if(l4[x+2] && end_of_edge(l3, l4, l5, x+2)) { i++; j += 1024;  }
+        if(l4[x+1] && end_of_edge(l3, l4, l5, x+1)) { i++; j += 2048;  }
+        if(l4[x  ] && end_of_edge(l3, l4, l5, x  )) { i++; j += 4096;  }
+        if(l4[x-1] && end_of_edge(l3, l4, l5, x-1)) { i++; j += 8192;  }
+        if(l4[x-2] && end_of_edge(l3, l4, l5, x-2)) { i++; j += 16384; }
+        if(l3[x-2] && end_of_edge(l2, l3, l4, x-2)) { i++; j += 32768; }
 
-        if(i > 1) {
-            if(j & 1    ) if(!l1[x-1] && !l2[x-1] && !l3[x-1])   l2[x-1] = l2[x-2];
-            if(j & 2    ) if(!l1[x-1] && !l2[x-1])               l2[x-1] = l1[x-2];
-            if(j & 4    ) if(!l1[x-1])                           l1[x-1] = l0[x-2];
-            if(j & 8    ) if(!l1[x-1] && !l1[x  ])               l1[x  ] = l0[x-1];
-            if(j & 16   ) if(!l1[x-1] && !l1[x  ] && !l1[x+1])   l1[x  ] = l0[x  ];
-            if(j & 32   ) if(!l1[x  ] && !l1[x+1])               l1[x  ] = l0[x+1];
-            if(j & 64   ) if(!l1[x+1])                           l1[x+1] = l0[x+2];
-            if(j & 128  ) if(!l1[x+1] && !l2[x+1])               l2[x+1] = l1[x+2];
-            if(j & 256  ) if(!l1[x+1] && !l2[x+1] && !l3[x+1])   l2[x+1] = l2[x+2];
-            if(j & 512  ) if(!l2[x+1] && !l3[x+1])               l2[x+1] = l3[x+2];
-            if(j & 1024 ) if(!l3[x+1])                           l3[x+1] = l4[x+2];
-            if(j & 2048 ) if(!l3[x+1] && !l3[x  ])               l3[x  ] = l4[x+1];
-            if(j & 4096 ) if(!l3[x+1] && !l3[x  ] && !l3[x-1])   l3[x  ] = l4[x  ];
-            if(j & 8192 ) if(!l3[x  ] && !l3[x-1])               l3[x  ] = l4[x-1];
-            if(j & 16384) if(!l3[x-1])                           l3[x-1] = l4[x  ];
-            if(j & 32768) if(!l3[x-1] && !l2[x-1])               l2[x-1] = l3[x-2];
+        //if(i>2) printf("i = %d\n",i);
+
+        if(i > 0) {
+            //printf("i = %d j = %d\n",i, j);
+            /*
+            if(j & 1    ) if(!l1[x-1] && !l2[x-1] && !l3[x-1])   { out[yx-1]   = l2[x-2]; l2[x-1] = l2[x-2]; }
+            if(j & 2    ) if(!l1[x-1] && !l2[x-1])               { out[yx-1]   = l1[x-2]; l2[x-1] = l1[x-2]; }//printf("2  \n");}
+            if(j & 4    ) if(!l1[x-1])                           { out[yx+w-1] = l0[x-2]; l1[x-1] = l0[x-2]; }//printf("4  \n");}
+            if(j & 8    ) if(!l1[x-1] && !l1[x  ])               { out[yx+w]   = l0[x-1]; l1[x  ] = l0[x-1]; }//printf("8  \n");}
+            if(j & 16   ) if(!l1[x-1] && !l1[x  ] && !l1[x+1])   { out[yx+w]   = l0[x  ]; l1[x  ] = l0[x  ]; }//printf("16 \n");}
+            if(j & 32   ) if(!l1[x  ] && !l1[x+1])               { out[yx+w]   = l0[x+1]; l1[x  ] = l0[x+1]; }//printf("32 \n");}
+            if(j & 64   ) if(!l1[x+1])                           { out[yx+w+1] = l0[x+2]; l1[x+1] = l0[x+2]; }//printf("64 \n");}
+            if(j & 128  ) if(!l1[x+1] && !l2[x+1])               { out[yx+1]   = l1[x+2]; l2[x+1] = l1[x+2]; }//printf("128\n");}
+            */
+            if(j & 256  ) if(!l1[x+1] && !l2[x+1] && !l3[x+1])   { out[yx+1]   = l2[x]; l2[x+1] = l2[x]; }
+            if(j & 512  ) if(!l2[x+1] && !l3[x+1])               { out[yx+1]   = l2[x]; l2[x+1] = l2[x]; }
+            if(j & 1024 ) if(!l3[x+1])                           { out[yx+w+1] = l2[x]; l3[x+1] = l2[x]; }
+            if(j & 2048 ) if(!l3[x+1] && !l3[x  ])               { out[yx+w]   = l2[x]; l3[x  ] = l2[x]; }
+            if(j & 4096 ) if(!l3[x+1] && !l3[x  ] && !l3[x-1])   { out[yx+w]   = l2[x]; l3[x  ] = l2[x]; } //printf("l4 = %d\n", l4[x]);}
+            if(j & 8192 ) if(!l3[x  ] && !l3[x-1])               { out[yx+w]   = l2[x]; l3[x  ] = l2[x]; }
+            if(j & 16384) if(!l3[x-1])                           { out[yx+w-1] = l2[x]; l3[x-1] = l2[x]; }
+            if(j & 32768) if(!l3[x-1] && !l2[x-1])               { out[yx-1]   = l2[x]; l2[x-1] = l2[x]; }
             return 0;
 
         }
         return 1;
-    }
-    else return 0;
+    } else if (end == 2) {
+        //Remove single points
+        l2[x] = 0; out[yx] = 0;
+        return 0;
+    } else return 0;
 }
 
 /**	\brief	Find ends of edges of 16 bits grey image.
@@ -471,16 +493,18 @@ uint32 seg_end_of_edges(int16 *in, int16 *out, int16 *buff, const int w, const i
 {
     int i, j, y, x, yx, yx1, yw, yw1, max, sz = w*h; //, sh1 = sh+1;
 
-    int sh = 2, ls = (sh<<1)+1, h1 = h-sh, w2 = w + (sh<<1), w1 = w<<(sh-1);
+    int sh = 3, ls = (sh<<1)+1, h1 = h-sh, w2 = w + (sh<<1), w1 = w*sh;
     int16 *l[ls], *tm;
     l[0] = buff;
     for(i=1; i < ls; i++) l[i] = &l[i-1][w2];
 
     //Prepare buffer
-    cp_line_16(&in[w<<1], l[0], w, sh);
-    cp_line_16(&in[w  ], l[1], w, sh);
-    cp_line_16(&in[0  ], l[2], w, sh);
-    cp_line_16(&in[w  ], l[3], w, sh);
+    cp_line_16(&in[w*3], l[0], w, sh);
+    cp_line_16(&in[w*2], l[1], w, sh);
+    cp_line_16(&in[w  ], l[2], w, sh);
+    cp_line_16(&in[0  ], l[3], w, sh);
+    cp_line_16(&in[w  ], l[4], w, sh);
+    cp_line_16(&in[w*2], l[5], w, sh);
 
     //Copy image
     for(j=0; j < sz; j++) out[j] = in[j];
@@ -489,18 +513,18 @@ uint32 seg_end_of_edges(int16 *in, int16 *out, int16 *buff, const int w, const i
     for(y=0; y < h; y++){
         yw = y*w;
         yw1 = y < h1 ? yw + w1 : w*(((h-1)<<1)-y);
-        cp_line_16(&in[yw1], l[4], w, sh);
+        cp_line_16(&in[yw1], l[6], w, sh);
 
         for(x=0; x < w; x++){
             yx = yw + x;
 
-            if(l[2][x+sh]) {
-                //if(end_of_edge(l[1], l[2], l[3], x+sh)) { out[yx] = 252; i++; }
-                if(connect_edge(l[0], l[1], l[2], l[3], l[4], x+sh)) { out[yx] = 252; i++; }
+            if(l[3][x+sh]) {
+                //if(end_of_edge(l[2], l[3], l[4], x+sh)) { out[yx] = 252; i++; }
+                if(connect_edge(out, l[1], l[2], l[3], l[4], l[5], l[6], x+sh, yx, w)) { out[yx] = 252; i++; }
             }
 
         }
-        tm = l[0]; l[0] = l[1]; l[1] = l[2]; l[2] = l[3]; l[3] = l[4]; l[4] = tm;
+        tm = l[0]; l[0] = l[1]; l[1] = l[2]; l[2] = l[3]; l[3] = l[4]; l[4] = l[5]; l[5] = l[6]; l[6] = tm;
     }
 
     printf("End of edges = %d\n",i);
