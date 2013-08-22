@@ -45,7 +45,7 @@ void utils_get_stat(int16 *in, const int w, const int h, int *bpp, int *min, int
     \param par          If  0 - direct transform grey to grey image,
                             1 - scale transform grey to grey image,
                             2 - direct transform grb to rgb image,
-                            2 - scale transform grb to rgb image,
+                            3 - scale transform grb to rgb image,
     \retval             The output 8 bits image.
 */
 uint8* utils_16_to_8(const int16 *in, uint8 *out, const int w, const int h,  int bpp, const int par)
@@ -64,6 +64,7 @@ uint8* utils_16_to_8(const int16 *in, uint8 *out, const int w, const int h,  int
         size = w*h*3; sh = bpp - 8;
     }
 
+    //printf("w = %d h = %d size = %d\n", w, h, size);
     for(i = 0; i < size; i++) {
         tmp = in[i] >> sh;
         out[i] = tmp > 255 ? 255 : tmp;

@@ -111,10 +111,10 @@ int readPNG(FILE* in_file, uint8** buff, int* const w, int* const h, int* const 
     png_read_update_info(png, info);
     //Bits per pixel to bytes per pixel
     //*bpp = (*bpp > 8) ? 2 : 1;
-    stride = (has_alpha ? 4 : 3) * 2 * (*w);
+    stride = (has_alpha ? 4 : 3) * (*w);
 
     //Create buffer up to 2 times more the bayer or gray image for the future used
-    *buff = (uint8*)malloc(stride*(*h)*2);
+    *buff = (uint8*)malloc(stride*(*h)*4);
     if (*buff == NULL) {
         fprintf(stderr, "Error! readPNG: Can't allocate memory\n");
         ok = 1; goto End;
@@ -126,7 +126,8 @@ int readPNG(FILE* in_file, uint8** buff, int* const w, int* const h, int* const 
             png_read_rows(png, &row, NULL, 1);
         }
     }
-    //if(verb) printf("readPNG: Finish reading file\n");
+
+    //if(verb) printf("readPNG: Finish reading file h = %d\n", *h);
     png_read_end(png, end_info);
     //if(verb) printf("readPNG: Finish png_read_end file\n");
     if(verb)  print_first_pixels(*buff, 10, *bpp, *colort, *w);
@@ -281,10 +282,12 @@ void copy_image8(uint8 *in, uint8 *out, const int w, const int h)
     for(i=0; i < size; i++) out[i] = in[i];
 }
 
-void copy_image8_to16(uint8 *in, int16 *out, const int w, const int h)
+void copy_image8_to16(uint8 *in, int16 *out, const int size)
 {
-    int i, size = w*h;
-    for(i=0; i < size; i++) out[i] = in[i];
+    int i;
+    for(i=0; i < size; i++) {
+        out[i] = in[i];
+    }
 }
 
 int main(int argc, const char *argv[]) {
@@ -399,7 +402,7 @@ int main(int argc, const char *argv[]) {
                         utils_cnange_bytes(ts[n].pic[0], ts[n].w, ts[n].h);
                         utils_get_stat(ts[n].pic[0], ts[n].w, ts[n].h, &ts[n].bpp, &min, &max);
                     } else {
-                        copy_image8_to16(ts[n].pic[0], ts[n].pic[1], ts[n].w, ts[n].h);
+                        copy_image8_to16(ts[n].pic[0], ts[n].pic[1], ts[n].w*ts[n].h);
                         tmp = ts[n].pic[0]; ts[n].pic[0] = ts[n].pic[1]; ts[n].pic[1] = tmp;
                     }
 
@@ -411,8 +414,9 @@ int main(int argc, const char *argv[]) {
 
                     ts[n].pic[0] = buff;
                     ts[n].pic[1] = &buff[ts[n].w*ts[n].h*2*3];
-                    copy_image8_to16(ts[n].pic[0], ts[n].pic[1], ts[n].w, ts[n].h);
-                    tmp = ts[n].pic[0]; ts[n].pic[0] = ts[n].pic[1]; ts[n].pic[1] = tmp;
+                    if(ts[n].colort == RGB) copy_image8_to16(buff, ts[n].pic[1], ts[n].w*ts[n].h*3);
+                    else copy_image8_to16(buff, ts[n].pic[1], ts[n].w*ts[n].h);
+                    tmp = ts[n].pic[0]; ts[n].pic[0] = ts[n].pic[1]; ts[n].pic[1] = tmp; ts[n].bpp = 16;
 
                     if(verb) printf("Read %s file w = %d h = %d bpp = %d colort = %d\n", in_file, ts[n].w, ts[n].h, ts[n].bpp, ts[n].colort);
 
@@ -460,7 +464,7 @@ int main(int argc, const char *argv[]) {
                         tmp = ts[n].pic[0]; ts[n].pic[0] = ts[n].pic[1]; ts[n].pic[1] = tmp; ts[n].bpp = 8;
                     }
 
-                    ok = writePNG(OUT_FILE, ts[n].pic[0], ts[n].w, ts[n].h, ts[n].bpp, ts[n].colort);
+                    ok = writePNG(OUT_FILE, ts[n].pic[0], ts[n].w, ts[n].h, ts[n].bpp, RGB);
                 } else {
                     fprintf(stderr, "Error! Don't support color type %d\n", ts[n].colort);
                     ok = 1; goto End;
