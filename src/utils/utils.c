@@ -675,11 +675,9 @@ void utils_add(const int16 *in, const int16 *in1, int16 *out, const int w, const
 */
 void utils_resize_down_2(const int16 *in, int16 *out, int16 *buff, const int w, const int h)
 {
-    int x, y, yw, yx, yw1, yw2, w1 = w>>1, h1 = h>>1;
+    int x, y, yw, yx, yw1, w1 = w>>1, h1 = h>>1, x2 = x<<1;
     int16 *l = buff;
 
-    //wn = ((w-2)>>1); hn = ((h-2)>>1);
-    //w1 = w>>1; h1 = h>>1;
 
     for(y=0; y < h1; y++){
         yw1 = (y<<1)*w;
@@ -694,3 +692,4 @@ void utils_resize_down_2(const int16 *in, int16 *out, int16 *buff, const int w, 
         }
     }
 }
+

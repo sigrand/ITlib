@@ -7,6 +7,7 @@
 #include "../hdr/hdr.h"
 #include "../transforms/transforms.h"
 #include "../segmentation/segmentation.h"
+#include "../stereo/stereo.h"
 /**
     \brief The states of image transform
  */

@@ -292,14 +292,16 @@ void copy_image8_to16(uint8 *in, int16 *out, const int size)
 
 int main(int argc, const char *argv[]) {
 
-    const char *in_file = NULL;
-    const char *out_file = NULL;
+    char *in_file[2], cb[2][1000];
+    char *out_file = NULL;
     FILE *IN_FILE, *OUT_FILE;
-    int i, j, n = 0, ok = 0, tr = 0, par, fc = 0;
-    uint8 *buff = NULL, *buff1 = NULL, *tmpb = NULL;
+    int i, j, n = 0, ok = 0, tr = 0, par, fc = 0, f, nf, ster = 0;
+    uint8 *buff[2], *tmpb = NULL;
     int min=0, max=0, size;
     TransState ts[2];
     void *tmp;
+    in_file[0] = NULL; in_file[1] = NULL;
+    buff[0] = NULL; buff[1] = NULL;
 
     //cr[0] = &ts[0];
 
@@ -307,11 +309,14 @@ int main(int argc, const char *argv[]) {
 
     for (i = 1; i < argc; i++) {
         if (!strcmp(argv[i], "-h") || !strcmp(argv[i], "-help")) {
-            printf("Usage: itlib -i[input options [bayer_option]] in_file [-t transform_options] [-o[output_options] out_file]\n\n"
+            printf("Usage:\n"
+                   "For single image input:\n"
+                   "itlib -i[input options] [bayer_option] in_file [-t transform_options] [-o[output_options] out_file]\n"
+                   "For stereo pair input:\n"
+                   "itlib -is in_dir in_file1 in_file2 [-t transform_options] [-o[output_options] out_file]\n\n"
                    "Input options:\n"
                    "  b  Input file is raw BAYER image.\n"
-                   "  g  Input file is grayscale image.\n"
-                   "  r  Input file is RGB image.\n"
+                   "  s  Input two stereo pair.\n"
                    "\n"
                    "bayer_option:\n"
                    "  bggr            grbg            gbrg            rggb  \n"
@@ -322,6 +327,8 @@ int main(int argc, const char *argv[]) {
                    "  3 G R G R G R	  3 B G B G B G	  3 R G R G R G	  3 G B G B G B \n"
                    "\n"
                    "Transform options:\n"
+                   "  !  !  !          Image copy construction\n"
+                   "  in_image ! in_image transforms ! copy_in_image transforms ! in_image and copy_in_image transforms\n\n"
                    "  wb               White balancing.\n"
                    "  bay_rgb_bi       Bayer to rgb bilinear interpolation algorithm.\n"
                    "  bay_grey_bi      Bayer to grey bilinear interpolation algorithm.\n"
@@ -348,6 +355,8 @@ int main(int argc, const char *argv[]) {
                    "  canny <x>        Canny edge detection, x - gardient threshould, if less than th,  = 0 \n"
                    "  corner <x>       Corners detection, x - threshould, if less than th,  = 0 \n"
                     "\n"
+                   "  Stereo options\n"
+                   "  s_disp           Calculate disparity"
                    "Output options:\n"
                    "  -h               This help message.\n"
                    "  -v               Verbose \n"
@@ -357,8 +366,17 @@ int main(int argc, const char *argv[]) {
             //Read input file
             if(!strncmp(argv[i], "-i",2)){
                 //Find input options
-                if(!strncmp(&argv[i][2], "b",1)){
-                    ts[n].colort = BAYER;
+                j = 2; nf = 1;
+                if (!strncmp(&argv[i][j], "s",1)){
+                    //For two stereo imput images
+                    j++;
+                    nf = 2;
+                    ster = 1;
+                }
+
+                if(!strncmp(&argv[i][j], "b",1) ){
+                    //Bore bayer input image.
+                    for(f=0; f < nf; f++) ts[n].colort = BAYER;
                     i++;
                     if(argc > 2) {
                         if     (!strcmp(argv[i], "bggr")) ts[n].bg = BGGR;
@@ -373,78 +391,86 @@ int main(int argc, const char *argv[]) {
                         fprintf(stderr, "Error! Usage: itlib -h\n");
                         ok = 1; goto End;
                     }
-                } else if(!strncmp(&argv[i][2], "g",1)){
-                    ts[n].colort = GREY;
-                } else if(!strncmp(&argv[i][2], "r",1)){
-                    ts[n].colort = RGB;
-                } else {
-                    fprintf(stderr, "Error! Can't support '%s' options\n", argv[i]);
-                    ok = 1; goto End;
+                }
+
+                if(nf==1) in_file[0] = (char*)argv[i+1];
+                else {
+                    strcpy (cb[0], argv[++i]);
+                    strcpy (cb[1], argv[i]);
+                    strcat (cb[0], argv[++i]);
+                    strcat (cb[1], argv[++i]);
+                    in_file[0] = cb[0];
+                    in_file[1] = cb[1];
                 }
 
                 //if(verb) printf("Color type of input file is %d\n", ts[n].colort);
+                for(f=0; f < nf; f++) {
 
-                in_file = argv[++i];
-                IN_FILE = fopen(in_file, "rb");
-                if (IN_FILE == NULL) {
-                    fprintf(stderr, "Error! Cannot open input file '%s'\n", in_file);
-                    ok = 1; goto End;
-                }
-                if(!strcmp(&in_file[strlen(in_file)-4],".pgm") || !strcmp(&in_file[strlen(in_file)-4],".PGM")){
-
-                    ok = readPGM(IN_FILE, &buff, &ts[n].w, &ts[n].h, &ts[n].bpp);
-
-                    ts[n].pic[0] = buff;
-                    ts[n].pic[1] = &buff[ts[n].w*ts[n].h*2*3]; //Temporary buffer
-
-
-                    if(ts[n].bpp > 8) {
-                        utils_cnange_bytes(ts[n].pic[0], ts[n].w, ts[n].h);
-                        utils_get_stat(ts[n].pic[0], ts[n].w, ts[n].h, &ts[n].bpp, &min, &max);
-                    } else {
-                        copy_image8_to16(ts[n].pic[0], ts[n].pic[1], ts[n].w*ts[n].h);
-                        tmp = ts[n].pic[0]; ts[n].pic[0] = ts[n].pic[1]; ts[n].pic[1] = tmp;
+                    IN_FILE = fopen(in_file[f], "rb");
+                    if (IN_FILE == NULL) {
+                        fprintf(stderr, "Error! Cannot open input file '%s'\n", in_file[f]);
+                        ok = 1; goto End;
                     }
+                    if(!strcmp(&in_file[f][strlen(in_file[f])-4],".pgm") || !strcmp(&in_file[f][strlen(in_file[f])-4],".PGM")){
 
-                    if(verb) printf("Read %s file w = %d h = %d bpp = %d max = %d min = %d\n", in_file, ts[n].w, ts[n].h, ts[n].bpp, max, min);
+                        ok = readPGM(IN_FILE, &buff[f], &ts[f].w, &ts[f].h, &ts[f].bpp);
 
-                } else if(!strcmp(&in_file[strlen(in_file)-4],".png") || !strcmp(&in_file[strlen(in_file)-4],".PNG")){
+                        ts[f].pic[0] = buff[f];
+                        ts[f].pic[1] = &buff[f][ts[f].w*ts[f].h*2*3]; //Temporary buffer
 
-                    ok = readPNG(IN_FILE, &buff, &ts[n].w, &ts[n].h, &ts[n].bpp, &ts[n].colort);
 
-                    ts[n].pic[0] = buff;
-                    ts[n].pic[1] = &buff[ts[n].w*ts[n].h*2*3];
-                    if(ts[n].colort == RGB) copy_image8_to16(buff, ts[n].pic[1], ts[n].w*ts[n].h*3);
-                    else copy_image8_to16(buff, ts[n].pic[1], ts[n].w*ts[n].h);
-                    tmp = ts[n].pic[0]; ts[n].pic[0] = ts[n].pic[1]; ts[n].pic[1] = tmp; ts[n].bpp = 16;
+                        if(ts[f].bpp > 8) {
+                            utils_cnange_bytes(ts[f].pic[0], ts[f].w, ts[f].h);
+                            utils_get_stat(ts[f].pic[0], ts[f].w, ts[f].h, &ts[f].bpp, &min, &max);
+                        } else {
+                            copy_image8_to16(ts[f].pic[0], ts[f].pic[1], ts[f].w*ts[f].h);
+                            tmp = ts[f].pic[0]; ts[f].pic[0] = ts[f].pic[1]; ts[f].pic[1] = tmp;
+                        }
 
-                    if(verb) printf("Read %s file w = %d h = %d bpp = %d colort = %d\n", in_file, ts[n].w, ts[n].h, ts[n].bpp, ts[n].colort);
+                        if(verb) printf("Read %s file w = %d h = %d bpp = %d max = %d min = %d\n", in_file[f], ts[f].w, ts[f].h, ts[f].bpp, max, min);
 
-                } else ok = 1;
+                    } else if(!strcmp(&in_file[f][strlen(in_file[f])-4],".png") || !strcmp(&in_file[f][strlen(in_file[f])-4],".PNG")){
 
-                if(IN_FILE) fclose(IN_FILE);
-                if(ok){
-                    fprintf(stderr, "Error! Read input file '%s'\n", in_file);
-                    ok = 1; goto End;
+                        ok = readPNG(IN_FILE, &buff[f], &ts[f].w, &ts[f].h, &ts[f].bpp, &ts[f].colort);
+
+                        ts[f].pic[0] = buff[f];
+                        ts[f].pic[1] = &buff[f][ts[f].w*ts[f].h*2*3];
+                        if(ts[f].colort == RGB) copy_image8_to16(buff[f], ts[f].pic[1], ts[f].w*ts[f].h*3);
+                        else copy_image8_to16(buff[f], ts[f].pic[1], ts[f].w*ts[f].h);
+                        tmp = ts[f].pic[0]; ts[f].pic[0] = ts[f].pic[1]; ts[f].pic[1] = tmp; ts[f].bpp = 16;
+
+                        if(verb) printf("Read %s file w = %d h = %d bpp = %d colort = %d\n", in_file[f], ts[f].w, ts[f].h, ts[f].bpp, ts[f].colort);
+
+                    } else ok = 1;
+
+                    if(IN_FILE) fclose(IN_FILE);
+                    if(ok){
+                        fprintf(stderr, "Error! Read input file '%s'\n", in_file[f]);
+                        ok = 1; goto End;
+                    }
                 }
+
                 //Create tmp buffer
-                tmpb = (uint8*)malloc(ts[n].w*ts[n].h*sizeof(uint32));
+                //printf("f = %d w = %d h = %d\n", f, ts[f].w, ts[f].h);
+                tmpb = (uint8*)malloc(ts[0].w*ts[0].h*sizeof(uint32));
                 if (tmpb == NULL) {
                     fprintf(stderr, "Error! Can't create tmpb buffer\n");
                     ok = 1; goto End;
                 }
-            } else {
-                fprintf(stderr, "Error! Can't find -i (input file)\n");
-                ok = 1; goto End;
+
             }
-        } else if (!strcmp(argv[i], "-o") && i < argc - 1) {
+        }
+
+        if (!strcmp(argv[i], "-o") && i < argc - 1) {
             //Write output file
-            out_file = argv[++i];
+            out_file = (char*)argv[++i];
             OUT_FILE = fopen(out_file, "wb");
             if (OUT_FILE == NULL) {
                 fprintf(stderr, "Error! Cannot open input file '%s'\n", out_file);
                 ok = 1; goto End;
             }
+
+
             if(!strcmp(&out_file[strlen(out_file)-4],".pgm") || !strcmp(&out_file[strlen(out_file)-4],".PGM")){
 
                 ok = writePGM(OUT_FILE, ts[n].pic[0], ts[n].w, ts[n].h, ts[n].bpp);
@@ -458,7 +484,7 @@ int main(int argc, const char *argv[]) {
                     }
 
                     ok = writePNG(OUT_FILE, ts[n].pic[0], ts[n].w, ts[n].h, ts[n].bpp, GREY);
-                } else if (ts[n].colort == RGB){                    
+                } else if (ts[n].colort == RGB){
                     if(ts[n].bpp != 8) {
                         utils_16_to_8(ts[n].pic[0], ts[n].pic[1], ts[n].w, ts[n].h, ts[n].bpp, 2);
                         tmp = ts[n].pic[0]; ts[n].pic[0] = ts[n].pic[1]; ts[n].pic[1] = tmp; ts[n].bpp = 8;
@@ -479,6 +505,7 @@ int main(int argc, const char *argv[]) {
                 ok = 1; goto End;
             }
 
+
         } else if (!strcmp(argv[i], "-t")) {
             //The image transform
             tr = 1;
@@ -491,17 +518,17 @@ int main(int argc, const char *argv[]) {
             } else {
                 fc++;
                 //Clone image
-                if(buff1 == NULL){
-                    //printf("main buff = %p\n", buff1);
+                if(buff[1] == NULL){
+                    //printf("main buff = %p\n", buff[1]);
                     ts[1].w = ts[n].w; ts[1].h = ts[n].h; ts[1].bpp = ts[n].bpp; ts[1].bg = ts[n].bg; ts[1].colort = ts[n].colort;
                     size = ts[n].w*ts[n].h;
-                    buff1 = (uint8*)malloc(ts[1].w*ts[1].h*3*4);
+                    buff[1] = (uint8*)malloc(ts[1].w*ts[1].h*3*4);
                     if (ts[1].pic[1] == NULL) {
-                        fprintf(stderr, "Error! Can't allocate memory buff1.\n");
+                        fprintf(stderr, "Error! Can't allocate memory buff[1].\n");
                         ok = 1; goto End;
                     }
-                    ts[1].pic[0] = buff1;
-                    ts[1].pic[1] = &buff1[ts[1].w*ts[1].h*2*3]; //Temporary buffer
+                    ts[1].pic[0] = buff[1];
+                    ts[1].pic[1] = &buff[1][ts[1].w*ts[1].h*2*3]; //Temporary buffer
                     copy_image16(ts[n].pic[0], ts[1].pic[0], ts[n].w, ts[n].h);
                 }
             }
@@ -601,7 +628,7 @@ int main(int argc, const char *argv[]) {
             }
             if(verb) printf("hessian filter\n");
         } else if (!strcmp(argv[i], "sub") && tr ) {
-            if(fc == 3){
+            if(fc == 3 || ster){
                 fc = 0;
                 if(ts[n].colort == GREY || ts[n].colort == BAYER){
                     //hdr_diff(ts[n].pic[0], ts[1].pic[0], ts[n].pic[1], ts[n].w, ts[n].h, ts[n].bpp);
@@ -618,7 +645,7 @@ int main(int argc, const char *argv[]) {
             }
             if(verb) printf("subtract two image\n");
         } else if (!strcmp(argv[i], "add") && tr ) {
-            if(fc == 3){
+            if(fc == 3 || ster){
                 fc = 0;
                 if(ts[n].colort == GREY || ts[n].colort == BAYER || ts[n].colort == YUV444 || ts[n].colort == YUV420){
                     utils_add(ts[n].pic[0], ts[1].pic[0], ts[n].pic[1], ts[n].w, ts[n].h, ts[n].bpp, ts[1].bpp);
@@ -634,7 +661,7 @@ int main(int argc, const char *argv[]) {
             }
             if(verb) printf("add two image\n");
         } else if (!strcmp(argv[i], "dnois_nlm") && tr) {
-            if(fc == 3){
+            if(fc == 3 || ster){
                 fc = 0;
                 par = strtol(argv[i+1], NULL, 0);
                 if(ts[n].colort == GREY || ts[n].colort == BAYER){
@@ -651,7 +678,7 @@ int main(int argc, const char *argv[]) {
             }
             if(verb) printf("denoise filter\n");
         } else if (!strcmp(argv[i], "mse") && tr) {
-            if(fc == 3){
+            if(fc == 3 || ster){
                 fc = 0;
                 par = strtol(argv[i+1], NULL, 0);
                 if(ts[n].colort == GREY || ts[n].colort == BAYER || ts[n].colort == YUV444 || ts[n].colort == YUV420){
@@ -668,7 +695,7 @@ int main(int argc, const char *argv[]) {
             }
             if(verb) printf("mse\n");
         } else if (!strcmp(argv[i], "dnois") && tr) {
-            if(fc == 3){
+            if(fc == 3 || ster){
                 fc = 0;
                 //par = strtol(argv[i+1], NULL, 0);
                 if(ts[n].colort == GREY || ts[n].colort == BAYER){
@@ -799,13 +826,29 @@ int main(int argc, const char *argv[]) {
                 ok = 1; goto End;
             }
             if(verb) printf("Corners detection\n");
+        } else if (!strcmp(argv[i], "s_disp") && tr ) {
+            if(ster){
+                n = 0;
+                if(ts[n].colort == RGB){
+                    stereo_disparity(ts[n].pic[0], ts[1].pic[0], ts[n].pic[1], (int16*)tmpb, ts[n].w, ts[n].h);
+                    tmp = ts[n].pic[0]; ts[n].pic[0] = ts[n].pic[1];  ts[n].bpp = ts[1].bpp; ts[n].pic[1] = tmp; ts[n].colort == GREY;
+
+                } else {
+                    fprintf(stderr, "Error! s_disp: Input image should be RGB format.\n", out_file);
+                    ok = 1; goto End;
+                }
+            } else {
+                fprintf(stderr, "Error! s_disp: Should be stereo pair in input.\n", out_file);
+                ok = 1; goto End;
+            }
+            if(verb) printf("Calculate disparity\n");
         }
     }
 
     if(argc == 1) printf("Usage: itlib -h\n");
 End:
-    if(buff) free(buff);
-    if(buff1) free(buff1);
+    if(buff[0]) free(buff[0]);
+    if(buff[1]) free(buff[1]);
     if(tmpb) free(tmpb);
     return ok;
 }

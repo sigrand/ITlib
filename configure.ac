@@ -85,4 +85,4 @@ AC_SUBST(PNG_INCLUDES)
 CPPFLAGS=$SAVED_CPPFLAGS
 LIBS=$SAVED_LIBS
 
-AC_OUTPUT(Makefile  src/Makefile src/utils/Makefile src/transforms/Makefile src/filters/Makefile src/hdr/Makefile src/segmentation/Makefile examples/Makefile )
+AC_OUTPUT(Makefile  src/Makefile src/stereo/Makefile src/utils/Makefile src/transforms/Makefile src/filters/Makefile src/hdr/Makefile src/segmentation/Makefile examples/Makefile )
