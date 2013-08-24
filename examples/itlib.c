@@ -452,7 +452,7 @@ int main(int argc, const char *argv[]) {
 
                 //Create tmp buffer
                 //printf("f = %d w = %d h = %d\n", f, ts[f].w, ts[f].h);
-                tmpb = (uint8*)malloc(ts[0].w*ts[0].h*sizeof(uint32));
+                tmpb = (uint8*)malloc(ts[0].w*ts[0].h*sizeof(int16)*5);
                 if (tmpb == NULL) {
                     fprintf(stderr, "Error! Can't create tmpb buffer\n");
                     ok = 1; goto End;
@@ -477,6 +477,7 @@ int main(int argc, const char *argv[]) {
                 //if(verb) printf("Write %s file\n", out_file);
 
             } else if(!strcmp(&out_file[strlen(out_file)-4],".png") || !strcmp(&out_file[strlen(out_file)-4],".PNG")){
+                printf("n = %d color = %d\n", n, ts[n].colort);
                 if(ts[n].colort == GREY || ts[n].colort == BAYER || ts[n].colort == YUV444 || ts[n].colort == YUV420){
                     if(ts[n].bpp != 8) {
                         utils_16_to_8(ts[n].pic[0], ts[n].pic[1], ts[n].w, ts[n].h, ts[n].bpp, 0);
@@ -831,7 +832,7 @@ int main(int argc, const char *argv[]) {
                 n = 0;
                 if(ts[n].colort == RGB){
                     stereo_disparity(ts[n].pic[0], ts[1].pic[0], ts[n].pic[1], (int16*)tmpb, ts[n].w, ts[n].h);
-                    tmp = ts[n].pic[0]; ts[n].pic[0] = ts[n].pic[1];  ts[n].bpp = ts[1].bpp; ts[n].pic[1] = tmp; ts[n].colort == GREY;
+                    tmp = ts[n].pic[0]; ts[n].pic[0] = ts[n].pic[1]; ts[n].pic[1] = tmp; ts[n].colort = GREY;
 
                 } else {
                     fprintf(stderr, "Error! s_disp: Input image should be RGB format.\n", out_file);

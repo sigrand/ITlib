@@ -147,8 +147,24 @@ void trans_rgb_to_yuv444(const int16 *rgb, int16 *Y, int16 *U, int16 *V, const u
     for(i=0; i < sz; i++){
         i3 = i*3;
         Y[i] = ((306*(rgb[i3]-rgb[i3 + 1]) + 117*(rgb[i3 + 2]-rgb[i3 + 1]))>>10) + rgb[i3 + 1];
-        //U[i] = 578*(rgb[i3 + 2] - Y[i])>>10;
-        //V[i] = 730*(rgb[i3]    -  Y[i])>>10;
+        U[i] = 578*(rgb[i3 + 2] - Y[i])>>10;
+        V[i] = 730*(rgb[i3]    -  Y[i])>>10;
+    }
+}
+
+/** \brief Convert 16 bit RGB image to 16 bits grey image .
+    \param rgb 	The input RGB image.
+    \param y	The output Y image.
+    \param w	The image width.
+    \param h	The image height.
+*/
+void trans_rgb_to_grey(const int16 *rgb, int16 *Y, const uint32 w, const uint32 h)
+{
+    int i, i3, sz = w*h;
+
+    for(i=0; i < sz; i++){
+        i3 = i*3;
+        Y[i] = ((306*(rgb[i3]-rgb[i3 + 1]) + 117*(rgb[i3 + 2]-rgb[i3 + 1]))>>10) + rgb[i3 + 1];
     }
 }
 
