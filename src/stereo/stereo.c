@@ -9,6 +9,14 @@
 #include "../segmentation/segmentation.h"
 
 
+void inline static cp_line_16(const int16 *in, int16 *l, uint32 w, uint32 sh)
+{
+    uint32 i;
+    for(i=0; i < sh; i++) l[i] = in[sh-i];
+    for(i=0; i < w ; i++) l[i+sh] = in[i];
+    for(i=0; i < sh; i++) l[i+sh+w] = in[w-sh-i];
+}
+
 /**	\brief	Check if a pixel the end of edge.
     \param	l0		The pointer to 1 line.
     \param	l1		The pointer to 2 line.
@@ -27,8 +35,11 @@ static inline uint32 block_maching(int16 *l, int16 *r, const int xl, const int x
             yxl = ywl + x;
             yxr = ywr + x;
             sad += abs(l[yxl] - r[yxr]);
+            if(xl == xr) printf(" %3d %3d  ", l[yxl], r[yxr]);
         }
+        if(xl == xr) printf("\n");
     }
+    if(xl == xr) printf("\n");
     return sad;
 }
 
@@ -44,8 +55,9 @@ static inline uint32 block_maching(int16 *l, int16 *r, const int xl, const int x
 */
 void stereo_maching(const int16 *limg, const int16 *rimg, const int16 *ledg, const int16 *redg, int16 *out, int16 *buff, const int w, const int h)
 {
-    int i, j, y, x, yx, yw, yw1; //, sh1 = sh+1;
-    int d = 100, sad; //Cameras distance in pixels
+    int i, j, y, x, y1, x1, yx, yxl, yxr, yw, yw1; //, sh1 = sh+1;
+    int d = 100, f = 100; //Cameras distance in pixels
+    int sad, sadt, z, bl;
 
     int sh = 2, ls = (sh<<1)+1, h1 = h-sh, w2 = w + (sh<<1), w1 = w*sh;
     int16 *l[ls], *r[ls], *le[ls], *re[ls], *tm;
@@ -84,13 +96,42 @@ void stereo_maching(const int16 *limg, const int16 *rimg, const int16 *ledg, con
 
         for(x=0; x < w-d; x++){
             yx = yw + x;
+            out[yx] = 0;
             if(re[2][x+sh]){
+                //printf("y = %d x = %d\n", y, x);
+                sadt = 0;
                 for(i=0; i < d; i++){
                     if(le[2][x+d+sh+i]){
-                        sad = block_maching(l[0], r[0], x+d+sh+i, x+sh, w2);
+                        //sad = block_maching(l[0], r[0], x+sh+i, x+sh, w2);
+                        sad = 0;
+                        //Block matching
+                        for(y1=0; y1 < 5; y1++){
+                            for(x1=0; x1 < 5; x1++){
+                                yxl = x+d+i+x1;
+                                yxr = x + x1;
+                                sad += abs(l[y1][yxl] - r[y1][yxr]);
+                                //if(!i) printf(" %3d %3d  ", l[y1][yxl], r[y1][yxr]);
+                            }
+                            //if(!i) printf("\n");
+                        }
+                        //if(!i) printf("\n");
+                        //printf("sad = %d\n", sad);
+
+                        if(!sadt) { sadt = sad; bl = x+d+i;}
+                        if(sad < sadt) { sadt = sad; bl = x+d+i;}
+                        //printf("sadt = %d\n", sadt);
                     }
                 }
+                //if(sadt) {
+                printf("rx = %d lx = %d d = %d i = %d\n", x, bl, d, i);
+                out[yx] = d*f/(bl - x);
+                //if(bl - x) out[yx] = d*f/(bl - x);
+                //else out[yx] = 255;
+                //printf("\nsad = %d xl = %d xr = %d dis = %d z = %d\n", sadt, bl, x, bl - x, z);
+
+                //}
             }
+
         }
 
         tm = l[0];  for(i=0; i < ls-1; i++) l[i]  = l[i+1];  l[ls-1]  = tm;
@@ -126,10 +167,6 @@ void stereo_disparity(const int16 *left, const int16 *right, int16 *out, int16 *
     seg_canny_edge(Y[0][0], Y[0][1], buf, w, h, th);
     seg_canny_edge(Y[1][0], Y[1][1], buf, w, h, th);
 
-    for(i=0; i < size; i++){
-        out[i] = Y[0][1][i] + Y[1][1][i];
-       // out[i] = Y[0][i];
-        //out[i] = in[i];
-    }
+    stereo_maching(Y[0][0], Y[1][0], Y[0][1], Y[1][1], out, buf, w, h);
 
 }
