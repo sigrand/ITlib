@@ -188,14 +188,6 @@ void seg_canny_edge(int16 *in, int16 *out, int16 *buff, const int w, const int h
                 //Check for neighborhood
                 // x    x x   x x    x
                 // x x    x   x    x x
-                /*
-                if(out[yx1]) {
-                    if     (out[yx1-1] && out[yx1-w-1]) out[yx1-1] = gr[1][x-1]; //out[yx1-1] = 0;
-                    else if(out[yx1-w] && out[yx1-w-1]) out[yx1-w] = gr[1][x-1]; //out[yx1-1] = 0;
-                    else if(out[yx1-w] && out[yx1-w+1]) out[yx1-w] = gr[1][x-1]; //out[yx1-1] = 0;
-                    else if(out[yx1-1] && out[yx1-w  ]) out[yx1]   = gr[1][x-1]; //out[yx1]   = 0;
-                }
-                */
 
                 if(out[yx1]) {
                     if     (out[yx1-1] && out[yx1-w-1]) out[yx1-1] = 0;
@@ -520,7 +512,7 @@ uint32 seg_end_of_edges(int16 *in, int16 *out, int16 *buff, const int w, const i
 
             if(l[3][x+sh]) {
                 //if(end_of_edge(l[2], l[3], l[4], x+sh)) { out[yx] = 252; i++; }
-                if(connect_edge(out, l[1], l[2], l[3], l[4], l[5], l[6], x+sh, yx, w)) { out[yx] = 252; i++; }
+                if(connect_edge(out, l[1], l[2], l[3], l[4], l[5], l[6], x+sh, yx, w)); // { out[yx] = 252; i++; }
             }
 
         }
