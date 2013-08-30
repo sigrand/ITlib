@@ -24,22 +24,31 @@ void inline static cp_line_16(const int16 *in, int16 *l, uint32 w, uint32 sh)
     \param  x		Coordinate pixel in x direction.
     \retval			0 - if not
 */
-static inline uint32 block_maching(int16 *l, int16 *r, const int xl, const int xr, const int w)
+static inline uint32 block_maching(int16 **l, int16 **r, int *sd, const int xl, const int xr)
 {
-    int x, y, ywl, ywr, yxl, yxr;
-    int sad = 0;
+    int j, y, x, yxl, yxr, sad, sad1;
+
+    for(j=0; j < 4; j++) sd[j] = 0;
     for(y=0; y < 5; y++){
-        ywl = y*w + xl;
-        ywr = y*w + xr;
-        for(x=-2; x < 3; x++){
-            yxl = ywl + x;
-            yxr = ywr + x;
-            sad += abs(l[yxl] - r[yxr]);
-            if(xl == xr) printf(" %3d %3d  ", l[yxl], r[yxr]);
+        for(x=0; x < 5; x++){
+            yxl = x + xl;
+            yxr = x + xr;
+            //sad1 += abs(l[y][yxl] - r[y][yxr]);
+            // 0  0  0  1  1
+            // 0  0  0  1  1
+            // 3  3     1  1
+            // 3  3  2  2  2
+            // 3  3  2  2  2
+            if(y < 2 && x < 3) sd[0] += abs(l[y][yxl] - r[y][yxr]);
+            if(y < 3 && x > 2) sd[1] += abs(l[y][yxl] - r[y][yxr]);
+            if(y > 2 && x > 1) sd[2] += abs(l[y][yxl] - r[y][yxr]);
+            if(y > 1 && x < 2) sd[3] += abs(l[y][yxl] - r[y][yxr]);
+            //if(!i) printf(" %3d %3d  ", l[y1][yxl], r[y1][yxr]);
         }
-        if(xl == xr) printf("\n");
+        //if(!i) printf("\n");
     }
-    if(xl == xr) printf("\n");
+
+    sad = sd[0] + sd[1] + sd[2] + sd[3] + abs(l[2][xl+2] - r[2][xr+2]);
     return sad;
 }
 
@@ -79,11 +88,11 @@ static inline uint32 check_pixel(int16 *l1, int16 *l2, int16 *l3, const int x, i
 */
 void stereo_maching(const int16 *limg, const int16 *rimg, const int16 *ledg, const int16 *redg, int16 *out, int16 *buff, const int w, const int h)
 {
-    int i, j, y, x, y1, x1, yx, yxl, yxr, yw, yw1; //, sh1 = sh+1;
-    int d = 100, f = 100, ths = 200;
-    int sad, sd[4], sadt, z, bl, gp = 0, tp = 0, nv, nvt, dir, dirt;
+    int i, j, y, x, xd, y1, y2, x1, yx, yxl, yxr, yw, yw1; //, sh1 = sh+1;
+    int d = 100, f = 100, ths = 10;
+    int sad, sad1, sd[4], sadt, z, bl, gp = 0, tp = 0, nv, nvt, dir, dirt;
 
-    int sh = 2, ls = (sh<<1)+1, h1 = h-sh, w2 = w + (sh<<1), w1 = w*sh;
+    int sh = 3, ls = (sh<<1)+1, h1 = h-sh, w2 = w + (sh<<1), w1 = w*sh;
     int16 *l[ls], *r[ls], *le[ls], *re[ls], *tm;
 
     //For left image
@@ -121,50 +130,69 @@ void stereo_maching(const int16 *limg, const int16 *rimg, const int16 *ledg, con
         for(x=0; x < w-d; x++){
             yx = yw + x;
             out[yx] = 0;
-            if(re[2][x+sh]){
-                nv = check_pixel(re[1], re[2], re[3], x+sh, &dir);
+            if(re[sh][x+sh]){
+                nv = check_pixel(re[sh-1], re[sh], re[sh+1], x+sh, &dir);
                 tp++;
-                printf("nv = %d dir = %d\n", nv, dir);
+                //printf("nv = %d dir = %d\n", nv, dir);
                 sadt = 0;
                 for(i=0; i < d; i++){
-                    if(le[2][x+d+sh+i]){
-                        sad = 0;
-                        for(j=0; j < 4; j++) sd[j] = 0;
-                        //Block matching
-                        nv = check_pixel(le[1], le[2], le[3], x+d+sh+i, &dir);
-                        for(y1=0; y1 < 5; y1++){
-                            for(x1=0; x1 < 5; x1++){
-                                yxl = x+d+i+x1;
-                                yxr = x + x1;
-                                //sad += abs(l[y1][yxl] - r[y1][yxr]);
-                                // 0  0  0  1  1
-                                // 0  0  0  1  1
-                                // 3  3     1  1
-                                // 3  3  2  2  2
-                                // 3  3  2  2  2
-                                if(y1 < 2 && x1 < 3) sd[0] += abs(l[y1][yxl] - r[y1][yxr]);
-                                if(y1 < 3 && x1 > 2) sd[1] += abs(l[y1][yxl] - r[y1][yxr]);
-                                if(y1 > 2 && x1 > 1) sd[2] += abs(l[y1][yxl] - r[y1][yxr]);
-                                if(y1 > 1 && x1 < 2) sd[3] += abs(l[y1][yxl] - r[y1][yxr]);
-                                //if(!i) printf(" %3d %3d  ", l[y1][yxl], r[y1][yxr]);
-                            }
-                            //if(!i) printf("\n");
-                        }
-                        sad = sd[0] + sd[1] + sd[2] + sd[3] + abs(l[2][x+d+i+2] - r[2][x + 2]);
-                        //if(!i) printf("\n");
-                        printf("sad = %d sd0 = %d sd1 = %d sd2 = %d sd3 = %d\n", sad/25, sd[0]/6, sd[1]/6, sd[2]/6, sd[3]/6);
+                    if(le[sh][x+d+sh+i]){
+                        sad = 0; sad1 = 0;
 
-                        if(!sadt) { sadt = sad; bl = x+d+i; dirt = dir; nvt = nv; }
-                        if(sad < sadt) { sadt = sad; bl = x+d+i; dirt = dir; nvt = nv; }
+                        //Block matching
+                        //nv = check_pixel(le[sh-1], le[sh], le[sh+1], x+d+sh+i, &dir);
+                        xd = x+d+i+1;
+                        sad = block_maching( &l[1], &r[1], sd, xd, x+1);
+                        //if(!i) printf("\n");
+                        //if(y==1) printf("sad = %d sd0 = %d sd1 = %d sd2 = %d sd3 = %d\n", sad/25, sd[0]/6, sd[1]/6, sd[2]/6, sd[3]/6);
+                        //if(y==1) printf("sad = %d sad1 = %d diff = %d\n", sad, sad1, sad-sad1);
+
+                        if(!sadt) { sadt = sad; bl = xd; dirt = dir; nvt = nv; }
+                        if(sad < sadt) { sadt = sad; bl = xd; dirt = dir; nvt = nv; }
                         //printf("sadt = %d\n", sadt);
                     }
                 }
-                //if(sadt) {
-                if(sadt < ths && sadt ) {
-                    out[yx] = d*f/(bl - x);
-                    gp++;
+
+                //Check around
+                /*
+                sad = block_maching( &l[0], &r[1], sd, bl-1, x+1);
+                if(sad < sadt) { sadt = sad; bl = bl-1;}
+                sad = block_maching( &l[0], &r[1], sd, bl, x+1);
+                if(sad < sadt) { sadt = sad; bl = bl;}
+                sad = block_maching( &l[0], &r[1], sd, bl+1, x+1);
+                if(sad < sadt) { sadt = sad; bl = bl+1;}
+                sad = block_maching( &l[2], &r[1], sd, bl-1, x+1);
+                if(sad < sadt) { sadt = sad; bl = bl-1;}
+                sad = block_maching( &l[2], &r[1], sd, bl, x+1);
+                if(sad < sadt) { sadt = sad; bl = bl;}
+                sad = block_maching( &l[2], &r[1], sd, bl+1, x+1);
+                if(sad < sadt) { sadt = sad; bl = bl+1;}
+                */
+
+                if(sadt) {
+                    //Check vertical direction
+                    if(sadt/25 < ths){
+                        out[yx] = d*f/(bl - x);
+                        gp++;
+                    } else {
+                        if        ((sd[0] + sd[1])/12 < ths){
+                            printf("good 01\n"); out[yx] = d*f/(bl - x);
+                        } else if ((sd[1] + sd[2])/12 < ths){
+                            printf("good 12\n"); out[yx] = d*f/(bl - x);
+                        } else if ((sd[2] + sd[3])/12 < ths){
+                            printf("good 23\n"); out[yx] = d*f/(bl - x);
+                        } else if ((sd[1] + sd[0])/12 < ths){
+                            printf("good 10\n"); out[yx] = d*f/(bl - x);
+                        } else {
+
+                        }
+
+                        printf("sad = %d sd0 = %d sd1 = %d sd2 = %d sd3 = %d\n", sadt/25, sd[0]/6, sd[1]/6, sd[2]/6, sd[3]/6);
+                        out[yx] = 200;
+                    }
                 } else {
-                    printf("Bag point\n");
+                    printf("Bag pixel\n");
+                    out[yx] = 255;
                 }
                 printf("rx = %d lx = %d sad = %d nv = %d dir = %d\n", x, bl, sadt/25, nvt, dirt);
 

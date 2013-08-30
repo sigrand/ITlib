@@ -316,7 +316,7 @@ int main(int argc, const char *argv[]) {
                    "itlib -is in_dir in_file1 in_file2 [-t transform_options] [-o[output_options] out_file]\n\n"
                    "Input options:\n"
                    "  b  Input file is raw BAYER image.\n"
-                   "  s  Input two stereo pair.\n"
+                   "  s  Input stereo pair.\n"
                    "\n"
                    "bayer_option:\n"
                    "  bggr            grbg            gbrg            rggb  \n"
