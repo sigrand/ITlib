@@ -246,7 +246,67 @@ int readPGM(FILE* in_file, uint8** buff, int* const w, int* const h, int* const 
     return 0;
 }
 
-/** \brief Write buffer to PGM file.
+/** \brief Write buffer to PCD (Point Cloud Data) file format
+    \param out_file The output file descriptor.
+    \param pcd		The disparity image.
+    \param w		The pointer to image width.
+    \param h		The pointer to image height.
+    \retval         The return value, if 0 - OK.
+*/
+int writePCD(FILE* out_file, int16* pcd, int const w, int const h)
+{
+    int x, y, yw, yx, i, size = w*h, num = 0, w2 = w>>1, h2 = h>>1;
+    /*
+    VERSION .7
+    FIELDS x y z rgb
+    SIZE 4 4 4 4
+    TYPE F F F F
+    COUNT 1 1 1 1
+    WIDTH 213
+    HEIGHT 1
+    VIEWPOINT 0 0 0 1 0 0 0
+    POINTS 213
+    DATA ascii
+*/
+    for(i=0; i < size; i++) if(pcd[i]) num++;
+    printf("writePCD: Cloud point number = %d\n", num);
+
+    fprintf(out_file, "VERSION .7\n");
+    fprintf(out_file, "FIELDS x y z\n");
+    fprintf(out_file, "SIZE 4 4 4\n");
+    fprintf(out_file, "TYPE F F F\n");
+    fprintf(out_file, "COUNT 1 1 1\n");
+    fprintf(out_file, "WIDTH %d\n", num);
+    fprintf(out_file, "HEIGHT 1\n");
+    fprintf(out_file, "VIEWPOINT 0 0 0 1 0 0 0\n");
+    fprintf(out_file, "POINTS %d\n", num);
+    fprintf(out_file, "DATA ascii\n");
+
+    for(y=0; y < h; y++){
+        yw = y*w;
+        for(x=0; x < w; x++){
+            yx = yw + x;
+            if(pcd[yx] && pcd[yx] < 255) {
+                fprintf(out_file, "%f %f %f\n", (float)(x-w2)/(float)w, (float)(y-h2)/(float)h, (float)pcd[yx]/(float)256);
+                //fprintf(out_file, "%f %f %f\n", x-w2, y-h2, pcd[yx]);
+                //printf("%d %d %d\n", x-w2, y-h2, pcd[yx]);
+            }
+        }
+    }
+
+
+    /*
+    if (fwrite(buff, size, 1, out_file) != size) {
+        fprintf(stderr, "Error! writePCD: Write PCD file problem\n");
+        return 1;
+    }
+    */
+    //if(verb)  print_first_pixels(buff, 10, bpp, GREY, w);
+
+    return 0;
+}
+
+/** \brief Write buffer to the PGM file
     \param out_file The output file descriptor.
     \param buff		The input buffer.
     \param w		The pointer to image width.
@@ -254,7 +314,7 @@ int readPGM(FILE* in_file, uint8** buff, int* const w, int* const h, int* const 
     \param bpp		The pointer to bits per pixel.
     \retval         The return value, if 0 - OK.
 */
-int writePGM(FILE* out_file, uint8* buff, const int w, const int h, const int bpp)
+int writePGM(FILE* out_file, uint8* buff, int const w, int const h, int const bpp)
 {
 
     fprintf(out_file, "P5\n%d %d\n%d", w, h, (bpp > 8) ? 65535 : 255);
@@ -294,8 +354,8 @@ int main(int argc, const char *argv[]) {
 
     char *in_file[2], cb[2][1000];
     char *out_file = NULL;
-    FILE *IN_FILE, *OUT_FILE;
-    int i, j, n = 0, ok = 0, tr = 0, par, fc = 0, f, nf, ster = 0;
+    FILE *IN_FILE, *OUT_FILE, *FILE_3D;
+    int i, j, n = 0, ok = 0, tr = 0, par, fc = 0, f, nf, ster = 0, dis3d = 0;
     uint8 *buff[2], *tmpb = NULL;
     int min=0, max=0, size;
     TransState ts[2];
@@ -481,14 +541,16 @@ int main(int argc, const char *argv[]) {
                 if(ts[n].colort == GREY || ts[n].colort == BAYER || ts[n].colort == YUV444 || ts[n].colort == YUV420){
                     if(ts[n].bpp != 8) {
                         utils_16_to_8(ts[n].pic[0], ts[n].pic[1], ts[n].w, ts[n].h, ts[n].bpp, 0);
-                        tmp = ts[n].pic[0]; ts[n].pic[0] = ts[n].pic[1]; ts[n].pic[1] = tmp; ts[n].bpp = 8;
+                        ok = writePNG(OUT_FILE, ts[n].pic[1], ts[n].w, ts[n].h, 8, GREY);
+                        //tmp = ts[n].pic[0]; ts[n].pic[0] = ts[n].pic[1]; ts[n].pic[1] = tmp; ts[n].bpp = 8;
                     }
 
                     ok = writePNG(OUT_FILE, ts[n].pic[0], ts[n].w, ts[n].h, ts[n].bpp, GREY);
                 } else if (ts[n].colort == RGB){
                     if(ts[n].bpp != 8) {
                         utils_16_to_8(ts[n].pic[0], ts[n].pic[1], ts[n].w, ts[n].h, ts[n].bpp, 2);
-                        tmp = ts[n].pic[0]; ts[n].pic[0] = ts[n].pic[1]; ts[n].pic[1] = tmp; ts[n].bpp = 8;
+                        ok = writePNG(OUT_FILE, ts[n].pic[1], ts[n].w, ts[n].h, 8, RGB);
+                        //tmp = ts[n].pic[0]; ts[n].pic[0] = ts[n].pic[1]; ts[n].pic[1] = tmp; ts[n].bpp = 8;
                     }
 
                     ok = writePNG(OUT_FILE, ts[n].pic[0], ts[n].w, ts[n].h, ts[n].bpp, RGB);
@@ -506,6 +568,26 @@ int main(int argc, const char *argv[]) {
                 ok = 1; goto End;
             }
 
+            //Write disparity file in Cloud point data format
+            if(dis3d){
+                out_file = (char*)argv[i];
+                strcat (out_file, ".pcd");
+
+                printf("Write disparity file %s\n", out_file);
+                OUT_FILE = fopen(out_file, "wb");
+                if (OUT_FILE == NULL) {
+                    fprintf(stderr, "Error! Cannot open 3d file '%s'\n", out_file);
+                    ok = 1; goto End;
+                }
+
+                ok = writePCD(OUT_FILE, ts[n].pic[0], ts[n].w, ts[n].h);
+
+                if(OUT_FILE) fclose(OUT_FILE);
+                if(ok){
+                    fprintf(stderr, "Error! Write 3d file '%s'\n", out_file);
+                    ok = 1; goto End;
+                }
+            }
 
         } else if (!strcmp(argv[i], "-t")) {
             //The image transform
@@ -833,6 +915,7 @@ int main(int argc, const char *argv[]) {
                 if(ts[n].colort == RGB){
                     stereo_disparity(ts[n].pic[0], ts[1].pic[0], ts[n].pic[1], (int16*)tmpb, ts[n].w, ts[n].h);
                     tmp = ts[n].pic[0]; ts[n].pic[0] = ts[n].pic[1]; ts[n].pic[1] = tmp; ts[n].colort = GREY;
+                    dis3d = 1;
 
                 } else {
                     fprintf(stderr, "Error! s_disp: Input image should be RGB format.\n", out_file);
