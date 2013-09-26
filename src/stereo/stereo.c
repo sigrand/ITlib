@@ -87,6 +87,27 @@ static inline uint32 block_maching7(int16 **l, int16 **r, int *sd, const int xl,
     return sad;
 }
 
+/**	\brief	Check if not only horizontal edge direction
+    \param	l		The pointer to edge left block.
+    \retval			The 1 if ok.
+*/
+static inline uint32 check_hdir(int16 **l)
+{
+    int i, y, x, s[7];
+
+    for(y=0; y < 7; y++){
+        s[y] = 0;
+        for(x=0; x < 7; x++){
+            s[y] += l[y][x];
+        }
+    }
+
+    if(s[0] || s[1] || s[4] || s[5] || s[6]) return 1;
+    if(s[0] || s[1] || s[2] || s[5] || s[6]) return 1;
+
+    return 0;
+}
+
 /**	\brief	Find best maching direction.
     \param	sd		The pointer to direction array.
     \param	ths		The maching threshould.
@@ -146,7 +167,7 @@ static inline uint32 check_pixel(int16 *l1, int16 *l2, int16 *l3, const int x, i
 void stereo_maching7(const int16 *limg, const int16 *rimg, const int16 *ledg, const int16 *redg, int16 *out, int16 *buff, const int w, const int h)
 {
     int i, j, y, x, xd, y1, y2, x1, yx, yxl, yxr, yw, yw1; //, sh1 = sh+1;
-    int d = 100, ds = d>>2, f = 100, th = 10, ths = 49*th, thb = 6*3*th + th, size = w*h;
+    int d = 100, ds = d>>2, f = 100, th = 5, ths = 49*th, thb = 6*3*th + th, size = w*h;
     int sad, sad1, sd[9], sadt, z, bl, gp = 0, rp = 0, tp = 0, nv, nvt, dir, dirt;
 
 
@@ -292,12 +313,14 @@ void stereo_maching7(const int16 *limg, const int16 *rimg, const int16 *ledg, co
 void stereo_maching(const int16 *limg, const int16 *rimg, const int16 *ledg, const int16 *redg, int16 *out, int16 *buff, const int w, const int h)
 {
     int i, j, y, x, xd, y1, y2, x1, yx, yxl, yxr, yw, yw1; //, sh1 = sh+1;
-    int d = 100, ds = d>>2, f = 100, ths = 10;
+    int d = 100, ds = d>>2, f = 100, ths = 5, size = w*h;
     int sad, sad1, sd[4], sadt, z, bl, gp = 0, rp = 0, tp = 0, nv, nvt, dir, dirt;
 
 
     int sh = 3, ls = (sh<<1)+1, h1 = h-sh, w2 = w + (sh<<1), w1 = w*sh;
     int16 *l[ls], *r[ls], *le[ls], *re[ls], *tm;
+
+    for(i=0; i < size; i++) out[i] = 0;
 
     //For left image
     l[0] = buff;
@@ -424,6 +447,10 @@ void stereo_maching(const int16 *limg, const int16 *rimg, const int16 *ledg, con
         //tm = l[0]; l[0] = l[1]; l[1] = l[2]; l[2] = l[3]; l[3] = l[4]; l[4] = l[5]; l[5] = l[6]; l[6] = tm;
     }
     printf("Total pixels = %d good pixele = %d  refiment  = %d %d \n", tp, gp, rp, gp*100/tp);
+
+    tp = 0;
+    for(i=0; i < size; i++) if(out[i]) tp++;
+    printf("stereo_maching7: Cloud point number = %d\n", tp);
 }
 
 /** \brief Calculate disparity
@@ -436,7 +463,7 @@ void stereo_maching(const int16 *limg, const int16 *rimg, const int16 *ledg, con
 */
 void stereo_disparity(const int16 *left, const int16 *right, int16 *out, int16 *buff, const int w, const int h)
 {
-    int i, size = w*h, th = 10;
+    int i, size = w*h, th = 4;
     int16 *Y[2][2], *buf;
 
     Y[0][0] = buff;
