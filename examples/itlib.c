@@ -256,18 +256,7 @@ int readPGM(FILE* in_file, uint8** buff, int* const w, int* const h, int* const 
 int writePCD(FILE* out_file, int16* pcd, int const w, int const h)
 {
     int x, y, yw, yx, i, size = w*h, num = 0, w2 = w>>1, h2 = h>>1;
-    /*
-    VERSION .7
-    FIELDS x y z rgb
-    SIZE 4 4 4 4
-    TYPE F F F F
-    COUNT 1 1 1 1
-    WIDTH 213
-    HEIGHT 1
-    VIEWPOINT 0 0 0 1 0 0 0
-    POINTS 213
-    DATA ascii
-*/
+
     for(i=0; i < size; i++) if(pcd[i]) num++;
     printf("writePCD: Cloud point number = %d\n", num);
 
@@ -417,6 +406,7 @@ int main(int argc, const char *argv[]) {
                     "\n"
                    "  Stereo options\n"
                    "  s_disp           Calculate disparity"
+                   "  s_filt           Filter disparity"
                    "Output options:\n"
                    "  -h               This help message.\n"
                    "  -v               Verbose \n"
@@ -926,6 +916,23 @@ int main(int argc, const char *argv[]) {
                 ok = 1; goto End;
             }
             if(verb) printf("Calculate disparity\n");
+        } else if (!strcmp(argv[i], "s_filt") && tr ) {
+            if(dis3d){
+                n = 0;
+                if(ts[n].colort == GREY){
+                    stereo_filter(ts[n].pic[0], ts[1].pic[0], (int16*)tmpb, ts[n].w, ts[n].h);
+                    //stereo_disparity(ts[n].pic[0], ts[1].pic[0], ts[n].pic[1], (int16*)tmpb, ts[n].w, ts[n].h);
+                    tmp = ts[n].pic[0]; ts[n].pic[0] = ts[n].pic[1]; ts[n].pic[1] = tmp;
+
+                } else {
+                    fprintf(stderr, "Error! s_filt: Input image should be GREY format.\n", out_file);
+                    ok = 1; goto End;
+                }
+            } else {
+                fprintf(stderr, "Error! s_filt: Should be disparity in input.\n", out_file);
+                ok = 1; goto End;
+            }
+            if(verb) printf("Filter disparity\n");
         }
     }
 

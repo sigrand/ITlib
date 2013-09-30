@@ -91,43 +91,51 @@ static inline uint32 block_maching7(int16 **l, int16 **r, int *sd, const int xl,
     \param	l		The pointer to edge left block.
     \retval			The 1 if ok.
 */
-static inline uint32 check_hdir(int16 **l)
+static inline uint32 check_hdir(int16 **l, const int xb)
 {
-    int i, y, x, s[7];
+    int i, y, x, s[7], ed = xb+7;
 
     for(y=0; y < 7; y++){
         s[y] = 0;
-        for(x=0; x < 7; x++){
+        for(x=xb; x < ed; x++){
             s[y] += l[y][x];
         }
     }
 
-    if(s[0] || s[1] || s[4] || s[5] || s[6]) return 1;
-    if(s[0] || s[1] || s[2] || s[5] || s[6]) return 1;
+    return 1;
 
+    if(s[0] || s[1] || s[2] || s[4] || s[5] || s[6]) return 1;
+    //if(s[0] || s[1] || s[2] || s[5] || s[6]) return 1;
+    /*
+    for(y=0; y < 7; y++){
+        for(x=xb; x < ed; x++){
+            printf("%3d ", l[y][x]);
+        }
+        printf("\n");
+    }
+    printf("\n");
+    */
     return 0;
 }
 
 /**	\brief	Find best maching direction.
     \param	sd		The pointer to direction array.
     \param	ths		The maching threshould.
+    \retval			The minimal of sam.
 */
-static inline uint32 find_direction(int *sd, int ths)
+static inline uint32 find_direction(int *sd)
 {
-    int i, j, sum;
-    sum = sd[5] + sd[6] + sd[7] + sd[8];
+    int i, j, sum, min;
+    sum = sd[4] + sd[5] + sd[6] + sd[7] + sd[8];
+    min = sum;
     for(i=0; i < 8; i++){
-        j = i - 3;
+        j = i - 4;
         j = j < 0 ? 8 + j : j;
-        //printf("sum = %d\n", sum);
+        //printf("sum = %d j = %d i = %d\n", sum, j, i);
         sum  = sum - sd[j] + sd[i];
-        if(sum < ths) {
-            //printf("ths = %d sum = %d j = %d i = %d\n", ths, sum, j , i);
-            return i+1;
-        }
+        if(sum < min)  min = sum;
     }
-    return 0;
-
+    return min;
 }
 
 /**	\brief	Check if a pixel.
@@ -167,7 +175,7 @@ static inline uint32 check_pixel(int16 *l1, int16 *l2, int16 *l3, const int x, i
 void stereo_maching7(const int16 *limg, const int16 *rimg, const int16 *ledg, const int16 *redg, int16 *out, int16 *buff, const int w, const int h)
 {
     int i, j, y, x, xd, y1, y2, x1, yx, yxl, yxr, yw, yw1; //, sh1 = sh+1;
-    int d = 100, ds = d>>2, f = 100, th = 5, ths = 49*th, thb = 6*3*th + th, size = w*h;
+    int d = 100, ds = d>>2, f = 100, th = 6, ths = 49*th, thb = 6*4*th + th, size = w*h;
     int sad, sad1, sd[9], sadt, z, bl, gp = 0, rp = 0, tp = 0, nv, nvt, dir, dirt;
 
 
@@ -211,8 +219,9 @@ void stereo_maching7(const int16 *limg, const int16 *rimg, const int16 *ledg, co
         //for(x=0; x < w-d; x++){
         for(x=w; x > d ; x--){
             yx = yw + x;
-
-            if(le[sh][x+sh]){
+            //check_hdir
+            if(le[sh][x+sh] && check_hdir(&le[0], x)){
+            //if(le[sh][x+sh]){
             //if(re[sh][x+sh]){
                 //nv = check_pixel(re[sh-1], re[sh], re[sh+1], x+sh, &dir);
                 tp++;
@@ -223,30 +232,32 @@ void stereo_maching7(const int16 *limg, const int16 *rimg, const int16 *ledg, co
                     //xd = x+d+i;
                 for(i=-ds; i < d; i++){
                     //xd = x-d+sh-i;
-                    if(re[sh][x-d+sh-i]){
+                    if(re[sh][x-d+sh-i] && check_hdir(&re[0], x-d-i)){
                         xd = x-d-i;
                         sad = 0; sad1 = 0;
                         //Block matching
                         sad = block_maching7( &l[0], &r[0], sd, x, xd);
+                        sad = find_direction(sd);
                         //if(!i) printf("\n");
                         //if(y==1) printf("sad = %d sd0 = %d sd1 = %d sd2 = %d sd3 = %d\n", sad/25, sd[0]/6, sd[1]/6, sd[2]/6, sd[3]/6);
                         //if(y==1) printf("sad = %d sad1 = %d diff = %d\n", sad, sad1, sad-sad1);
 
-                        if(!sadt) { sadt = sad; bl = xd; dirt = dir; nvt = nv; }
-                        if(sad < sadt) { sadt = sad; bl = xd; dirt = dir; nvt = nv; }
+                        if(!sadt) { sadt = sad; bl = xd; }
+                        if(sad < sadt) { sadt = sad; bl = xd; }
                         //printf("sad = %d xr = %d xl = %d\n", sad, x, x+d+i);
                     }
                 }
 
                 if(sadt) {
                     //Check vertical direction
-                    if(sadt < ths){
+                    if(sadt < thb){
                         out[yx] = d*f/abs(bl - x);
                         //printf("x = %d y = %d out = %d\n", x, y, out[yx]);
                         gp++;
-                    } else if(find_direction(sd, thb)){
+                    /*} else if(find_direction(sd) < thb){
                         out[yx] = d*f/abs(bl - x);
                         rp++;
+                        */
                     } else {
                         //Check around
                         /*
@@ -453,6 +464,64 @@ void stereo_maching(const int16 *limg, const int16 *rimg, const int16 *ledg, con
     printf("stereo_maching7: Cloud point number = %d\n", tp);
 }
 
+/** \brief Filtration outlier pixels.
+    \param in	The input 16 bits disparity image.
+    \param out	The output 16 bits filtered disparity image.
+    \param buff	The temporary buffer.
+    \param w	The image width.
+    \param h	The imahe height.
+*/
+void stereo_filter(const int16 *in, int16 *out, int16 *buff, const int w, const int h)
+{
+    int i, j, y, x, y1, x1, yx, yw, yw1;
+    int sum, rp = 0, nz;
+
+    int sh = 3, ls = (sh<<1)+1, h1 = h-sh, w2 = w + (sh<<1), w1 = w*sh, sq = ls*ls;
+    int16 *d[ls], *tm;
+
+    //For disparity image
+    d[0] = buff;
+    for(i=1; i < ls; i++) d[i] = &d[i-1][w2];
+    //Prepare buffer
+    for(i=0; i < ls-1; i++) cp_line_16(&in[w*abs(sh-i)], d[i], w, sh);
+
+    for(y=0; y < h; y++){
+        yw = y*w;
+        yw1 = y < h1 ? yw + w1 : w*(((h-1)<<1)-y);
+        cp_line_16(&in[yw1], d[ls-1], w, sh);
+
+        for(x=0; x < w; x++){
+            yx = yw + x;
+            out[yx] = in[yx];
+
+            if(d[sh][x+sh]){
+                sum = 0; nz = 0;
+                for(y1=0; y1 < ls; y1++){
+                    for(x1=x; x1 < ls+x; x1++){
+                        if(d[y1][x1]){
+                            sum += abs(d[y1][x1] - d[sh][x+sh]);
+                            nz++;
+                        }
+                        //if(!i) printf(" %3d %3d  ", l[y1][yxl], r[y1][yxr]);
+                    }
+                    //if(!i) printf("\n");
+                }
+
+                sum = sum/nz;
+                if(sum > 5) {
+                    printf("d = %d sum = %d\n", d[sh][x+sh], sum);
+                    out[yx] = 0;
+                    rp++;
+                }
+            }
+
+        }
+        tm = d[0];  for(i=0; i < ls-1; i++) d[i]  = d[i+1];  d[ls-1]  = tm;
+    }
+    printf("Remove pisels = %d\n", rp);
+}
+
+
 /** \brief Calculate disparity
     \param in	The input 16 bits first image.
     \param in1 	The input 16 bits second image.
@@ -463,7 +532,7 @@ void stereo_maching(const int16 *limg, const int16 *rimg, const int16 *ledg, con
 */
 void stereo_disparity(const int16 *left, const int16 *right, int16 *out, int16 *buff, const int w, const int h)
 {
-    int i, size = w*h, th = 4;
+    int i, size = w*h, th = 6;
     int16 *Y[2][2], *buf;
 
     Y[0][0] = buff;
@@ -483,4 +552,7 @@ void stereo_disparity(const int16 *left, const int16 *right, int16 *out, int16 *
 
     stereo_maching7(Y[0][0], Y[1][0], Y[0][1], Y[1][1], out, buf, w, h);
 
+    stereo_filter(out, out, buf, w, h);
+
 }
+
