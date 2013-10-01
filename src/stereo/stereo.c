@@ -126,7 +126,7 @@ static inline uint32 check_hdir(int16 **l, const int xb)
 static inline uint32 find_direction(int *sd)
 {
     int i, j, sum, min;
-    sum = sd[4] + sd[5] + sd[6] + sd[7] + sd[8];
+    sum = sd[4] + sd[5] + sd[6] + sd[7] + sd[8]; //
     min = sum;
     for(i=0; i < 8; i++){
         j = i - 4;
@@ -175,7 +175,7 @@ static inline uint32 check_pixel(int16 *l1, int16 *l2, int16 *l3, const int x, i
 void stereo_maching7(const int16 *limg, const int16 *rimg, const int16 *ledg, const int16 *redg, int16 *out, int16 *buff, const int w, const int h)
 {
     int i, j, y, x, xd, y1, y2, x1, yx, yxl, yxr, yw, yw1; //, sh1 = sh+1;
-    int d = 100, ds = d>>2, f = 100, th = 6, ths = 49*th, thb = 6*4*th + th, size = w*h;
+    int d = 100, ds = d>>2, f = 100, th = 5, ths = 49*th, thb = 6*4*th + th, size = w*h;
     int sad, sad1, sd[9], sadt, z, bl, gp = 0, rp = 0, tp = 0, nv, nvt, dir, dirt;
 
 
@@ -216,13 +216,12 @@ void stereo_maching7(const int16 *limg, const int16 *rimg, const int16 *ledg, co
         cp_line_16(&ledg[yw1], le[ls-1], w, sh);
         cp_line_16(&redg[yw1], re[ls-1], w, sh);
 
-        //for(x=0; x < w-d; x++){
-        for(x=w; x > d ; x--){
+        for(x=0; x < w-d; x++){
+        //for(x=w; x > d ; x--){
             yx = yw + x;
             //check_hdir
-            if(le[sh][x+sh] && check_hdir(&le[0], x)){
-            //if(le[sh][x+sh]){
-            //if(re[sh][x+sh]){
+            //if(le[sh][x+sh] && check_hdir(&le[0], x)){
+            if(re[sh][x+sh] && check_hdir(&re[0], x)){
                 //nv = check_pixel(re[sh-1], re[sh], re[sh+1], x+sh, &dir);
                 tp++;
                 //printf("nv = %d dir = %d\n", nv, dir);
@@ -232,35 +231,40 @@ void stereo_maching7(const int16 *limg, const int16 *rimg, const int16 *ledg, co
                     //xd = x+d+i;
                 for(i=-ds; i < d; i++){
                     //xd = x-d+sh-i;
-                    if(re[sh][x-d+sh-i] && check_hdir(&re[0], x-d-i)){
-                        xd = x-d-i;
+                    //if(re[sh][x-d+sh-i] && check_hdir(&re[0], x-d-i)){
+                    if(le[sh][x+d+sh+i] && check_hdir(&le[0], x+d+i)){
                         sad = 0; sad1 = 0;
                         //Block matching
-                        sad = block_maching7( &l[0], &r[0], sd, x, xd);
-                        sad = find_direction(sd);
-                        //if(!i) printf("\n");
-                        //if(y==1) printf("sad = %d sd0 = %d sd1 = %d sd2 = %d sd3 = %d\n", sad/25, sd[0]/6, sd[1]/6, sd[2]/6, sd[3]/6);
-                        //if(y==1) printf("sad = %d sad1 = %d diff = %d\n", sad, sad1, sad-sad1);
+                        //j=0; {
+                        for(j=-1; j < 2; j++){
+                            //xd = x-d-i+j;
+                            //sad = block_maching7( &l[0], &r[0], sd, x, xd);
+                            xd = x+d+i+j;
+                            sad = block_maching7( &l[0], &r[0], sd, xd, x);
+                            sad = find_direction(sd);
+                            //if(!i) printf("\n");
+                            //if(y==1) printf("sad = %d sd0 = %d sd1 = %d sd2 = %d sd3 = %d\n", sad/25, sd[0]/6, sd[1]/6, sd[2]/6, sd[3]/6);
+                            //if(y==1) printf("sad = %d sad1 = %d diff = %d\n", sad, sad1, sad-sad1);
 
-                        if(!sadt) { sadt = sad; bl = xd; }
-                        if(sad < sadt) { sadt = sad; bl = xd; }
-                        //printf("sad = %d xr = %d xl = %d\n", sad, x, x+d+i);
+                            if(!sadt) { sadt = sad; bl = xd; }
+                            if(sad < sadt) { sadt = sad; bl = xd; }
+                        }
                     }
                 }
 
                 if(sadt) {
                     //Check vertical direction
                     if(sadt < thb){
-                        out[yx] = d*f/abs(bl - x);
+                        out[yw + ((x + bl)>>1)] = d*f/abs(bl - x);
                         //printf("x = %d y = %d out = %d\n", x, y, out[yx]);
                         gp++;
                     /*} else if(find_direction(sd) < thb){
                         out[yx] = d*f/abs(bl - x);
                         rp++;
                         */
-                    } else {
+                    } /*else {
                         //Check around
-                        /*
+
                         sad = block_maching7( &l[0], &r[0], sd, x, xd-1);
                         if(sad < sadt) {
                             sadt = sad;
@@ -276,12 +280,12 @@ void stereo_maching7(const int16 *limg, const int16 *rimg, const int16 *ledg, co
                             out[yx] = d*f/abs(bl - x);
                             gp++;
                         } else {
-                            if(find_direction(sd, thb)){
+                            if(find_direction(sd) < thb){
                                 out[yx] = d*f/abs(bl - x); rp++;
                             }
                         }
-                        */
-                    }
+
+                    }*/
                 } else {
                     //printf("Don't have any pixeles\n");
                     //out[yx] = 255;
@@ -509,7 +513,7 @@ void stereo_filter(const int16 *in, int16 *out, int16 *buff, const int w, const 
 
                 sum = sum/nz;
                 if(sum > 5) {
-                    printf("d = %d sum = %d\n", d[sh][x+sh], sum);
+                    //printf("d = %d sum = %d\n", d[sh][x+sh], sum);
                     out[yx] = 0;
                     rp++;
                 }
