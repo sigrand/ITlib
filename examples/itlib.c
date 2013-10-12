@@ -275,7 +275,8 @@ int writePCD(FILE* out_file, int16* pcd, int const w, int const h)
         yw = y*w;
         for(x=0; x < w; x++){
             yx = yw + x;
-            if(pcd[yx] && pcd[yx] < 255) {
+            //if(pcd[yx] && pcd[yx] < 255) {
+            if(pcd[yx]) {
                 fprintf(out_file, "%f %f %f\n", (float)(x-w2)/(float)w, (float)(y-h2)/(float)h, (float)pcd[yx]/(float)256);
                 //fprintf(out_file, "%f %f %f\n", x-w2, y-h2, pcd[yx]);
                 //printf("%d %d %d\n", x-w2, y-h2, pcd[yx]);
@@ -381,13 +382,14 @@ int main(int argc, const char *argv[]) {
                    "  wb               White balancing.\n"
                    "  bay_rgb_bi       Bayer to rgb bilinear interpolation algorithm.\n"
                    "  bay_grey_bi      Bayer to grey bilinear interpolation algorithm.\n"
-                   "  bay_grey_s       Bayer to rgb bicubic B-spline aproximation \n"
+                   "  bay_rgb_s        Bayer to rgb bicubic B-spline aproximation \n"
                    "  med <a>          3x3 median filter if a = 0 non adaptive, if a = 1 adaptive\n"
                    "  ace <b>          Automatic Color Enhancement transform b - the bits per pixel for output image\n"
                    "  aver <x>         Averaging image with window of x radius \n"
                    "  sub              Subtract one image from another\n"
                    "  add              Add two images\n"
                    "  dnois_nlm <x>    Non-Local means denoise algorithm, x - radius around pixels for matching\n"
+                   "  dnois_bil <x>    Bilateral filtering denoise algorithm, x - radius around pixels for matching\n"
                    "  dnois_reg <x>    The mean square error (MSE) regression of plane denoise filter\n"
                    "                   x - radius around pixels for matching\n"
                    "  hess             Calculate the determinant of Hessian of grey image\n"
@@ -795,6 +797,19 @@ int main(int argc, const char *argv[]) {
                 ok = 1; goto End;
             }
             if(verb) printf("denoise  filter\n");
+        } else if (!strcmp(argv[i], "dnois_bil") && tr) {
+            par = strtol(argv[i+1], NULL, 0);
+            if(ts[n].colort == GREY || ts[n].colort == BAYER){
+                filters_Bilateral_denoise_bayer(ts[n].pic[0], ts[n].pic[1], (int16*)tmpb, par, 50, ts[n].w, ts[n].h);
+
+                //filters_denoise_regression_bayer(ts[n].pic[0], ts[n].pic[1], (int*)tmpb, par, ts[n].w, ts[n].h);
+                tmp = ts[n].pic[0]; ts[n].pic[0] = ts[n].pic[1]; ts[n].pic[1] = tmp;
+
+            } else {
+                fprintf(stderr, "Error! dnois_bil: Input image should be in bayer or grey format.\n", out_file);
+                ok = 1; goto End;
+            }
+            if(verb) printf("denoise bilateral filter\n");
         } else if (!strcmp(argv[i], "bay_rgb_s") && tr) {
             par = strtol(argv[i+1], NULL, 0);
             if(ts[n].colort == BAYER){

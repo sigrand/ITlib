@@ -12,6 +12,7 @@ void filters_median(int16 *in, int16 *out, int16 *buff, const int w, const int h
 void filters_median_bayer(int16 *in, int16 *out, int16 *buff, const int w, const int h, const int type);
 
 void filters_NLM_denoise_bayer(int16 *in, int16 *avr, int16 *out, int16 *buff, const int st, const int sg, const int w, const int h);
+void filters_Bilateral_denoise_bayer(int16 *in, int16 *out, int16 *buff, const int br, const int sg, const int w, const int h);
 
 void filters_hessian(int16 *in, int16 *out, uint32 *buff, const int w, const int h);
 

@@ -256,7 +256,7 @@ void filters_NLM_denoise_bayer(int16 *in, int16 *avr, int16 *out, int16 *buff, c
     m[0] = &l[ns-1][w1];
     for(i=1; i < ns; i++) m[i] = &m[i-1][w1];
 
-    //Prepare first raws
+    //Prepare first rows
     for(i=0; i < ns - 1; i++){
         if(i < br) cp_line_16(&in[w*(br-i)], l[i], w, br);
         else cp_line_16(&in[w*(i-br)], l[i], w, br);
@@ -303,6 +303,83 @@ void filters_NLM_denoise_bayer(int16 *in, int16 *avr, int16 *out, int16 *buff, c
         tm = m[0];
         for(i=1; i < ns; i++) m[i-1] = m[i];
         m[ns-1] =  tm;
+    }
+}
+
+/** \brief The Bilateral Filtering denoise  algorithm.
+    \param in	The input 16 bits bayer image.
+    \param out	The output 16 bits bayer image.
+    \param buff	The temporary buffer.
+    \param br   The radius around the pixel.
+    \param sg   The noise standard deviation.
+    \param w    The image width.
+    \param h 	The image height.
+*/
+void filters_Bilateral_denoise_bayer(int16 *in, int16 *out, int16 *buff, const int br1, const int sg, const int w, const int h)
+{
+    int i, x, xi, y, yi, yw, yx;
+    int hg = sg*sg;
+    int ex[512], smi, smi1, blm, cf;
+
+    int sh, br = br1<<1, ns = (br<<1) + 1; //, bs = (br+1)*((br>>1)+1);
+    int w1 = w + (br<<1);
+    int16 *l[ns], *tm;
+    int64_t b;
+
+    //Finding b coefficient to change / to *
+    //for(i=1; bs>>i; i++);
+    //sh = 63 - i - 16;
+    //b = (1LL<<sh)/bs;
+
+    //Make lut table to remove exp
+    for(i=0; i < 512; i++){
+        ex[i] = (int)(exp(-(double)i*i/(double)hg)*512);
+        printf("%3d exp = %d\n", i, ex[i]);
+    }
+
+    //Rows buffer for input image
+    l[0] = buff;
+    for(i=1; i < ns; i++) l[i] = &l[i-1][w1];
+
+
+    //Prepare first rows
+    for(i=0; i < ns - 1; i++){
+        if(i < br) cp_line_16(&in[w*(br-i)], l[i], w, br);
+        else cp_line_16(&in[w*(i-br)], l[i], w, br);
+    }
+
+
+    for(y = 0; y < h; y++){
+        yw = y*w;
+        if(y+br > h-1) {
+            cp_line_16(&in[w*(((h-1)<<1)-y)], l[ns-1], w, br);
+        } else {
+            cp_line_16(&in[w*(y+br)], l[ns-1], w, br);
+        }
+
+        for(x = 0; x < w; x++){
+            yx = yw + x;
+            smi1 = smi = 0;
+
+            for(yi=0; yi < ns; yi+=2){
+                for(xi=x; xi <= x+ns; xi+=2){
+
+                    blm  = abs(l[yi][xi] - l[br][x+br]);
+                    //printf("in = %d blm = %d\n", l[yi][xi], blm);
+
+                    cf = blm > 511 ? 0 : ex[blm];
+                    smi1 += cf;
+                    smi += l[yi][xi]*cf;
+                }
+            }
+            //tm = l[0]; l[0] = l[1]; l[1] = l[2]; l[2] = tm;
+            out[yx] = smi/smi1;
+
+            //printf("Start in = %d out = %d blm = %d\n", in[yx], out[yx], blm);
+        }
+        tm = l[0];
+        for(i=1; i < ns; i++) l[i-1] = l[i];
+        l[ns-1] =  tm;
     }
 }
 

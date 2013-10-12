@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <math.h>
 
 #include "../libit/types.h"
 #include "./stereo.h"
@@ -175,7 +176,7 @@ static inline uint32 check_pixel(int16 *l1, int16 *l2, int16 *l3, const int x, i
 void stereo_maching7(const int16 *limg, const int16 *rimg, const int16 *ledg, const int16 *redg, int16 *out, int16 *buff, const int w, const int h)
 {
     int i, j, y, x, xd, y1, y2, x1, yx, yxl, yxr, yw, yw1; //, sh1 = sh+1;
-    int d = 100, ds = d>>2, f = 100, th = 5, ths = 49*th, thb = 6*4*th + th, size = w*h;
+    int d = 100, ds = d>>2, f = 100, th = 5, ths = 49*th, thb = 6*4*th + th, size = w*h, f1;
     int sad, sad1, sd[9], sadt, z, bl, gp = 0, rp = 0, tp = 0, nv, nvt, dir, dirt;
 
 
@@ -229,14 +230,39 @@ void stereo_maching7(const int16 *limg, const int16 *rimg, const int16 *ledg, co
                 //for(i=-ds; i < d; i++){
                     //if(le[sh][x+d+sh+i]){
                     //xd = x+d+i;
-                for(i=-ds; i < d; i++){
+                f1 = (int)sqrt((double)((x - (w>>1))*(x - (w>>1)) + f*f));
+                printf("x = %d x1 = %d x2 = %d\n", x, x+((d*f1)>>9), x+((d*f1)>>4));
+                for(i=((d*f1)>>9); i < ((d*f1)>>4); i++){
+                    //xd = x-d+sh-i;
+                    //if(re[sh][x-d+sh-i] && check_hdir(&re[0], x-d-i)){
+                    if(le[sh][x+sh+i] && check_hdir(&le[0], x+i)){
+                        sad = 0; sad1 = 0;
+                        //Block matching
+                        j=0; {
+                        //for(j=-1; j < 2; j++){
+                            //xd = x-d-i+j;
+                            //sad = block_maching7( &l[0], &r[0], sd, x, xd);
+                            xd = x+i+j;
+                            sad = block_maching7( &l[0], &r[0], sd, xd, x);
+                            sad = find_direction(sd);
+                            //if(!i) printf("\n");
+                            //if(y==1) printf("sad = %d sd0 = %d sd1 = %d sd2 = %d sd3 = %d\n", sad/25, sd[0]/6, sd[1]/6, sd[2]/6, sd[3]/6);
+                            //if(y==1) printf("sad = %d sad1 = %d diff = %d\n", sad, sad1, sad-sad1);
+
+                            if(!sadt) { sadt = sad; bl = xd; }
+                            if(sad < sadt) { sadt = sad; bl = xd; }
+                        }
+                    }
+                }
+                /*
+                for(i=-d+1; i < d-1; i++){
                     //xd = x-d+sh-i;
                     //if(re[sh][x-d+sh-i] && check_hdir(&re[0], x-d-i)){
                     if(le[sh][x+d+sh+i] && check_hdir(&le[0], x+d+i)){
                         sad = 0; sad1 = 0;
                         //Block matching
-                        //j=0; {
-                        for(j=-1; j < 2; j++){
+                        j=0; {
+                        //for(j=-1; j < 2; j++){
                             //xd = x-d-i+j;
                             //sad = block_maching7( &l[0], &r[0], sd, x, xd);
                             xd = x+d+i+j;
@@ -251,12 +277,12 @@ void stereo_maching7(const int16 *limg, const int16 *rimg, const int16 *ledg, co
                         }
                     }
                 }
-
+                */
                 if(sadt) {
                     //Check vertical direction
                     if(sadt < thb){
                         out[yw + ((x + bl)>>1)] = d*f/abs(bl - x);
-                        //printf("x = %d y = %d out = %d\n", x, y, out[yx]);
+                        printf("bl = %d x = %d d = %d out = %d sadt = %d\n", bl, x, d, out[yw + ((x + bl)>>1)], sadt);
                         gp++;
                     /*} else if(find_direction(sd) < thb){
                         out[yx] = d*f/abs(bl - x);
@@ -522,7 +548,7 @@ void stereo_filter(const int16 *in, int16 *out, int16 *buff, const int w, const 
         }
         tm = d[0];  for(i=0; i < ls-1; i++) d[i]  = d[i+1];  d[ls-1]  = tm;
     }
-    printf("Remove pisels = %d\n", rp);
+    printf("Remove pixels = %d\n", rp);
 }
 
 
@@ -556,7 +582,7 @@ void stereo_disparity(const int16 *left, const int16 *right, int16 *out, int16 *
 
     stereo_maching7(Y[0][0], Y[1][0], Y[0][1], Y[1][1], out, buf, w, h);
 
-    stereo_filter(out, out, buf, w, h);
+    //stereo_filter(out, out, buf, w, h);
 
 }
 
