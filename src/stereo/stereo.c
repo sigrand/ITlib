@@ -137,13 +137,16 @@ static inline uint32 check_pixel(int16 *l1, int16 *l2, int16 *l3, const int x, i
     \param  d       The distance between sensors.
     \param  w       The sensor width.
     \param  pw      The pixel width.
+    \param  ls      The left shift.
+    \param  md      The maching distance.
     \retval			The start pixel for the left image for matching.
 */
-static uint32 get_left_array(int16 *st, int16 *en, double R, double r, double f, double d, double w, double pw)
+static uint32 get_left_array(int16 *st, int16 *en, double R, double r, double f, double d, double w, double pw, int *ls, int *md)
 {
     double a, b, a1, b1, c1;
     double x1, y1, x2, y2, xf, xn, yf, yn;
     int x, xr, xl;
+    (*md) = 0, (*ls) = (int)w/pw;
 
     x1 = -d/2.;         y1 = 0;
     x2 = (w - d)/2.;  y2 = f;
@@ -171,19 +174,37 @@ static uint32 get_left_array(int16 *st, int16 *en, double R, double r, double f,
         y1 = f;
         x2 = d/2; y2 = 0;
 
-        a = (y1 - y2)/(x1 - x2);
-        b = y1 - a*x1;
+        if(x1 - x2){
+            a = (y1 - y2)/(x1 - x2);
+            b = y1 - a*x1;
+            a1 = (a*a + 1);
+            b1 = 2.*a*b;
+            c1 = b*b - R*R;
+            //Max range pixel
+            if(x1 < d/2.){
+                xf = (-b1 - sqrt(b1*b1 - 4.*a1*c1))/(2.*a1);
+            } else {
+                xf = (-b1 + sqrt(b1*b1 - 4.*a1*c1))/(2.*a1);
+            }
+            yf = sqrt(R*R - xf*xf);
+            //The near pixel
+            c1 = b*b - r*r;
+            if(x1 < d/2.){
+                xn = (-b1 - sqrt(b1*b1 - 4.*a1*c1))/(2.*a1);
+            } else {
+                xn = (-b1 + sqrt(b1*b1 - 4.*a1*c1))/(2.*a1);
+            }
+            yn = sqrt(r*r - xn*xn);
+        } else {
+            /*
+            xf = w/2.;
+            yf = sqrt(R*R - w*w/4.);
+            xn = w/2.;
+            yn = sqrt(r*r - w*w/4.);
+            */
+        }
 
-        a1 = (a*a + 1);
-        b1 = 2.*a*b;
-        c1 = b*b - R*R;
-        //Max range pixel
-        xf = (-b1 - sqrt(b1*b1 - 4.*a1*c1))/(2.*a1);
-        yf = sqrt(R*R - xf*xf);
-        //The near pixel
-        c1 = b*b - r*r;
-        xn = (-b1 - sqrt(b1*b1 - 4.*a1*c1))/(2.*a1);
-        yn = sqrt(r*r - xn*xn);
+
 
         x2 = -d/2.; y2 = 0;
         a = (yf - y2)/(xf - x2);
@@ -194,11 +215,17 @@ static uint32 get_left_array(int16 *st, int16 *en, double R, double r, double f,
         a = (yn - y2)/(xn - x2);
         b = yn - a*xn;
 
-        en[x] = (int)(((f - b)/a + (d+w)/2.)/pw);
+        if((f - b)/a < (w-d)/2.)  en[x] = (int)(((f - b)/a + (d+w)/2.)/pw);
+        else en[x] = w/pw;
+
+        if(en[x] - st[x] > *md) *md = en[x] - st[x];
+        if(st[x] - x < *ls) *ls = st[x] - x;
+
         printf("x = %d sl = %d el = %d dif = %d  %d\n", x, st[x], en[x], en[x] - st[x], st[x] - x);
     }
+    printf("ls = %d dis = %d\n", *ls, *md);
 
-    return xl;
+
 }
 
 /** \brief Calulate disparity
@@ -209,15 +236,20 @@ static uint32 get_left_array(int16 *st, int16 *en, double R, double r, double f,
     \param out      The output 16 bits disparity.
     \param buff     The temporary buffer.
     \param w        The image width.
+    \param f        The focal lenght.
+    \param d        The distance between sensor.
     \param h        The imahe height.
+    \param sl       The left shift.
+    \param md       The maching distance.
 */
-void stereo_maching(const int16 *limg, const int16 *rimg, const int16 *ledg, const int16 *redg, int16 *out, int16 *buff, const int w, const int h)
+void stereo_maching(const int16 *limg, const int16 *rimg, const int16 *ledg, const int16 *redg, int16 *out, int16 *buff, const int w, const int h, int f, int d, int sl, int md)
 {
     int i, j, y, x, xd, y1, y2, x1, yx, yxl, yxr, yw, yw1; //, sh1 = sh+1;
-    int d = 100, ds = d>>2, f = 100, th = 5, ths = 49*th, thb = 6*4*th + th, size = w*h, f1;
+    int th = 5, ths = 49*th, thb = 6*4*th + th, size = w*h, f1;
     int sad, sad1, sd[9], sadt, z, bl, gp = 0, rp = 0, tp = 0, nv, nvt, dir, dirt;
+    //int d = 100, ds = d>>2, f = 100,
 
-
+    int bgx, enx;
     int sh = 3, ls = (sh<<1)+1, h1 = h-sh, w2 = w + (sh<<1), w1 = w*sh;
     int16 *l[ls], *r[ls], *le[ls], *re[ls], *tm;
 
@@ -268,19 +300,20 @@ void stereo_maching(const int16 *limg, const int16 *rimg, const int16 *ledg, con
                 //for(i=-ds; i < d; i++){
                     //if(le[sh][x+d+sh+i]){
                     //xd = x+d+i;
-                f1 = (int)sqrt((double)((x - (w>>1))*(x - (w>>1)) + f*f));
-                printf("x = %d x1 = %d x2 = %d\n", x, x+((d*f1)>>9), x+((d*f1)>>4));
-                for(i=((d*f1)>>9); i < ((d*f1)>>4); i++){
+                //f1 = (int)sqrt((double)((x - (w>>1))*(x - (w>>1)) + f*f));
+                //printf("x = %d x1 = %d x2 = %d\n", x, x+((d*f1)>>9), x+((d*f1)>>4));
+                bgx = x+sl; enx = x+md > w ? w : x+md;
+                for(i=bgx; i < enx; i++){
                     //xd = x-d+sh-i;
                     //if(re[sh][x-d+sh-i] && check_hdir(&re[0], x-d-i)){
-                    if(le[sh][x+sh+i] && check_hdir(&le[0], x+i)){
+                    if(le[sh][sh+i] && check_hdir(&le[0], i)){
                         sad = 0; sad1 = 0;
                         //Block matching
                         j=0; {
                         //for(j=-1; j < 2; j++){
                             //xd = x-d-i+j;
                             //sad = block_maching7( &l[0], &r[0], sd, x, xd);
-                            xd = x+i+j;
+                            xd = i+j;
                             sad = block_maching( &l[0], &r[0], sd, xd, x);
                             sad = find_direction(sd);
                             //if(!i) printf("\n");
@@ -449,6 +482,16 @@ void stereo_disparity(const int16 *left, const int16 *right, int16 *out, int16 *
     int i, size = w*h, th = 6;
     int16 *Y[2][2], *buf;
     int16 st[w], en[w];
+    double f = 6., d = 100., mind = 500., maxd = 1500., ws = 3.54, ps = 3.54/(double)w;
+    //f - focal lenght
+    //d - distance between sensors
+    //mind - the minimum distanse for stereo maching
+    //maxd - the maximum distanse for stereo maching
+    //ws - the sensor width
+    //ps - pixel size
+    int  ls, md;
+    //ls - left image shift
+    //md - maching distance
 
     Y[0][0] = buff;
     Y[0][1] = &buff[size];
@@ -465,9 +508,9 @@ void stereo_disparity(const int16 *left, const int16 *right, int16 *out, int16 *
     seg_end_of_edges(Y[0][1], Y[0][1], buf, w, h);
     seg_end_of_edges(Y[1][1], Y[1][1], buf, w, h);
 
-    get_left_array(st, en, 5000., 500., 4., 80., 3.54, 3.54/1312.);
+    get_left_array(st, en, maxd, mind, f, d, ws, ps, &ls, &md);
 
-    //stereo_maching(Y[0][0], Y[1][0], Y[0][1], Y[1][1], out, buf, w, h);
+    stereo_maching(Y[0][0], Y[1][0], Y[0][1], Y[1][1], out, buf, w, h, f, d, ls, md);
 
     //stereo_filter(out, out, buf, w, h);
 
