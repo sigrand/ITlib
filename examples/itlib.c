@@ -257,7 +257,7 @@ int writePCD(FILE* out_file, int16* pcd, int const w, int const h)
 {
     int x, y, yw, yx, i, size = w*h, num = 0, w2 = w>>1, h2 = h>>1;
 
-    for(i=0; i < size; i++) if(pcd[i]) num++;
+    for(i=0; i < size; i++) if(pcd[i] && pcd[i] < 256) num++;
     printf("writePCD: Cloud point number = %d\n", num);
 
     fprintf(out_file, "VERSION .7\n");
@@ -275,8 +275,8 @@ int writePCD(FILE* out_file, int16* pcd, int const w, int const h)
         yw = y*w;
         for(x=0; x < w; x++){
             yx = yw + x;
-            //if(pcd[yx] && pcd[yx] < 255) {
-            if(pcd[yx]) {
+            if(pcd[yx] && pcd[yx] < 255) {
+            //if(pcd[yx]) {
                 fprintf(out_file, "%f %f %f\n", (float)(x-w2)/(float)w, (float)(y-h2)/(float)h, (float)pcd[yx]/(float)256);
                 //fprintf(out_file, "%f %f %f\n", x-w2, y-h2, pcd[yx]);
                 //printf("%d %d %d\n", x-w2, y-h2, pcd[yx]);

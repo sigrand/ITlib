@@ -18,6 +18,39 @@ void inline static cp_line_16(const int16 *in, int16 *l, uint32 w, uint32 sh)
     for(i=0; i < sh; i++) l[i+sh+w] = in[w-sh-i];
 }
 
+/**	\brief	Find abs differnce with two block 5x5 pixels size.
+    \param	l		The pointer to left block.
+    \param	r		The pointer to right block.
+    \param	sd		The pointer to direction array.
+    \param  xl		Coordinate of the center point of left block.
+    \param  xr		Coordinate of the center point of right block.
+    \retval			The summ of differnce.
+*/
+static inline uint32 block_maching5(int16 **l, int16 **r, int *sd, const int xl, const int xr)
+{
+    int i, y, x, yxl, yxr, sad = 0, sad1 = 0;
+    int ia[5][5] = {{0, 0, 1, 1, 2},
+                    {7, 0, 1, 2, 2},
+                    {7, 7, 8, 3, 3},
+                    {6, 6, 5, 4, 3},
+                    {6, 5, 5, 4, 4}};
+
+    for(i=0; i < 9; i++) sd[i] = 0;
+    for(y=0; y < 5; y++){
+        for(x=0; x < 5; x++){
+            yxl = x + xl;
+            yxr = x + xr;
+            sad1 += abs(l[y][yxl] - r[y][yxr]);
+            sd[ia[y][x]] += abs(l[y][yxl] - r[y][yxr]);
+            //if(!i) printf(" %3d %3d  ", l[y1][yxl], r[y1][yxr]);
+        }
+        //if(!i) printf("\n");
+    }
+    //for(i=0; i < 9; i++) sad += sd[i];
+    //if(sad != sad1) printf(" sad = %d sad1 = %d\n", sad, sad1);
+    return sad1;
+}
+
 /**	\brief	Find abs differnce with two block 7x7 pixels size.
     \param	l		The pointer to left block.
     \param	r		The pointer to right block.
@@ -26,7 +59,7 @@ void inline static cp_line_16(const int16 *in, int16 *l, uint32 w, uint32 sh)
     \param  xr		Coordinate of the center point of right block.
     \retval			The summ of differnce.
 */
-static inline uint32 block_maching(int16 **l, int16 **r, int *sd, const int xl, const int xr)
+static inline uint32 block_maching7(int16 **l, int16 **r, int *sd, const int xl, const int xr)
 {
     int i, y, x, yxl, yxr, sad = 0, sad1 = 0;
     int ia[7][7] = {{0, 0, 0, 1, 1, 1, 2},
@@ -48,9 +81,9 @@ static inline uint32 block_maching(int16 **l, int16 **r, int *sd, const int xl, 
         }
         //if(!i) printf("\n");
     }
-    for(i=0; i < 9; i++) sad += sd[i];
-    if(sad != sad1) printf(" sad = $d sad1 = %d\n", sad, sad1);
-    return sad;
+    //for(i=0; i < 9; i++) sad += sd[i];
+    //if(sad != sad1) printf(" sad = $d sad1 = %d\n", sad, sad1);
+    return sad1;
 }
 
 /**	\brief	Check if not only horizontal edge direction
@@ -221,9 +254,9 @@ static uint32 get_left_array(int16 *st, int16 *en, double R, double r, double f,
         if(en[x] - st[x] > *md) *md = en[x] - st[x];
         if(st[x] - x < *ls) *ls = st[x] - x;
 
-        printf("x = %d sl = %d el = %d dif = %d  %d\n", x, st[x], en[x], en[x] - st[x], st[x] - x);
+        //printf("x = %d sl = %d el = %d dif = %d  %d\n", x, st[x], en[x], en[x] - st[x], st[x] - x);
     }
-    printf("ls = %d dis = %d\n", *ls, *md);
+    printf("ls = %d md = %d\n", *ls, *md);
 
 
 }
@@ -245,13 +278,15 @@ static uint32 get_left_array(int16 *st, int16 *en, double R, double r, double f,
 void stereo_maching(const int16 *limg, const int16 *rimg, const int16 *ledg, const int16 *redg, int16 *out, int16 *buff, const int w, const int h, int f, int d, int sl, int md)
 {
     int i, j, y, x, xd, y1, y2, x1, yx, yxl, yxr, yw, yw1; //, sh1 = sh+1;
-    int th = 5, ths = 49*th, thb = 6*4*th + th, size = w*h, f1;
+    //int th = 7, ths = 49*th, thb = 6*4*th + th, size = w*h, f1;
+    int th = 5, ths = 25*th, thb = 3*4*th + th, size = w*h, f1;
     int sad, sad1, sd[9], sadt, z, bl, gp = 0, rp = 0, tp = 0, nv, nvt, dir, dirt;
     //int d = 100, ds = d>>2, f = 100,
 
     int bgx, enx;
-    int sh = 3, ls = (sh<<1)+1, h1 = h-sh, w2 = w + (sh<<1), w1 = w*sh;
+    int sh = 2, ls = (sh<<1)+1, h1 = h-sh, w2 = w + (sh<<1), w1 = w*sh;
     int16 *l[ls], *r[ls], *le[ls], *re[ls], *tm;
+
 
     for(i=0; i < size; i++) out[i] = 0;
 
@@ -314,7 +349,7 @@ void stereo_maching(const int16 *limg, const int16 *rimg, const int16 *ledg, con
                             //xd = x-d-i+j;
                             //sad = block_maching7( &l[0], &r[0], sd, x, xd);
                             xd = i+j;
-                            sad = block_maching( &l[0], &r[0], sd, xd, x);
+                            sad = block_maching5( &l[0], &r[0], sd, xd, x);
                             sad = find_direction(sd);
                             //if(!i) printf("\n");
                             //if(y==1) printf("sad = %d sd0 = %d sd1 = %d sd2 = %d sd3 = %d\n", sad/25, sd[0]/6, sd[1]/6, sd[2]/6, sd[3]/6);
@@ -352,37 +387,14 @@ void stereo_maching(const int16 *limg, const int16 *rimg, const int16 *ledg, con
                 if(sadt) {
                     //Check vertical direction
                     if(sadt < thb){
-                        out[yw + ((x + bl)>>1)] = d*f/abs(bl - x);
-                        printf("bl = %d x = %d d = %d out = %d sadt = %d\n", bl, x, d, out[yw + ((x + bl)>>1)], sadt);
+                        out[yw + ((x + bl)>>1)] = d*f*25/abs(bl - x);
+                        //printf("bl = %d x = %d d = %d out = %d sadt = %d\n", bl, x, d, out[yw + ((x + bl)>>1)], sadt);
                         gp++;
                     /*} else if(find_direction(sd) < thb){
                         out[yx] = d*f/abs(bl - x);
                         rp++;
                         */
-                    } /*else {
-                        //Check around
-
-                        sad = block_maching7( &l[0], &r[0], sd, x, xd-1);
-                        if(sad < sadt) {
-                            sadt = sad;
-                            printf("left  sadt = %d sad = %d\n", sadt, sad);
-                        }
-                        sad = block_maching7( &l[0], &r[0], sd, x, xd+1);
-                        if(sad < sadt) {
-                            sadt = sad;
-                            printf("Right sadt = %d sad = %d\n", sadt, sad);
-                        }
-                        //One more time vheck
-                        if(sadt < ths){
-                            out[yx] = d*f/abs(bl - x);
-                            gp++;
-                        } else {
-                            if(find_direction(sd) < thb){
-                                out[yx] = d*f/abs(bl - x); rp++;
-                            }
-                        }
-
-                    }*/
+                    }
                 } else {
                     //printf("Don't have any pixeles\n");
                     //out[yx] = 255;
@@ -406,7 +418,7 @@ void stereo_maching(const int16 *limg, const int16 *rimg, const int16 *ledg, con
     printf("Total pixels = %d good pixele = %d  refiment  = %d %d \n", tp, gp, rp, gp*100/tp);
 
     tp = 0;
-    for(i=0; i < size; i++) if(out[i]) tp++;
+    for(i=0; i < size; i++) if(out[i] && out[i] < 256) tp++;
     printf("stereo_maching7: Cloud point number = %d\n", tp);
 }
 
@@ -482,7 +494,7 @@ void stereo_disparity(const int16 *left, const int16 *right, int16 *out, int16 *
     int i, size = w*h, th = 6;
     int16 *Y[2][2], *buf;
     int16 st[w], en[w];
-    double f = 6., d = 100., mind = 500., maxd = 1500., ws = 3.54, ps = 3.54/(double)w;
+    double f = 6., d = 75., mind = 400., maxd = 2000., ws = 3.54, ps = ws/(double)w;
     //f - focal lenght
     //d - distance between sensors
     //mind - the minimum distanse for stereo maching
@@ -512,7 +524,7 @@ void stereo_disparity(const int16 *left, const int16 *right, int16 *out, int16 *
 
     stereo_maching(Y[0][0], Y[1][0], Y[0][1], Y[1][1], out, buf, w, h, f, d, ls, md);
 
-    //stereo_filter(out, out, buf, w, h);
+    stereo_filter(out, out, buf, w, h);
 
 }
 
