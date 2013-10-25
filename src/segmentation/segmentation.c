@@ -165,11 +165,14 @@ void seg_canny_edge(int16 *in, int16 *out, int16 *buff, const int w, const int h
 
             dr[2][x] = i;
 
-
             //printf("x = %d y = %d gr = %d dir = %d \n", x, y, max, i);
 
             yx1 = yx-w-1;
 
+            if(max > th) out[yx] = max;
+            else out[yx] = 0;
+
+            /*
             if(x > 1 && y > 1) {
                 drt = dr[1][x-1];
                 //Avarage direction filter
@@ -201,14 +204,7 @@ void seg_canny_edge(int16 *in, int16 *out, int16 *buff, const int w, const int h
                 //if(out[yx1]) out[yx1] = 255;
                 //else out[yx1] = gr[1][x-1];
 
-                /*
-                printf("out[%d] = %d \n", yx-w-1, out[yx-w-1]);
-                printf(" %3d  %3d  %3d\n %3d  %3d  %3d\n %3d  %3d  %3d\n\n",
-                       gr[0][x-2], gr[0][x-1], gr[0][x],  gr[1][x-2], gr[1][x-1], gr[1][x],  gr[2][x-2], gr[2][x-1], gr[2][x]);
-                printf(" %3d  %3d  %3d\n %3d  %3d  %3d\n %3d  %3d  %3d\n\n",
-                       dr[0][x-2], dr[0][x-1], dr[0][x],  dr[1][x-2], dr[1][x-1], dr[1][x],  dr[2][x-2], dr[2][x-1], dr[2][x]);
-                */
-            }
+            }*/
         }
         tm = l[0]; l[0] = l[1]; l[1] = l[2]; l[2] = tm;
         tm =  gr[0]; gr[0] = gr[1]; gr[1] = gr[2]; gr[2] = tm;
