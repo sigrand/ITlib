@@ -161,6 +161,7 @@ void seg_canny_edge(int16 *in, int16 *out, int16 *buff, const int w, const int h
             //for(j=0; j < 4; j++) if(max == g[j]) i += (1<<j);
 
             //gr[2][x] = max ? ((g[0]+g[1]+g[2]+g[3])>>2) : 0;
+            max = (g[0]+g[1]+g[2]+g[3])>>2;
             gr[2][x] = max;
 
             dr[2][x] = i;
@@ -212,6 +213,27 @@ void seg_canny_edge(int16 *in, int16 *out, int16 *buff, const int w, const int h
     }
 }
 
+/**	\brief	Horizontal local max
+    \param	in		The input 16 bit image.
+    \param	out     The output 16 bit gradient image.
+    \param	w       The image width.
+    \param  h       The image height.
+*/
+void seg_horiz_max(int16 *in, int16 *out, int16 *buff, const int w, const int h)
+{
+    int x, y, yw, yx;
+    int sh = 1;
+    int16 *l = buff;
+
+    for(y=0; y < h; y++){
+        yw = y*w;
+        cp_line_16(&in[yw], l, w, sh);
+        for(x=0; x < w; x++){
+            yx = yw + x;
+            out[yx] = (l[x+1] >= l[x] && l[x+1] >= l[x+2]) ? l[x+1] : 0;
+        }
+    }
+}
 
 /**	\brief	Corner detector of 16 bits grey image.
     \param	in		The input 16 bit image.

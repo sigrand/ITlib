@@ -309,6 +309,7 @@ void stereo_maching(const int16 *limg, const int16 *rimg, const int16 *ledg, con
     //int d = 100, ds = d>>2, f = 100,
 
     int bgx, enx;
+
     int sh = 2, ls = (sh<<1)+1, h1 = h-sh, w2 = w + (sh<<1), w1 = w*sh;
     int16 *l[ls], *r[ls], *le[ls], *re[ls], *tm;
 
@@ -352,29 +353,30 @@ void stereo_maching(const int16 *limg, const int16 *rimg, const int16 *ledg, con
         for(x=0; x < w-sl; x++){
             yx = yw + x;
             //check_hdir
-            if(re[sh][x+sh] && re[sh][x+sh] >= re[sh][x+sh-1] && re[sh][x+sh] >= re[sh][x+sh+1]){
-            //if(re[sh][x+sh] && check_hdir(&re[0], x)){
+            //if(re[sh][x+sh] && re[sh][x+sh] >= re[sh][x+sh-1] && re[sh][x+sh] >= re[sh][x+sh+1]){
+            if(re[sh][x+sh]){
                 tp++;
-                sadt = 0;
+                sadt = 0; sad = 0;
                 bgx = x+sl; enx = (bgx+md) > w ? w : bgx+md;
                 for(i=bgx; i < enx; i++){
-                    if(le[sh][sh+i] && le[sh][sh+i] >= le[sh][sh+i-1] && le[sh][sh+i] >= le[sh][sh+i+1]){
-                    //if(le[sh][sh+i]){
-                            //sad = block_maching7( &l[0], &r[0], sd, x, xd);
-                            //xd = i;
-                            //sad = block_maching5( &l[0], &r[0], sd, i, x);
-                            //sad = find_direction(sd);
-                            sad = block_maching_bi( &l[0], &r[0], i, x);
+                    //if(le[sh][sh+i] && le[sh][sh+i] >= le[sh][sh+i-1] && le[sh][sh+i] >= le[sh][sh+i+1]){
+                    if(le[sh][sh+i]){
+                        //sad = block_maching7( &l[0], &r[0], sd, x, xd);
+                        //xd = i;
+                        //sad = block_maching5( &l[0], &r[0], sd, i, x);
+                        //sad = find_direction(sd);
+                        sad = block_maching_bi( &l[0], &r[0], i, x);
 
-                            if(!sadt) { sadt = sad; bl = i; }
-                            if(sad < sadt) { sadt = sad; bl = i; }
+                        if(!sadt) { sadt = sad; bl = i; }
+                        if(sad < sadt) { sadt = sad; bl = i; }
                     }
                 }
 
-
                 //if(sadt) {
-                if(sadt < ths){
-                    //if(sadt < thb){
+                if(sad){
+                    if(sadt < ths){
+                        //printf("bl = %d x = %d df = %d max = %d\n", bl, x, d*f, max);
+                        //if(sadt < thb){
                         dis = d*f/(abs(bl - x)*max);
                         if(dis > 255) {
                             //printf("max = %d\n", dis);
@@ -386,21 +388,26 @@ void stereo_maching(const int16 *limg, const int16 *rimg, const int16 *ledg, con
                             //       bl, x, out[yw + ((x + bl)>>1)], sadt, le[2][bl+sh], re[2][x+sh]);
                             gp++;
                         }
-                     //}
-                } else {
-                    sadt = block_maching_bi( &l[0], &r[0], bl-2, x-2);
-                    if(sadt > ths){
-                        sadt = block_maching_bi( &l[0], &r[0], bl+2, x+2);
-                        if(sadt < ths) {
-                            out[yw + ((x + bl)>>1) + 2] = dis;
-                            gp++;
-                        }
+                        //}
                     } else {
-                        out[yw + ((x + bl)>>1) -2] = dis;
-                        gp++;
 
                     }
+                    /*
+                    if(re[sh][x+sh-2]){
+                        sadt = block_maching_bi( &l[0], &r[0], bl-2, x-2);
+                        if(sadt > ths){
+                            sadt = block_maching_bi( &l[0], &r[0], bl+2, x+2);
+                            if(sadt < ths) {
+                                out[yw + ((x + bl)>>1) + 2] = dis;
+                                gp++;
+                            }
+                        } else {
+                            out[yw + ((x + bl)>>1) -2] = dis;
+                            gp++;
 
+                        }
+                    }
+                    */
                 }
                 //printf("rx = %d lx = %d sad = %d nv = %d dir = %d\n", x, bl, sadt, nvt, dirt);
 
@@ -520,6 +527,9 @@ void stereo_disparity(const int16 *left, const int16 *right, int16 *out, int16 *
     seg_canny_edge(Y[1][0], Y[1][1], buf, w, h, th);
     //seg_canny_edge(Y[0][0], out, buf, w, h, th);
     //seg_canny_edge(Y[1][0], out, buf, w, h, th);
+
+    seg_horiz_max(Y[0][1], Y[0][1], buf, w, h);
+    //seg_horiz_max(Y[1][1], Y[1][1], buf, w, h);
 
     //seg_end_of_edges(Y[0][1], Y[0][1], buf, w, h);
     //seg_end_of_edges(Y[1][1], Y[1][1], buf, w, h);
