@@ -328,7 +328,7 @@ void  trans_bay_to_rgb_b_spline(int16 *in, int16 *out, int16 *buff, const int w,
         case(RGGB):{ xs = 0; ys = 0; break; }
     }
 
-    //Prepare two basis vectors
+    //Prepare three basis vectors
     get_basis(n1, 3.);
     get_basis(n2, 3.5);
     get_basis(n3, 4.);

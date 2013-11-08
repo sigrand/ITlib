@@ -708,7 +708,8 @@ int main(int argc, const char *argv[]) {
                 fc = 0;
                 if(ts[n].colort == GREY || ts[n].colort == BAYER){
                     //hdr_diff(ts[n].pic[0], ts[1].pic[0], ts[n].pic[1], ts[n].w, ts[n].h, ts[n].bpp);
-                    utils_subtract(ts[n].pic[0], ts[1].pic[0], ts[n].pic[1], ts[n].w, ts[n].h, ts[n].bpp);
+                    //utils_subtract(ts[n].pic[0], ts[1].pic[0], ts[n].pic[1], ts[n].w, ts[n].h, ts[n].bpp);
+                    utils_subtract(ts[n].pic[0], ts[1].pic[0], ts[n].pic[1], ts[n].w, ts[n].h, 8);
                     tmp = ts[n].pic[0]; ts[n].pic[0] = ts[n].pic[1]; ts[n].pic[1] = tmp;
 
                 } else {

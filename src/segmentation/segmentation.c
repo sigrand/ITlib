@@ -161,7 +161,8 @@ void seg_canny_edge(int16 *in, int16 *out, int16 *buff, const int w, const int h
             //for(j=0; j < 4; j++) if(max == g[j]) i += (1<<j);
 
             //gr[2][x] = max ? ((g[0]+g[1]+g[2]+g[3])>>2) : 0;
-            max = (g[0]+g[1]+g[2]+g[3])>>2;
+            //max = (g[0]+g[1]+g[2]+g[3])>>2;
+            max = g[0];
             gr[2][x] = max;
 
             dr[2][x] = i;

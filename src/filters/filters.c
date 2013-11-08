@@ -310,7 +310,7 @@ void filters_NLM_denoise_bayer(int16 *in, int16 *avr, int16 *out, int16 *buff, c
     \param in	The input 16 bits bayer image.
     \param out	The output 16 bits bayer image.
     \param buff	The temporary buffer.
-    \param br   The radius around the pixel.
+    \param br1   The radius around the pixel.
     \param sg   The noise standard deviation.
     \param w    The image width.
     \param h 	The image height.

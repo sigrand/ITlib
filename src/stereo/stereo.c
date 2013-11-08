@@ -73,6 +73,28 @@ static inline uint32 block_maching_bi(int16 **l, int16 **r, const int xl, const 
     return sad;
 }
 
+/**	\brief	Find abs differnce with two block 5x5 pixels size.
+    \param	l		The pointer to left block.
+    \param	r		The pointer to right block.
+    \param	sd		The pointer to direction array.
+    \param  xl		Coordinate of the center point of left block.
+    \param  xr		Coordinate of the center point of right block.
+    \retval			The summ of differnce.
+*/
+static inline uint32 block_maching1(int16 **l, int16 **r, const int xl, const int xr)
+{
+    int y, x, yxl, yxr, sad = 0;
+    //for(y=0; y < 5; y++){
+        for(x=0; x < 5; x++){
+            yxl = x + xl;
+            yxr = x + xr;
+            sad += abs(l[2][yxl] - r[2][yxr]);
+        }
+    //}
+    //if(sad != sad1) printf(" sad = %d sad1 = %d\n", sad, sad1);
+    return sad;
+}
+
 /**	\brief	Find abs differnce with two block 7x7 pixels size.
     \param	l		The pointer to left block.
     \param	r		The pointer to right block.
@@ -295,13 +317,23 @@ static inline seg_horiz_max(int16 *r, int16 *l, int16 *inr, int16 *inl, const in
     for(x=0; x < w-sl; x++){
         xs = x+sh;
         if(r[xs] && r[xs] >= r[xs-1] && r[xs] >= r[xs+1]){
+        //if(r[xs]){
+            inl[x] = 1;
+            //inr[(*nr)++] = x;
+        } else inl[x] = 0;
+    }
+
+    for(x=0; x < w-sl; x++){
+        //xs = x+sh;
+        if(inl[x] || inl[x-2] || inl[x+2]){
+        //if(r[xs]){
             inr[(*nr)++] = x;
         }
     }
     for(x=sl; x < w; x++){
         xs = x+sh;
-        if(l[xs] && l[xs] >= l[xs-1] && l[xs] >= l[xs+1]){
-        //if(l[xs]){
+        //if(l[xs] && l[xs] >= l[xs-1] && l[xs] >= l[xs+1]){
+        if(l[xs]){
             inl[(*nl)++] = x;
         }
     }
@@ -329,7 +361,7 @@ void stereo_maching(const int16 *limg, const int16 *rimg, const int16 *ledg, con
 {
     int i, j, k, m, n, y, x, xd, y1, y2, x1, yx, yxl, yxr, yw, yw1; //, sh1 = sh+1;
     //int th = 7, ths = 49*th, thb = 6*4*th + th, size = w*h, f1;
-    int th = 15, ths = 25*th, thb = 3*4*th + th, size = w*h, f1;
+    int th = 10, ths = 5*th, thb = 3*4*th + th, size = w*h, f1;
     int sad, sad1, sd[9], sadt, z, bl, gp = 0, rp = 0, tp = 0, nv, nvt, dir, dirt;
     //int d = 100, ds = d>>2, f = 100,
 
@@ -433,7 +465,8 @@ void stereo_maching(const int16 *limg, const int16 *rimg, const int16 *ledg, con
                         for(n=inl[m]; n < lmax; n = inl[++m] ){
                             if(m >= ninl) break;
                             //printf("lx = %d %d  ", n, m);
-                            sad = block_maching_bi( &l[0], &r[0], n, x);
+                            //sad = block_maching_bi( &l[0], &r[0], n, x);
+                            sad = block_maching1( &l[0], &r[0], n, x);
                             mp++;
 
                             if(!sadt) { sadt = sad; bl = n; }
@@ -574,7 +607,7 @@ void stereo_filter(const int16 *in, int16 *out, int16 *buff, const int w, const 
 */
 void stereo_disparity(const int16 *left, const int16 *right, int16 *out, int16 *buff, const int w, const int h)
 {
-    int i, size = w*h, th = 5;
+    int i, size = w*h, th = 7;
     int16 *Y[2][2], *buf;
     int16 st[w], en[w];
     double f = 6., d = 75., mind = 400., maxd = 2000., ws = 3.54, ps = ws/(double)w;
