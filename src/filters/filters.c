@@ -6,6 +6,7 @@
 
 #include "../libit/types.h"
 #include "./filters.h"
+#include "../utils/utils.h"
 
 static inline void sort_16(int16 *s, int16 x1, int16 x2, int16 x3)
 {
@@ -144,15 +145,15 @@ void filters_median_bayer(int16 *in, int16 *out, int16 *buff, const int w, const
 {
     // s00    s10   s01   s11   s02
     //|-----|-----|-----|-----|-----|
-    //|     |     |     |     |     | l[0]
+    //|  R  |     |  R  |     |  R  | l[0]
     //|-----|-----|-----|-----|-----|
     //|     |     |     |     |     | l[1]
     //|-----|-----|-----|-----|-----|
-    //|     |     |  yx |     |     | l[2]
+    //|  R  |     |  R  |     |  R  | l[2]
     //|-----|-----|-----|-----|-----|
     //|     |     |     |     |     | l[3]
     //|-----|-----|-----|-----|-----|
-    //|     |     |     |     |     | l[4]
+    //|  R  |     |  R  |     |  R  | l[4]
     //|-----|-----|-----|-----|-----|
 
     uint32 i, y, x, x2, xs, yx, yw, yw1, h1 = h-2, sh = 2, w2 = w + (sh<<1), ws = w<<1;
@@ -307,19 +308,19 @@ void filters_NLM_denoise_bayer(int16 *in, int16 *avr, int16 *out, int16 *buff, c
 }
 
 /** \brief The Bilateral Filtering denoise  algorithm.
-    \param in	The input 16 bits bayer image.
-    \param out	The output 16 bits bayer image.
-    \param buff	The temporary buffer.
-    \param br1   The radius around the pixel.
-    \param sg   The noise standard deviation.
-    \param w    The image width.
-    \param h 	The image height.
+    \param in       The input 16 bits bayer image.
+    \param out      The output 16 bits bayer image.
+    \param buff     The temporary buffer.
+    \param br1      The radius around the pixel.
+    \param sd       The noise standard deviation.
+    \param w        The image width.
+    \param h        The image height.
 */
-void filters_Bilateral_denoise_bayer(int16 *in, int16 *out, int16 *buff, const int br1, const int sg, const int w, const int h)
+void filters_bilateral_denoise_bayer(int16 *in, int16 *out, int16 *buff, const int br1, const int sd, const int w, const int h)
 {
-    int i, x, xi, y, yi, yw, yx;
-    int hg = sg*sg;
-    int ex[512], smi, smi1, blm, cf;
+    int i, x, xi, y, yi, yw, yx, sz = 256;
+    //int hg = sd*sd;
+    int ex[sz], smi, smi1, blm, cf;
 
     int sh, br = br1<<1, ns = (br<<1) + 1; //, bs = (br+1)*((br>>1)+1);
     int w1 = w + (br<<1);
@@ -332,11 +333,13 @@ void filters_Bilateral_denoise_bayer(int16 *in, int16 *out, int16 *buff, const i
     //b = (1LL<<sh)/bs;
 
     //Make lut table to remove exp
-    for(i=0; i < 512; i++){
-        ex[i] = (int)(exp(-(double)i*i/(double)hg)*512);
-        printf("%3d exp = %d\n", i, ex[i]);
+    utils_lut_exp(ex, sd, sz);
+    /*
+    for(i=0; i < 256; i++){
+        ex[i] = (int)(exp(-(double)i*i/(double)hg)*256);
+        //printf("%3d exp = %d\n", i, ex[i]);
     }
-
+    */
     //Rows buffer for input image
     l[0] = buff;
     for(i=1; i < ns; i++) l[i] = &l[i-1][w1];
@@ -347,7 +350,6 @@ void filters_Bilateral_denoise_bayer(int16 *in, int16 *out, int16 *buff, const i
         if(i < br) cp_line_16(&in[w*(br-i)], l[i], w, br);
         else cp_line_16(&in[w*(i-br)], l[i], w, br);
     }
-
 
     for(y = 0; y < h; y++){
         yw = y*w;

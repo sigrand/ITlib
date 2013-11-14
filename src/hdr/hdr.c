@@ -6,6 +6,7 @@
 #include "../libit/types.h"
 #include "./hdr.h"
 #include "../filters/filters.h"
+#include "../utils/utils.h"
 
 
 /**	\brief Automatic Color Enhancement algorithm.
@@ -130,5 +131,139 @@ void hdr_ace_local(int16 *in, int16 *out, int16 *buff, const int w, const int h,
     hdr_ace(dif, in, (int*)buff, w, h, bpp, 6, GREY);
 
     for(i=0; i < size; i++) out[i] = in[i] + out[i] - 32;
+}
+
+/**	\brief Array convolution with exp.
+    \param in       The input array.
+    \param out      The output array.
+    \param ex       The exp array.
+    \param ns       The size of array.
+    \param sz       The size of exp.
+*/
+static inline void convolution_exp(int *in, int *out, int *ex, const int ns, const int sz)
+{
+    int i, j;
+    long long int ij, sum, sum1;
+
+    for(i=0; i < ns; i++){
+        if(in[i]){
+            sum = 0; sum1 = 0;
+            for(j=-sz+1; j < sz; j++){
+                ij = i+j;
+                if(ij >= 0 && ij < ns){
+                    sum += ex[abs(j)]*in[ij];
+                    sum1 += ex[abs(j)]*in[ij]*ij;
+                    //printf("ij = %d sum1 = %i sum = %i\n", ij, sum1, sum);
+                }
+            }
+            out[i] = sum1/sum;
+            //printf("i = %d in = %d out = %d\n",i, in[i], out[i]);
+        }
+    }
+}
+
+/**	\brief Bayer image tone mapping
+    \param in       The input 16 bits bayer image.
+    \param out      The output 16 bits bayer image.
+    \param buff     The temporary buffer.
+    \param w        The image width.
+    \param h        The image height.
+    \param bay		The Bayer grids pattern.
+    \param bpp		The pits per pixel.
+    \param sd		The standard deviation.
+*/
+void hdr_tone_bayer(int16 *in, int16 *out, int *buff, const int w, const int h, const BayerGrid bay, const int bpp, const int sd)
+{
+    int x, x1, y, yw, yx;
+    int i, ns = 1<<bpp, sz = 128;
+    int *R, *G, *B, *Y; //Histograms
+    int *rl, *gl, *bl;  //LUTs
+    int ex[sz];
+    int tmp = 0;
+
+    //Prepare histograms and LUTs
+    R = buff; G = &R[ns]; B = &G[ns]; Y = &B[ns];
+    rl = &Y[ns]; gl = &rl[ns]; bl = &gl[ns];
+
+    printf("ns = %d\n", ns);
+
+    utils_fill_hist_bayer(in, R, G, B, Y, &bl[ns], w, h, bay, bpp);
+    /*
+    for(i=0; i < 1000; i++) printf("%4d  %d\n", i, Y[i]);
+    for(i=0; i < ns; i++) tmp += R[i];
+    printf("red w*h = %d  hist = %d\n", w*h>>2, tmp);
+    tmp = 0;
+    for(i=0; i < ns; i++) tmp += G[i];
+    printf("green w*h = %d  hist = %d\n", w*h>>1, tmp);
+    tmp = 0;
+    for(i=0; i < ns; i++) tmp += B[i];
+    printf("blue w*h = %d  hist = %d\n", w*h>>2, tmp);
+    tmp = 0;
+    for(i=0; i < ns; i++) tmp += Y[i];
+    printf("blue w*h = %d  hist = %d\n", w*h>>2, tmp);
+    */
+
+    utils_lut_exp(ex, sd, sz);
+    //for(i=0; i < sz; i++) printf("ex = %d\n", ex[i]);
+
+    convolution_exp(R, rl, ex, ns, sz);
+    convolution_exp(G, gl, ex, ns, sz);
+    convolution_exp(B, bl, ex, ns, sz);
+
+    //for(i=0; i < 500; i++) printf("%4d %d\n", i, rl[i]);
+
+    for(y = 0; y < h; y++){
+        yw = y*w;
+        for(x = 0; x < w; x++){
+            yx = yw + x;
+
+            switch(bay){
+            case(BGGR):{
+                if(y&1){
+                    if(x&1) out[yx] = rl[in[yx]];
+                    else    out[yx] = gl[in[yx]];
+                } else {
+                    if(x&1) out[yx] = gl[in[yx]];
+                    else    out[yx] = bl[in[yx]];
+                }
+                break;
+            }
+            case(GRBG):{
+                if(y&1){
+                    if(x&1) out[yx] = gl[in[yx]];
+                    else    out[yx] = bl[in[yx]];
+
+                } else {
+                    if(x&1) out[yx] = rl[in[yx]];
+                    else    out[yx] = gl[in[yx]];
+                }
+                break;
+            }
+            case(GBRG):{
+                if(y&1){
+                    if(x&1) out[yx] = gl[in[yx]];
+                    else    out[yx] = rl[in[yx]];
+
+                } else {
+                    if(x&1) out[yx] = bl[in[yx]];
+                    else    out[yx] = gl[in[yx]];
+                }
+                break;
+            }
+            case(RGGB):{
+                if(y&1){
+                    if(x&1) out[yx] = bl[in[yx]];
+                    else    out[yx] = gl[in[yx]];
+                } else {
+                    if(x&1) out[yx] = gl[in[yx]];
+                    else    out[yx] = rl[in[yx]];
+                }
+                break;
+            }
+            //printf("Start in = %d out = %d blm = %d\n", in[yx], out[yx], blm);
+            }
+        }
+    }
+
 }
 

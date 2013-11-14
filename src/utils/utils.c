@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <math.h>
 
 #include "../libit/types.h"
 #include "./utils.h"
@@ -35,6 +36,22 @@ void utils_get_stat(int16 *in, const int w, const int h, int *bpp, int *min, int
     }
     for(*bpp=1; (*max)>>(*bpp); (*bpp)++);
 }
+
+/** \brief Make exponential lut table.
+    \param ex       The input array.
+    \param sd		The standard deviation
+    \param sz		The array size
+*/
+void utils_lut_exp(int *ex, const int sd, const int sz)
+{
+    int i;
+    double hg = sd*sd;
+    for(i=0; i < sz; i++){
+        ex[i] = (int)(exp(-(double)i*i/(double)hg)*sz);
+        //printf("%3d exp = %d\n", i, ex[i]);
+    }
+}
+
 
 /**	\brief Transform 16 bits image to 8 bits image.
     \param in	 		The input 16 bits rgb image.
@@ -190,6 +207,87 @@ void utils_zoom_out_bayer16_to_rgb16(const uint16 *in, uint16 *out, uint32 *buff
                     }
                     c[0][x1] = c[1][x1] = c[2][x1] = c[3][x1] = 0;
                 }
+            }
+        }
+    }
+}
+
+/**	\brief Fill histogram from bayer image.
+    \param in	 	The input 16 bits bayer image.
+    \param R	 	The output red histogram.
+    \param G	 	The output green histogram.
+    \param B	 	The output blue histogram.
+    \param Y	 	The output Y histogram.
+    \param buff	 	The half line buffer for calculation Y histogram.
+    \param w 		The image width.
+    \param h 		The image height.
+    \param bay		The Bayer grids pattern.
+    \param bpp		The pits per pixel.
+*/
+void utils_fill_hist_bayer(const uint16 *in, int *R, int *G, int *B, int *Y, int *buff, const int w, const int h, const BayerGrid bay, const int bpp)
+{
+    int i, x, x1, y, yw, yx;
+    int *l, ns = 1<<bpp;
+
+    //Clear histogram
+    for(i=0; i < ns; i++) R[i] = 0;
+    for(i=0; i < ns; i++) G[i] = 0;
+    for(i=0; i < ns; i++) B[i] = 0;
+    for(i=0; i < ns; i++) Y[i] = 0;
+
+
+    //Rows buffer for Y
+    l = buff;
+
+    for(y = 0; y < h; y++){
+        yw = y*w;
+        for(x = 0; x < w; x++){
+            x1 = x>>1;
+            yx = yw + x;
+            switch(bay){
+            case(BGGR):{
+                if(y&1){
+                    if(x&1) { R[in[yx]]++; Y[(612*in[yx] + l[x1])>>11]++; }
+                    else    { G[in[yx]]++; l[x1] += 601*in[yx]; }
+                } else {
+                    if(x&1) { G[in[yx]]++; l[x1] += 601*in[yx]; }
+                    else    { B[in[yx]]++; l[x1]  = 234*in[yx]; }
+                }
+                break;
+            }
+            case(GRBG):{
+                if(y&1){
+                    if(x&1) { G[in[yx]]++; Y[(601*in[yx] + l[x1])>>11]++; }
+                    else    { B[in[yx]]++; l[x1] += 234*in[yx]; }
+
+                } else {
+                    if(x&1) { R[in[yx]]++; l[x1] += 612*in[yx]; }
+                    else    { G[in[yx]]++; l[x1]  = 601*in[yx]; }
+                }
+                break;
+            }
+            case(GBRG):{
+                if(y&1){
+                    if(x&1) { G[in[yx]]++; Y[(601*in[yx] + l[x1])>>11]++; }
+                    else    { R[in[yx]]++; l[x1] += 612*in[yx]; }
+
+                } else {
+                    if(x&1) { B[in[yx]]++; l[x1] += 234*in[yx]; }
+                    else    { G[in[yx]]++; l[x1]  = 601*in[yx]; }
+                }
+                break;
+            }
+            case(RGGB):{
+                if(y&1){
+                    if(x&1) { B[in[yx]]++; Y[(234*in[yx] + l[x1])>>11]++; }
+                    else    { G[in[yx]]++; l[x1] += 601*in[yx]; }
+                } else {
+                    if(x&1) { G[in[yx]]++; l[x1] += 601*in[yx]; }
+                    else    { R[in[yx]]++; l[x1]  = 612*in[yx]; }
+                }
+                break;
+            }
+            //printf("Start in = %d out = %d blm = %d\n", in[yx], out[yx], blm);
             }
         }
     }

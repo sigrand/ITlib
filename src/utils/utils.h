@@ -30,6 +30,9 @@ void utils_add(const int16 *in, const int16 *in1, int16 *out, const int w, const
 
 void utils_resize_down_2(const int16 *in, int16 *out, int16 *buff, const int w, const int h);
 
+void utils_fill_hist_bayer(const uint16 *in, int *R, int *G, int *B, int *Y, int *buff, const int w, const int h, const BayerGrid bay, const int bpp);
+void utils_lut_exp(int *ex, const int sd, const int sz);
+
 #ifdef __cplusplus
 }
 #endif /* __cplusplus */

@@ -399,6 +399,7 @@ int main(int argc, const char *argv[]) {
                    "  rgb_yuv444       rgb to yuv444 transform\n"
                    "  rgb_yuv420       rgb to yuv420 transform\n"
                    "  res_down_2       Two times downsampling image\n"
+                   "  ton_map          HDR tome maping algorithm\n"
                    "\n"
                    "  grad <x>         The image gradient, x - gardient threshould, if less than th,  = 0 \n"
                    "  lmax             Find local maximums \n"
@@ -802,7 +803,7 @@ int main(int argc, const char *argv[]) {
         } else if (!strcmp(argv[i], "dnois_bil") && tr) {
             par = strtol(argv[i+1], NULL, 0);
             if(ts[n].colort == GREY || ts[n].colort == BAYER){
-                filters_Bilateral_denoise_bayer(ts[n].pic[0], ts[n].pic[1], (int16*)tmpb, par, 50, ts[n].w, ts[n].h);
+                filters_bilateral_denoise_bayer(ts[n].pic[0], ts[n].pic[1], (int16*)tmpb, par, 50, ts[n].w, ts[n].h);
 
                 //filters_denoise_regression_bayer(ts[n].pic[0], ts[n].pic[1], (int*)tmpb, par, ts[n].w, ts[n].h);
                 tmp = ts[n].pic[0]; ts[n].pic[0] = ts[n].pic[1]; ts[n].pic[1] = tmp;
@@ -950,6 +951,16 @@ int main(int argc, const char *argv[]) {
                 ok = 1; goto End;
             }
             if(verb) printf("Filter disparity\n");
+        } else if (!strcmp(argv[i], "ton_map") && tr ) {
+            if(ts[n].colort == BAYER){
+                hdr_tone_bayer(ts[n].pic[0], ts[n].pic[0], (int*)tmpb, ts[n].w, ts[n].h, ts[n].bg, ts[n].bpp, 50);
+                        tmp = ts[n].pic[0]; ts[n].pic[0] = ts[n].pic[1]; ts[n].pic[1] = tmp;
+
+            } else {
+                fprintf(stderr, "Error! ton_map: Input image should be BAYER format.\n", out_file);
+                ok = 1; goto End;
+            }
+            if(verb) printf("Tone mapping filter\n");
         }
     }
 
