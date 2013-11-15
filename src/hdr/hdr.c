@@ -50,7 +50,7 @@ void hdr_ace(const int16 *in, int16 *out, int *buff, const int w, const int h, c
     for(x=0; x < hs; x++) {
         sum += hi[x];
         hi[x] = sum*b>>shb;
-        //printf("%d %d\n", x, hi[x]);
+        if(x<500) printf("%d %d\n", x, hi[x]);
         //hi[x] = (sum<<bpp1)/size;
     }
 
@@ -185,8 +185,6 @@ void hdr_tone_bayer(int16 *in, int16 *out, int *buff, const int w, const int h, 
     R = buff; G = &R[ns]; B = &G[ns]; Y = &B[ns];
     rl = &Y[ns]; gl = &rl[ns]; bl = &gl[ns];
 
-    printf("ns = %d\n", ns);
-
     utils_fill_hist_bayer(in, R, G, B, Y, &bl[ns], w, h, bay, bpp);
     /*
     for(i=0; i < 1000; i++) printf("%4d  %d\n", i, Y[i]);
@@ -202,6 +200,7 @@ void hdr_tone_bayer(int16 *in, int16 *out, int *buff, const int w, const int h, 
     for(i=0; i < ns; i++) tmp += Y[i];
     printf("blue w*h = %d  hist = %d\n", w*h>>2, tmp);
     */
+    //for(i=0; i< 500; i++) printf("%d Y = %d\n", i, Y[i]);
 
     utils_lut_exp(ex, sd, sz);
     //for(i=0; i < sz; i++) printf("ex = %d\n", ex[i]);

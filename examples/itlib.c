@@ -531,10 +531,10 @@ int main(int argc, const char *argv[]) {
                 //if(verb) printf("Write %s file\n", out_file);
 
             } else if(!strcmp(&out_file[strlen(out_file)-4],".png") || !strcmp(&out_file[strlen(out_file)-4],".PNG")){
-                printf("n = %d color = %d\n", n, ts[n].colort);
+                //printf("n = %d color = %d\n", n, ts[n].colort);
                 if(ts[n].colort == GREY || ts[n].colort == BAYER || ts[n].colort == YUV444 || ts[n].colort == YUV420){
                     if(ts[n].bpp != 8) {
-                        utils_16_to_8(ts[n].pic[0], ts[n].pic[1], ts[n].w, ts[n].h, ts[n].bpp, 0);
+                        utils_16_to_8(ts[n].pic[0], ts[n].pic[1], ts[n].w, ts[n].h, ts[n].bpp, 1);
                         ok = writePNG(OUT_FILE, ts[n].pic[1], ts[n].w, ts[n].h, 8, GREY);
                         //tmp = ts[n].pic[0]; ts[n].pic[0] = ts[n].pic[1]; ts[n].pic[1] = tmp; ts[n].bpp = 8;
                     }
@@ -953,7 +953,7 @@ int main(int argc, const char *argv[]) {
             if(verb) printf("Filter disparity\n");
         } else if (!strcmp(argv[i], "ton_map") && tr ) {
             if(ts[n].colort == BAYER){
-                hdr_tone_bayer(ts[n].pic[0], ts[n].pic[0], (int*)tmpb, ts[n].w, ts[n].h, ts[n].bg, ts[n].bpp, 50);
+                hdr_tone_bayer(ts[n].pic[0], ts[n].pic[1], (int*)tmpb, ts[n].w, ts[n].h, ts[n].bg, ts[n].bpp, 200);
                         tmp = ts[n].pic[0]; ts[n].pic[0] = ts[n].pic[1]; ts[n].pic[1] = tmp;
 
             } else {

@@ -48,7 +48,7 @@ void utils_lut_exp(int *ex, const int sd, const int sz)
     double hg = sd*sd;
     for(i=0; i < sz; i++){
         ex[i] = (int)(exp(-(double)i*i/(double)hg)*sz);
-        //printf("%3d exp = %d\n", i, ex[i]);
+        printf("%3d exp = %d\n", i, ex[i]);
     }
 }
 
@@ -163,7 +163,7 @@ void utils_zoom_out_bayer16_to_rgb16(const uint16 *in, uint16 *out, uint32 *buff
     //Find zoom value when / can changed to >>
     for(i=1; i < max; i<<=1) if((i|zoom) == i) sh++;
 
-    zm = (zoom == 1) ? 0 : zoom;
+    zm = (zoom == 1) ? 0 : zoom-2;
     //printf("zoom = %d sh = %d\n", zoom, sh);
 
     for(y=0, y1=0; y < h; y+=zoom2, y1++){
@@ -173,6 +173,7 @@ void utils_zoom_out_bayer16_to_rgb16(const uint16 *in, uint16 *out, uint32 *buff
             for(x=0, x1=0; x < w; x+=zoom2, x1++){
                 yx = yw + x;
                 for(i=0; i < zoom2; i+=2) {
+                    //printf("%d %d %d %d\n", in[yx+i], in[yx+i+1], in[yx+i+w], in[yx+i+w+1]);
                     c[0][x1] += in[yx+i];
                     c[1][x1] += in[yx+i+1];
                     c[2][x1] += in[yx+i+w];
@@ -202,6 +203,8 @@ void utils_zoom_out_bayer16_to_rgb16(const uint16 *in, uint16 *out, uint32 *buff
                         out[(y1*w1+x1)*3]   = sh ? c[0][x1]>>zm : c[0][x1]/sq;
                         out[(y1*w1+x1)*3+1] = sh ? (c[1][x1]+c[2][x1])>>(zm+1) : (c[1][x1]+c[2][x1])/(sq<<1);
                         out[(y1*w1+x1)*3+2] = sh ? c[3][x1]>>zm : c[3][x1]/sq;
+                        //if(!out[(y1*w1+x1)*3] || !out[(y1*w1+x1)*3+1] || !out[(y1*w1+x1)*3+2])
+                        //    printf("%d %d %d  ", out[(y1*w1+x1)*3], out[(y1*w1+x1)*3+1], out[(y1*w1+x1)*3+2]);
                         break;
                     }
                     }
@@ -297,19 +300,20 @@ void utils_fill_hist_bayer(const uint16 *in, int *R, int *G, int *B, int *Y, int
     \param in	The input 16 bits rgb image.
     \param rm   The pointer to the red multiplier.
     \param bm   The pointer to the blue multiplier.
+    \param mp   The pointer to the pedestal.
     \param buff The histogram buffer size = sizeof(uint32)*(1<<bpp).
     \param w    The image width.
     \param h 	The image height.
     \param sh   The shift for integer multiplier.
     \param bpp  The input image bits per pixel.
 */
-void utils_wb(int16 *in, int *rm, int *bm, uint32 *buff, const int w, const int h, const int sh, const int bpp)
+void utils_wb(int16 *in, int *rm, int *bm, int *mp, uint32 *buff, const int w, const int h, const int sh, const int bpp)
 {
     int i, j, size = w*h, size3 = size*3;
-    uint32 d, d1, r = 0, g = 0, b = 0, cn = 0, min, max, mx, Y, hs = 1<<bpp, sum, ts = size3>>3;
+    uint32 d, d1, r = 0, g = 0, b = 0, cn = 0, min, max, mx, Y, hs = 1<<bpp, sum, ts = size>>5, tp = size>>7;
     //float s = 0.01,  th = 0.5;
     uint32 *hi = buff;
-    int m, mr, mb, s = 10;
+    int m, mr,  mb, s = 10;
 
     memset(hi, 0, sizeof(uint32)*hs);
     //Gray world algorithm the first step of iteration
@@ -319,16 +323,21 @@ void utils_wb(int16 *in, int *rm, int *bm, uint32 *buff, const int w, const int 
         g += in[i+1];
         b += in[i+2];
         Y = (306*in[i] + 601*in[i+1] + 117*in[i+2])>>10;
+        //if(!Y) printf("r = %d g = %d b = %d Y = %d\n", in[i  ], in[i+1], in[i+2], Y);
         hi[Y]++;
     }
+    //for(i=0; i< 500; i++) printf("%d hi = %d\n", i, hi[i]);
 
-    //Gray world multiplier for first step approximation
-    r = r/size; g = g/size; b = b/size;
-    //mr = (double)g/(double)r;
-    //mb = (double)g/(double)b;
-    mr = (g<<sh)/r;
-    mb = (g<<sh)/b;
-    //printf("mr = %d mb = %d mr = %f mb = %f\n",mr, mb,(double)mr/(double)(1<<sh), (double)mb/(double)(1<<sh));
+
+    //Find pedestal
+    //printf("tp = %d hs = %d\n", tp, hs);
+    sum = 0;
+    for(i=0; i < hs; i++) {
+        //printf("%d sum = %d hi = %d\n", i, sum, hi[i]);
+        sum += hi[i];
+        if(sum > tp) break;
+    }
+    *mp = i;
 
     //Find threshold for removing dark pixels.
     sum = 0;
@@ -338,12 +347,26 @@ void utils_wb(int16 *in, int *rm, int *bm, uint32 *buff, const int w, const int 
     }
     mx = i;
 
-    //Remove all dark pixels
+    //Remove pedestal and dark pixels
     for(i = 0; i < size3; i+=3) {
         Y = (306*in[i] + 601*in[i+1] + 117*in[i+2])>>10;
-        if(Y < mx) in[i] = in[i+1] = in[i+2] = 0;
+        if(Y < mx) {
+            in[i] = 0; in[i+1] = 0; in[i+2] = 0;
+        } else {
+            in[i  ] = (in[i  ] - (*mp)) < 0 ? 0 : (in[i  ] - (*mp));
+            in[i+1] = (in[i+1] - (*mp)) < 0 ? 0 : (in[i+1] - (*mp));
+            in[i+2] = (in[i+2] - (*mp)) < 0 ? 0 : (in[i+2] - (*mp));
+        }
     }
 
+    //Gray world multiplier for first step approximation
+    //printf("size = %d r = %d g = %d b = %d \n", size, r, g, b);
+    r = r/size-*mp; g = g/size-*mp; b = b/size-*mp;
+    //mr = (double)g/(double)r;
+    //mb = (double)g/(double)b;
+    mr = (g<<sh)/r;
+    mb = (g<<sh)/b;
+    //printf("mr = %d mb = %d mr = %f mb = %f\n",mr, mb,(double)mr/(double)(1<<sh), (double)mb/(double)(1<<sh));
     //printf("cn = %d sz = %d p = %f\n", cn, size, (double)(size - cn)/(double)size);
 
     //Red color (g - r) minimization
@@ -386,7 +409,7 @@ void utils_wb(int16 *in, int *rm, int *bm, uint32 *buff, const int w, const int 
 void utils_wb_rgb(int16 *in, int16 *out, int16 *buff, const int w, const int h, const int bpp)
 {
     int i, j, size3 = h*w*3, sh = 10, z, zoom, w1, h1, max = (1<<bpp)-1;
-    int rm, bm;
+    int rm, bm, mp;
 
     //Check zoom image size
     for(i=0; (w*h>>i) > 500000; i+=2);
@@ -394,13 +417,13 @@ void utils_wb_rgb(int16 *in, int16 *out, int16 *buff, const int w, const int h, 
 
     utils_zoom_out_rgb16_to_rgb16(in, buff, (uint32*)&buff[w1*h1*3], w, h, zoom);
 
-    utils_wb(buff, &rm, &bm, (uint32*)buff, w1, h1, sh, bpp);
+    utils_wb(buff, &rm, &bm, &mp, (uint32*)&buff[w1*h1*3], w1, h1, sh, bpp);
     printf("rm = %d bm = %d rm = %f bm = %f \n", rm, bm, (double)rm/(double)(1<<sh), (double)bm/(double)(1<<sh));
 
     for(i = 0; i < size3; i+=3) {
-        out[i]   = in[i]*rm>>sh;    out[i] = out[i] > max ? max : out[i];
-        out[i+1] = in[i+1];
-        out[i+2] = in[i+2]*bm>>sh;  out[i+2] = out[i+2] > max ? max : out[i+2];
+        out[i]   = (in[i]-mp)*rm>>sh;    out[i] = out[i] > max ? max : out[i]; out[i] = out[i] < 0 ? 0 : out[i];
+        out[i+1] = in[i+1]-mp; out[i+1] = out[i+1] < 0 ? 0 : out[i+1];
+        out[i+2] = (in[i+2]-mp)*bm>>sh;  out[i+2] = out[i+2] > max ? max : out[i+2]; out[i+2] = out[i+2] < 0 ? 0 : out[i+2];
     }
 }
 
@@ -416,7 +439,7 @@ void utils_wb_rgb(int16 *in, int16 *out, int16 *buff, const int w, const int h, 
 void utils_wb_bayer(const int16 *in, int16 *out, int16 *buff, const int w, const int h, const int bpp, const int bg)
 {
     int sh = 10, z, zoom, w1, h1, max = (1<<bpp)-1;
-    int i, x, y, yx, yw, rm, bm;
+    int i, x, y, yx, yw, rm, bm, mp;
 
     //Check zoom image size
     for(i=0; (w*h>>i) > 1000000; i+=2);
@@ -427,9 +450,9 @@ void utils_wb_bayer(const int16 *in, int16 *out, int16 *buff, const int w, const
     utils_zoom_out_bayer16_to_rgb16(in, buff, (uint32*)&buff[w1*h1*3], w, h, zoom, bg);
     //printf("zoom = %d , w1 = %d h1 = %d\n", zoom, w1, h1);
 
-    utils_wb(buff, &rm, &bm, (uint32*)buff, w1, h1, sh, bpp);
-    //printf("rm = %d bm = %d rm = %f bm = %f \n", rm, bm, (double)rm/(double)(1<<sh), (double)bm/(double)(1<<sh));
-
+    utils_wb(buff, &rm, &bm, &mp, (uint32*)&buff[w1*h1*3], w1, h1, sh, bpp);
+    //printf("rm = %d bm = %d rm = %f bm = %f mp = %d\n", rm, bm, (double)rm/(double)(1<<sh), (double)bm/(double)(1<<sh), mp);
+    //rm = 5000;
     switch(bg){
     case(BGGR):{
         for(y=0; y < h; y++){
@@ -437,11 +460,11 @@ void utils_wb_bayer(const int16 *in, int16 *out, int16 *buff, const int w, const
             for(x=0; x < w; x++){
                 yx = yw + x;
                 if(y&1){
-                    if(x&1) { out[yx] = in[yx]*rm>>sh;  out[yx] = out[yx] > max ? max : out[yx]; }
-                    else    out[yx] = in[yx];
+                    if(x&1) { out[yx] = (in[yx]-mp)*rm>>sh;  out[yx] = out[yx] > max ? max : out[yx]; out[yx] = out[yx] < 0 ? 0 : out[yx];}
+                    else    { out[yx] = in[yx]-mp; out[yx] = out[yx] < 0 ? 0 : out[yx]; }
                 } else {
-                    if(x&1) out[yx] = in[yx];
-                    else    { out[yx] = in[yx]*bm>>sh;  out[yx] = out[yx] > max ? max : out[yx]; }
+                    if(x&1) { out[yx] = in[yx]-mp; out[yx] = out[yx] < 0 ? 0 : out[yx]; }
+                    else    { out[yx] = (in[yx]-mp)*bm>>sh;  out[yx] = out[yx] > max ? max : out[yx]; out[yx] = out[yx] < 0 ? 0 : out[yx];}
                 }
             }
         }
@@ -453,11 +476,11 @@ void utils_wb_bayer(const int16 *in, int16 *out, int16 *buff, const int w, const
             for(x=0; x < w; x++){
                 yx = yw + x;
                 if(y&1){
-                    if(x&1) out[yx] = in[yx];
-                    else    { out[yx] = in[yx]*bm>>sh;  out[yx] = out[yx] > max ? max : out[yx]; }
+                    if(x&1) { out[yx] = in[yx]-mp; out[yx] = out[yx] < 0 ? 0 : out[yx]; }
+                    else    { out[yx] = (in[yx]-mp)*bm>>sh;  out[yx] = out[yx] > max ? max : out[yx]; out[yx] = out[yx] < 0 ? 0 : out[yx];}
                 } else {
-                    if(x&1) { out[yx] = in[yx]*rm>>sh;  out[yx] = out[yx] > max ? max : out[yx]; }
-                    else    out[yx] = in[yx];
+                    if(x&1) { out[yx] = (in[yx]-mp)*rm>>sh;  out[yx] = out[yx] > max ? max : out[yx]; out[yx] = out[yx] < 0 ? 0 : out[yx];}
+                    else    { out[yx] = in[yx]-mp; out[yx] = out[yx] < 0 ? 0 : out[yx]; }
                 }
             }
         }
@@ -469,11 +492,11 @@ void utils_wb_bayer(const int16 *in, int16 *out, int16 *buff, const int w, const
             for(x=0; x < w; x++){
                 yx = yw + x;
                 if(y&1){
-                    if(x&1) out[yx] = in[yx];
-                    else    { out[yx] = in[yx]*rm>>sh;  out[yx] = out[yx] > max ? max : out[yx]; }
+                    if(x&1) { out[yx] = in[yx]-mp; out[yx] = out[yx] < 0 ? 0 : out[yx];}
+                    else    { out[yx] = (in[yx]-mp)*rm>>sh;  out[yx] = out[yx] > max ? max : out[yx]; out[yx] = out[yx] < 0 ? 0 : out[yx];}
                 } else {
-                    if(x&1) { out[yx] = in[yx]*bm>>sh;  out[yx] = out[yx] > max ? max : out[yx]; }
-                    else    out[yx] = in[yx];
+                    if(x&1) { out[yx] = (in[yx]-mp)*bm>>sh;  out[yx] = out[yx] > max ? max : out[yx]; out[yx] = out[yx] < 0 ? 0 : out[yx];}
+                    else    { out[yx] = in[yx]-mp; out[yx] = out[yx] < 0 ? 0 : out[yx]; }
                 }
             }
         }
@@ -485,11 +508,11 @@ void utils_wb_bayer(const int16 *in, int16 *out, int16 *buff, const int w, const
             for(x=0; x < w; x++){
                 yx = yw + x;
                 if(y&1){
-                    if(x&1) { out[yx] = in[yx]*bm>>sh;  out[yx] = out[yx] > max ? max : out[yx]; }
-                    else    out[yx] = in[yx];
+                    if(x&1) { out[yx] = (in[yx]-mp)*bm>>sh;  out[yx] = out[yx] > max ? max : out[yx]; out[yx] = out[yx] < 0 ? 0 : out[yx];}
+                    else    { out[yx] = in[yx]-mp; out[yx] = out[yx] < 0 ? 0 : out[yx]; }
                 } else {
-                    if(x&1) out[yx] = in[yx];
-                    else    { out[yx] = in[yx]*rm>>sh;  out[yx] = out[yx] > max ? max : out[yx]; }
+                    if(x&1) { out[yx] = in[yx]-mp; out[yx] = out[yx] < 0 ? 0 : out[yx]; }
+                    else    { out[yx] = (in[yx]-mp)*rm>>sh;  out[yx] = out[yx] > max ? max : out[yx]; out[yx] = out[yx] < 0 ? 0 : out[yx];}
                 }
             }
         }

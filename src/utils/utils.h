@@ -15,7 +15,7 @@ uint8* utils_16_to_8(const int16 *in, uint8 *out, const int w, const int h, int 
 void utils_zoom_out_rgb16_to_rgb16(const int16 *in, int16 *out, uint32 *buff, const int w, const int h, const int zoom);
 void utils_zoom_out_bayer16_to_rgb16(const uint16 *in, uint16 *out, uint32 *buff, const int w, const int h, const int zoom, const BayerGrid bay);
 
-void utils_wb(int16 *in, int *rm, int *bm, uint32 *buff, const int w, const int h, const int sh, const int bpp);
+void utils_wb(int16 *in, int *rm, int *bm, int *mp, uint32 *buff, const int w, const int h, const int sh, const int bpp);
 void utils_wb_rgb(int16 *in, int16 *out, int16 *buff, const int w, const int h, const int bpp);
 void utils_wb_bayer(const int16 *in, int16 *out, int16 *buff, const int w, const int h, const int bpp, const int bg);
 
