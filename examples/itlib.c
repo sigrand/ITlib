@@ -663,6 +663,7 @@ int main(int argc, const char *argv[]) {
             if(!par) par = 8;
             //printf("par = %d\n", par);
             if(ts[n].colort < RGBA){
+                //printf("bpp = %d\n", ts[n].bpp);
                 hdr_ace(ts[n].pic[0], ts[n].pic[1], (int*)tmpb, ts[n].w, ts[n].h, ts[n].bpp, par, ts[n].colort);
                 tmp = ts[n].pic[0]; ts[n].pic[0] = ts[n].pic[1]; ts[n].pic[1] = tmp; //ts[n].bpp = par;
             } else {

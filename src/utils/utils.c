@@ -310,7 +310,7 @@ void utils_fill_hist_bayer(const uint16 *in, int *R, int *G, int *B, int *Y, int
 void utils_wb(int16 *in, int *rm, int *bm, int *mp, uint32 *buff, const int w, const int h, const int sh, const int bpp)
 {
     int i, j, size = w*h, size3 = size*3;
-    uint32 d, d1, r = 0, g = 0, b = 0, cn = 0, min, max, mx, Y, hs = 1<<bpp, sum, ts = size>>5, tp = size>>7;
+    uint32 d, d1, r = 0, g = 0, b = 0, cn = 0, min, max, mx, Y, hs = 1<<bpp, sum, ts = size>>5, tp = size>>10;
     //float s = 0.01,  th = 0.5;
     uint32 *hi = buff;
     int m, mr,  mb, s = 10;
@@ -322,9 +322,10 @@ void utils_wb(int16 *in, int *rm, int *bm, int *mp, uint32 *buff, const int w, c
         r += in[i  ];
         g += in[i+1];
         b += in[i+2];
-        Y = (306*in[i] + 601*in[i+1] + 117*in[i+2])>>10;
+        //Y = (306*in[i] + 601*in[i+1] + 117*in[i+2])>>10;
         //if(!Y) printf("r = %d g = %d b = %d Y = %d\n", in[i  ], in[i+1], in[i+2], Y);
-        hi[Y]++;
+        //hi[Y]++;
+        hi[in[i  ]]++; hi[in[i+1]]++; hi[in[i+2]]++;
     }
     //for(i=0; i< 500; i++) printf("%d hi = %d\n", i, hi[i]);
 
@@ -349,8 +350,9 @@ void utils_wb(int16 *in, int *rm, int *bm, int *mp, uint32 *buff, const int w, c
 
     //Remove pedestal and dark pixels
     for(i = 0; i < size3; i+=3) {
-        Y = (306*in[i] + 601*in[i+1] + 117*in[i+2])>>10;
-        if(Y < mx) {
+        //Y = (306*in[i] + 601*in[i+1] + 117*in[i+2])>>10;
+        //if(Y < mx) {
+        if(in[i] < mx || in[i+1] < mx || in[i+2] < mx) {
             in[i] = 0; in[i+1] = 0; in[i+2] = 0;
         } else {
             in[i  ] = (in[i  ] - (*mp)) < 0 ? 0 : (in[i  ] - (*mp));
