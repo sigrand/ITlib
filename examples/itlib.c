@@ -348,11 +348,12 @@ int main(int argc, const char *argv[]) {
     FILE *IN_FILE, *OUT_FILE, *FILE_3D;
     int i, j, n = 0, ok = 0, tr = 0, par, fc = 0, f, nf, ster = 0, dis3d = 0;
     uint8 *buff[2], *tmpb = NULL;
-    int min=0, max=0, size;
+    int min=0, max=0, size, sd = 20;
     TransState ts[2];
     void *tmp;
     in_file[0] = NULL; in_file[1] = NULL;
     buff[0] = NULL; buff[1] = NULL;
+
 
     //cr[0] = &ts[0];
 
@@ -648,7 +649,7 @@ int main(int argc, const char *argv[]) {
             par = strtol(argv[i+1], NULL, 0);
 
             if(ts[n].colort == BAYER){
-                filters_median_bayer(ts[n].pic[0], ts[n].pic[1], (int16*)tmpb, ts[n].w, ts[n].h, par);
+                sd = filters_median_bayer(ts[n].pic[0], ts[n].pic[1], (int16*)tmpb, ts[n].w, ts[n].h, par);
                 tmp = ts[n].pic[0]; ts[n].pic[0] = ts[n].pic[1]; ts[n].pic[1] = tmp;
             } else if(ts[n].colort == GREY){
                 filters_median(ts[n].pic[0], ts[n].pic[1], (int16*)tmpb, ts[n].w, ts[n].h, par);
@@ -804,9 +805,7 @@ int main(int argc, const char *argv[]) {
         } else if (!strcmp(argv[i], "dnois_bil") && tr) {
             par = strtol(argv[i+1], NULL, 0);
             if(ts[n].colort == GREY || ts[n].colort == BAYER){
-                filters_bilateral_denoise_bayer(ts[n].pic[0], ts[n].pic[1], (int16*)tmpb, par, 50, ts[n].w, ts[n].h);
-
-                //filters_denoise_regression_bayer(ts[n].pic[0], ts[n].pic[1], (int*)tmpb, par, ts[n].w, ts[n].h);
+                filters_bilateral_denoise_bayer(ts[n].pic[0], ts[n].pic[1], (int16*)tmpb, par, sd, ts[n].w, ts[n].h);
                 tmp = ts[n].pic[0]; ts[n].pic[0] = ts[n].pic[1]; ts[n].pic[1] = tmp;
 
             } else {

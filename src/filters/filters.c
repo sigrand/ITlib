@@ -140,8 +140,9 @@ void filters_median(int16 *in, int16 *out, int16 *buff, const int w, const int h
     \param	w       The image width.
     \param  h       The image height.
     \param  type    The type of filter 0 - non adaptive, 1 - adaptive.
+    \retval         The noise standart deviation.
 */
-void filters_median_bayer(int16 *in, int16 *out, int16 *buff, const int w, const int h, const int type)
+int filters_median_bayer(int16 *in, int16 *out, int16 *buff, const int w, const int h, const int type)
 {
     // s00    s10   s01   s11   s02
     //|-----|-----|-----|-----|-----|
@@ -158,6 +159,7 @@ void filters_median_bayer(int16 *in, int16 *out, int16 *buff, const int w, const
 
     uint32 i, y, x, x2, xs, yx, yw, yw1, h1 = h-2, sh = 2, w2 = w + (sh<<1), ws = w<<1;
     int16 *s[2][3], *l[5], *tm, max, min, med;
+    int cn = 0, vc = 0;
 
     s[0][0] = buff, s[0][1] = &s[0][0][3], s[0][2] = &s[0][1][3];
     s[1][0] = &s[0][2][3], s[1][1] = &s[1][0][3], s[1][2] = &s[1][1][3];
@@ -198,23 +200,22 @@ void filters_median_bayer(int16 *in, int16 *out, int16 *buff, const int w, const
             xs = x+sh;
 
             if(type){
-                if(l[2][xs] == max || l[2][xs] == min)  out[yx] = med;
+                if(l[2][xs] == max || l[2][xs] == min) {
+                    out[yx] = med;
+                    cn++;
+                    vc += abs(l[2][xs]-med);
+                }
                 else out[yx] = l[2][xs];
             } else {
                 out[yx] = med;
             }
-            //if(max-min > 100) img1[yx] = 0;
-
-            //img1[yx] = max;
-            //img2[yx] = max-min;
-            //if(img1[yx] == med)
-            //printf(" yx = %d min = %d med = %d max = %d ing[x] = %d img1[x] = %d\n",
-            //       yx, min+shift, med+shift, max+shift, l[2][xs]+shift, img1[yx]+shift);
 
             tm = s[i][0]; s[i][0] = s[i][1]; s[i][1] = s[i][2]; s[i][2] = tm;
         }
         tm = l[0]; l[0] = l[1]; l[1] = l[2]; l[2] = l[3]; l[3] = l[4]; l[4] = tm;
     }
+    printf("cn = %d ds = %d persent = %d\n",cn, vc/cn, (cn*100)/(w*h));
+    return vc/cn;
 }
 
 /** \brief The simple Non-Local Means denoise  algorithm.
@@ -318,9 +319,9 @@ void filters_NLM_denoise_bayer(int16 *in, int16 *avr, int16 *out, int16 *buff, c
 */
 void filters_bilateral_denoise_bayer(int16 *in, int16 *out, int16 *buff, const int br1, const int sd, const int w, const int h)
 {
-    int i, x, xi, y, yi, yw, yx, sz = 256;
+    int i, x, xi, y, yi, yw, yx, sz = 256, sz1 = sz-1;
     //int hg = sd*sd;
-    int ex[sz], smi, smi1, blm, cf;
+    int ex[sz], blm, cf, smi, smi1;
 
     int sh, br = br1<<1, ns = (br<<1) + 1; //, bs = (br+1)*((br>>1)+1);
     int w1 = w + (br<<1);
@@ -334,12 +335,6 @@ void filters_bilateral_denoise_bayer(int16 *in, int16 *out, int16 *buff, const i
 
     //Make lut table to remove exp
     utils_lut_exp(ex, sd, sz);
-    /*
-    for(i=0; i < 256; i++){
-        ex[i] = (int)(exp(-(double)i*i/(double)hg)*256);
-        //printf("%3d exp = %d\n", i, ex[i]);
-    }
-    */
     //Rows buffer for input image
     l[0] = buff;
     for(i=1; i < ns; i++) l[i] = &l[i-1][w1];
@@ -369,12 +364,12 @@ void filters_bilateral_denoise_bayer(int16 *in, int16 *out, int16 *buff, const i
                     blm  = abs(l[yi][xi] - l[br][x+br]);
                     //printf("in = %d blm = %d\n", l[yi][xi], blm);
 
-                    cf = blm > 511 ? 0 : ex[blm];
+                    cf = blm > sz1 ? 0 : ex[blm];
+                    //cf = 1;
                     smi1 += cf;
                     smi += l[yi][xi]*cf;
                 }
             }
-            //tm = l[0]; l[0] = l[1]; l[1] = l[2]; l[2] = tm;
             out[yx] = smi/smi1;
 
             //printf("Start in = %d out = %d blm = %d\n", in[yx], out[yx], blm);

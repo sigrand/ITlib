@@ -48,7 +48,7 @@ void utils_lut_exp(int *ex, const int sd, const int sz)
     double hg = sd*sd;
     for(i=0; i < sz; i++){
         ex[i] = (int)(exp(-(double)i*i/(double)hg)*sz);
-        printf("%3d exp = %d\n", i, ex[i]);
+        //printf("%3d exp = %d\n", i, ex[i]);
     }
 }
 
@@ -203,8 +203,6 @@ void utils_zoom_out_bayer16_to_rgb16(const uint16 *in, uint16 *out, uint32 *buff
                         out[(y1*w1+x1)*3]   = sh ? c[0][x1]>>zm : c[0][x1]/sq;
                         out[(y1*w1+x1)*3+1] = sh ? (c[1][x1]+c[2][x1])>>(zm+1) : (c[1][x1]+c[2][x1])/(sq<<1);
                         out[(y1*w1+x1)*3+2] = sh ? c[3][x1]>>zm : c[3][x1]/sq;
-                        //if(!out[(y1*w1+x1)*3] || !out[(y1*w1+x1)*3+1] || !out[(y1*w1+x1)*3+2])
-                        //    printf("%d %d %d  ", out[(y1*w1+x1)*3], out[(y1*w1+x1)*3+1], out[(y1*w1+x1)*3+2]);
                         break;
                     }
                     }
@@ -224,10 +222,10 @@ void utils_zoom_out_bayer16_to_rgb16(const uint16 *in, uint16 *out, uint32 *buff
     \param buff	 	The half line buffer for calculation Y histogram.
     \param w 		The image width.
     \param h 		The image height.
-    \param bay		The Bayer grids pattern.
+    \param bg		The Bayer grids pattern.
     \param bpp		The pits per pixel.
 */
-void utils_fill_hist_bayer(const uint16 *in, int *R, int *G, int *B, int *Y, int *buff, const int w, const int h, const BayerGrid bay, const int bpp)
+void utils_fill_hist_bayer(const uint16 *in, int *R, int *G, int *B, int *Y, int *buff, const int w, const int h, const BayerGrid bg, const int bpp)
 {
     int i, x, x1, y, yw, yx;
     int *l, ns = 1<<bpp;
@@ -238,7 +236,6 @@ void utils_fill_hist_bayer(const uint16 *in, int *R, int *G, int *B, int *Y, int
     for(i=0; i < ns; i++) B[i] = 0;
     for(i=0; i < ns; i++) Y[i] = 0;
 
-
     //Rows buffer for Y
     l = buff;
 
@@ -247,7 +244,7 @@ void utils_fill_hist_bayer(const uint16 *in, int *R, int *G, int *B, int *Y, int
         for(x = 0; x < w; x++){
             x1 = x>>1;
             yx = yw + x;
-            switch(bay){
+            switch(bg){
             case(BGGR):{
                 if(y&1){
                     if(x&1) { R[in[yx]]++; Y[(612*in[yx] + l[x1])>>11]++; }
@@ -296,25 +293,102 @@ void utils_fill_hist_bayer(const uint16 *in, int *R, int *G, int *B, int *Y, int
     }
 }
 
+/**	\brief Fill histogram for white balancing.
+    \param in	 	The input 16 bits bayer image.
+    \param hi	 	The output bayer histogram.
+    \param r	 	The avarage red.
+    \param g	 	The avarage green.
+    \param b	 	The avarage blue.
+    \param buff	 	The half line buffer for calculation Y histogram.
+    \param w 		The image width.
+    \param h 		The image height.
+    \param bg		The Bayer grids pattern.
+    \param bpp		The pits per pixel.
+*/
+void utils_hist_wb(const uint16 *in, int *hi, int *r, int *g, int *b, const int w, const int h, const BayerGrid bg, const int bpp)
+{
+    int i, x,  y, yw, yx;
+    int ns = 1<<bpp, sz = w*h;
+
+    //Clear histogram
+    for(i=0; i < ns; i++) hi[i] = 0;
+    (*r) = 0; (*g) = 0; (*b) = 0;
+
+
+    for(y = 0; y < h; y++){
+        yw = y*w;
+        for(x = 0; x < w; x++){
+            yx = yw + x;
+            hi[in[yx]]++;
+            switch(bg){
+            case(BGGR):{
+                if(y&1){
+                    if(x&1) (*r)+=in[yx];
+                    else    (*g)+=in[yx];
+                } else {
+                    if(x&1) (*g)+=in[yx];
+                    else    (*b)+=in[yx];
+                }
+                break;
+            }
+            case(GRBG):{
+                if(y&1){
+                    if(x&1) (*g)+=in[yx];
+                    else    (*b)+=in[yx];
+                } else {
+                    if(x&1) (*r)+=in[yx];
+                    else    (*g)+=in[yx];
+                }
+                break;
+            }
+            case(GBRG):{
+                if(y&1){
+                    if(x&1) (*g)+=in[yx];
+                    else    (*r)+=in[yx];
+                } else {
+                    if(x&1) (*b)+=in[yx];
+                    else    (*g)+=in[yx];
+                }
+                break;
+            }
+            case(RGGB):{
+                if(y&1){
+                    if(x&1) (*b)+=in[yx];
+                    else    (*g)+=in[yx];
+                } else {
+                    if(x&1) (*g)+=in[yx];
+                    else    (*r)+=in[yx];
+                }
+                break;
+            }
+            //printf("Start in = %d out = %d blm = %d\n", in[yx], out[yx], blm);
+            }
+        }
+    }
+    *r = (*r)/(sz>>2); *g = (*g)/(sz>>1); *b = (*b)/(sz>>2);
+    //printf("Start r = %d g = %d b = %d\n", *r, *g, *b);
+}
+
 /**	\brief Calculate the white balance multiplier for red and blue color of 16 bits rgb image.
     \param in	The input 16 bits rgb image.
     \param rm   The pointer to the red multiplier.
     \param bm   The pointer to the blue multiplier.
-    \param mp   The pointer to the pedestal.
+    \param mp   The value of pedestal.
+    \param mx   The value of for removing dark pixeles.
     \param buff The histogram buffer size = sizeof(uint32)*(1<<bpp).
     \param w    The image width.
     \param h 	The image height.
     \param sh   The shift for integer multiplier.
     \param bpp  The input image bits per pixel.
 */
-void utils_wb(int16 *in, int *rm, int *bm, int *mp, uint32 *buff, const int w, const int h, const int sh, const int bpp)
+void utils_wb(int16 *in, int *rm, int *bm, int mp, int mx,  int r, int g, int b, const int w, const int h, const int sh)
 {
     int i, j, size = w*h, size3 = size*3;
-    uint32 d, d1, r = 0, g = 0, b = 0, cn = 0, min, max, mx, Y, hs = 1<<bpp, sum, ts = size>>5, tp = size>>10;
+    uint32 d, d1;
     //float s = 0.01,  th = 0.5;
-    uint32 *hi = buff;
     int m, mr,  mb, s = 10;
-
+    /*
+    uint32 *hi = buff;
     memset(hi, 0, sizeof(uint32)*hs);
     //Gray world algorithm the first step of iteration
     //Make Y histogram
@@ -347,7 +421,7 @@ void utils_wb(int16 *in, int *rm, int *bm, int *mp, uint32 *buff, const int w, c
         if(sum > ts) break;
     }
     mx = i;
-
+    */
     //Remove pedestal and dark pixels
     for(i = 0; i < size3; i+=3) {
         //Y = (306*in[i] + 601*in[i+1] + 117*in[i+2])>>10;
@@ -355,15 +429,17 @@ void utils_wb(int16 *in, int *rm, int *bm, int *mp, uint32 *buff, const int w, c
         if(in[i] < mx || in[i+1] < mx || in[i+2] < mx) {
             in[i] = 0; in[i+1] = 0; in[i+2] = 0;
         } else {
-            in[i  ] = (in[i  ] - (*mp)) < 0 ? 0 : (in[i  ] - (*mp));
-            in[i+1] = (in[i+1] - (*mp)) < 0 ? 0 : (in[i+1] - (*mp));
-            in[i+2] = (in[i+2] - (*mp)) < 0 ? 0 : (in[i+2] - (*mp));
+            in[i  ] = (in[i  ] - mp) < 0 ? 0 : (in[i  ] - mp);
+            in[i+1] = (in[i+1] - mp) < 0 ? 0 : (in[i+1] - mp);
+            in[i+2] = (in[i+2] - mp) < 0 ? 0 : (in[i+2] - mp);
         }
     }
 
     //Gray world multiplier for first step approximation
     //printf("size = %d r = %d g = %d b = %d \n", size, r, g, b);
-    r = r/size-*mp; g = g/size-*mp; b = b/size-*mp;
+    //printf("r = %d g = %d b = %d \n", r, g, b);
+    r = r-mp; g = g-mp; b = b-mp;
+    //printf("r = %d g = %d b = %d \n", r, g, b);
     //mr = (double)g/(double)r;
     //mb = (double)g/(double)b;
     mr = (g<<sh)/r;
@@ -411,7 +487,7 @@ void utils_wb(int16 *in, int *rm, int *bm, int *mp, uint32 *buff, const int w, c
 void utils_wb_rgb(int16 *in, int16 *out, int16 *buff, const int w, const int h, const int bpp)
 {
     int i, j, size3 = h*w*3, sh = 10, z, zoom, w1, h1, max = (1<<bpp)-1;
-    int rm, bm, mp;
+    int rm, bm, mp, mx, r, g, b;
 
     //Check zoom image size
     for(i=0; (w*h>>i) > 500000; i+=2);
@@ -419,7 +495,7 @@ void utils_wb_rgb(int16 *in, int16 *out, int16 *buff, const int w, const int h, 
 
     utils_zoom_out_rgb16_to_rgb16(in, buff, (uint32*)&buff[w1*h1*3], w, h, zoom);
 
-    utils_wb(buff, &rm, &bm, &mp, (uint32*)&buff[w1*h1*3], w1, h1, sh, bpp);
+    utils_wb(buff, &rm, &bm, mp, mx, r, g, b, w1, h1, sh);
     printf("rm = %d bm = %d rm = %f bm = %f \n", rm, bm, (double)rm/(double)(1<<sh), (double)bm/(double)(1<<sh));
 
     for(i = 0; i < size3; i+=3) {
@@ -440,20 +516,40 @@ void utils_wb_rgb(int16 *in, int16 *out, int16 *buff, const int w, const int h, 
 */
 void utils_wb_bayer(const int16 *in, int16 *out, int16 *buff, const int w, const int h, const int bpp, const int bg)
 {
-    int sh = 10, z, zoom, w1, h1, max = (1<<bpp)-1;
-    int i, x, y, yx, yw, rm, bm, mp;
+    int sh = 10, z, zoom, w1, h1, max = (1<<bpp)-1, sz = w*h;
+    int i, j, x, y, yx, yw, rm, bm, mp, mx, sum, ts = sz>>5, tp = sz>>10;
+    int *hi, hs = 1<<bpp;
+    int r, g, b;
+    hi = (int*)buff;
 
     //Check zoom image size
     for(i=0; (w*h>>i) > 1000000; i+=2);
     z = i>>1; zoom = 1<<z; w1 = w>>(z+1); h1 = h>>(z+1);
     //printf("z = %d zoom = %d  size = %d newsize = %d\n", z, zoom, w*h, w1*h1);
 
+    utils_hist_wb(in, hi, &r, &g, &b, w, h, bg, bpp);
+
+    //Calculate pedestal
+
+    sum = 0; j = 0;
+    for(i=0; i < hs; i++) {
+        //printf("%d sum = %d hi = %d\n", i, sum, hi[i]);
+        sum += hi[i];
+        if(sum > tp && !j) j = i;
+        if(sum > ts) break;
+    }
+    //Pedestal
+    mp = j;
+    //Threshold for removing dark pixels.
+    mx = i;
+    //printf("Pedestal = %d dark pixels = %d\n", mp, mx);
+
     //printf("zoom = %d , w1 = %d h1 = %d\n", zoom, w1, h1);
     utils_zoom_out_bayer16_to_rgb16(in, buff, (uint32*)&buff[w1*h1*3], w, h, zoom, bg);
     //printf("zoom = %d , w1 = %d h1 = %d\n", zoom, w1, h1);
 
-    utils_wb(buff, &rm, &bm, &mp, (uint32*)&buff[w1*h1*3], w1, h1, sh, bpp);
-    //printf("rm = %d bm = %d rm = %f bm = %f mp = %d\n", rm, bm, (double)rm/(double)(1<<sh), (double)bm/(double)(1<<sh), mp);
+    utils_wb(buff, &rm, &bm, mp, mx, r, g, b, w1, h1, sh);
+    printf("rm = %d bm = %d rm = %f bm = %f mp = %d\n", rm, bm, (double)rm/(double)(1<<sh), (double)bm/(double)(1<<sh), mp);
     //rm = 5000;
     switch(bg){
     case(BGGR):{

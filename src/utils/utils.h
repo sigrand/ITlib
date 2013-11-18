@@ -15,7 +15,7 @@ uint8* utils_16_to_8(const int16 *in, uint8 *out, const int w, const int h, int 
 void utils_zoom_out_rgb16_to_rgb16(const int16 *in, int16 *out, uint32 *buff, const int w, const int h, const int zoom);
 void utils_zoom_out_bayer16_to_rgb16(const uint16 *in, uint16 *out, uint32 *buff, const int w, const int h, const int zoom, const BayerGrid bay);
 
-void utils_wb(int16 *in, int *rm, int *bm, int *mp, uint32 *buff, const int w, const int h, const int sh, const int bpp);
+void utils_wb(int16 *in, int *rm, int *bm, int mp, int mx,  int r, int g, int b, const int w, const int h, const int sh);
 void utils_wb_rgb(int16 *in, int16 *out, int16 *buff, const int w, const int h, const int bpp);
 void utils_wb_bayer(const int16 *in, int16 *out, int16 *buff, const int w, const int h, const int bpp, const int bg);
 
@@ -30,7 +30,8 @@ void utils_add(const int16 *in, const int16 *in1, int16 *out, const int w, const
 
 void utils_resize_down_2(const int16 *in, int16 *out, int16 *buff, const int w, const int h);
 
-void utils_fill_hist_bayer(const uint16 *in, int *R, int *G, int *B, int *Y, int *buff, const int w, const int h, const BayerGrid bay, const int bpp);
+void utils_fill_hist_bayer(const uint16 *in, int *R, int *G, int *B, int *Y, int *buff, const int w, const int h, const BayerGrid bg, const int bpp);
+void utils_hist_wb(const uint16 *in, int *hi, int *r, int *g, int *b, const int w, const int h, const BayerGrid bg, const int bpp);
 void utils_lut_exp(int *ex, const int sd, const int sz);
 
 #ifdef __cplusplus
