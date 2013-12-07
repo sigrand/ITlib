@@ -10,7 +10,7 @@ extern "C"
 void hdr_ace(const int16 *in, int16 *out, int *buff, const int w, const int h, const int bpp, const int bpp1, const int cs);
 void hdr_diff(const int16 *in, const int16 *avr, int16 *dif, const int w, const int h, const int bpp);
 void hdr_ace_local(int16 *in, int16 *out, int16 *buff, const int w, const int h, const int bpp);
-void hdr_tone_bayer(int16 *in, int16 *out, int *buff, const int w, const int h, const BayerGrid bay, const int bpp, const int sd);
+void hdr_tone_bayer(int16 *in, int16 *out, int16 *buff, const int w, const int h, const BayerGrid bay, const int bpp, const int br, const int sd);
 
 #ifdef __cplusplus
 }

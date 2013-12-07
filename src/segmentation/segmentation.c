@@ -742,5 +742,4 @@ void seg_edge_detection(int16 *in, uint8 *con, const int w, const int h)
         }
     }
     printf("Numbers of intersection  = %d\n", npix);
-
 }

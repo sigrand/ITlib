@@ -17,7 +17,7 @@
     \param bpp1     The output image bits per pixel.
     \param w        The image width.
     \param h        The image height.
-    \param cs      The type of input image ColorSpace.
+    \param cs       The type of input image ColorSpace.
 */
 void hdr_ace(const int16 *in, int16 *out, int *buff, const int w, const int h, const int bpp, const int bpp1, const int cs)
 {
@@ -171,23 +171,26 @@ static inline void convolution_exp(int *in, int *out, int *ex, const int ns, con
     \param h        The image height.
     \param bay		The Bayer grids pattern.
     \param bpp		The pits per pixel.
+    \param br       The radius around the pixel.
     \param sd		The standard deviation.
 */
-void hdr_tone_bayer(int16 *in, int16 *out, int *buff, const int w, const int h, const BayerGrid bay, const int bpp, const int sd)
+void hdr_tone_bayer(int16 *in, int16 *out, int16 *buff, const int w, const int h, const BayerGrid bay, const int bpp, const int br, const int sd)
 {
-    int x, x1, y, yw, yx;
-    int i, ns = 1<<bpp, sz = 128;
+    int x, y, yw, yx, sz = w*h;
+    int i, ns = 1<<bpp, sz1 = 128;
     int *R, *G, *B, *Y; //Histograms
     int *rl, *gl, *bl;  //LUTs
     int ex[sz];
-    int tmp = 0;
+    int16 *iml = buff, *imh = &iml[sz], *buf = &imh[sz];
+    int min = 0, max = 0;
 
     //Prepare histograms and LUTs
+    /*
     R = buff; G = &R[ns]; B = &G[ns]; Y = &B[ns];
     rl = &Y[ns]; gl = &rl[ns]; bl = &gl[ns];
 
     utils_fill_hist_bayer(in, R, G, B, Y, &bl[ns], w, h, bay, bpp);
-    /*
+
     for(i=0; i < 1000; i++) printf("%4d  %d\n", i, Y[i]);
     for(i=0; i < ns; i++) tmp += R[i];
     printf("red w*h = %d  hist = %d\n", w*h>>2, tmp);
@@ -200,18 +203,43 @@ void hdr_tone_bayer(int16 *in, int16 *out, int *buff, const int w, const int h, 
     tmp = 0;
     for(i=0; i < ns; i++) tmp += Y[i];
     printf("blue w*h = %d  hist = %d\n", w*h>>2, tmp);
-    */
+
     //for(i=0; i< 500; i++) printf("%d Y = %d\n", i, Y[i]);
 
     utils_lut_exp(ex, sd, sz);
     //for(i=0; i < sz; i++) printf("ex = %d\n", ex[i]);
 
-    convolution_exp(R, rl, ex, ns, sz);
-    convolution_exp(G, gl, ex, ns, sz);
-    convolution_exp(B, bl, ex, ns, sz);
-
+    convolution_exp(R, rl, ex, ns, sz1);
+    convolution_exp(G, gl, ex, ns, sz1);
+    convolution_exp(B, bl, ex, ns, sz1);
+    */
     //for(i=0; i < 500; i++) printf("%4d %d\n", i, rl[i]);
 
+    // Low frequency iml
+    filters_bilateral_denoise_bayer(in, iml, buf, br, sd, w, h);
+
+    // High frequency imh
+    for(i=0; i < sz; i++) imh[i] = in[i] - iml[i];
+
+    //Reduce contrast
+    hdr_ace(iml, iml, (int*)buf, w, h, bpp, 8, BAYER);
+
+    //for(i=0; i < sz; i++) out[i] = imh[i] + 128;
+
+
+    //Making HDR image
+    for(i=0; i < sz; i++) {
+        out[i] = imh[i] + iml[i];
+        if     (out[i] > max) max = out[i];
+        else if(out[i] < min) min = out[i];
+    }
+    printf("min = %d max = %d\n", min, max);
+
+    //rang = (max - min);
+
+    for(i=0; i < sz; i++) out[i] = (out[i] - min)*255/(max - min);
+
+    /*
     for(y = 0; y < h; y++){
         yw = y*w;
         for(x = 0; x < w; x++){
@@ -264,6 +292,6 @@ void hdr_tone_bayer(int16 *in, int16 *out, int *buff, const int w, const int h, 
             }
         }
     }
-
+    */
 }
 

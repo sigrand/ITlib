@@ -308,6 +308,7 @@ void filters_NLM_denoise_bayer(int16 *in, int16 *avr, int16 *out, int16 *buff, c
     }
 }
 
+
 /** \brief The Bilateral Filtering denoise  algorithm.
     \param in       The input 16 bits bayer image.
     \param out      The output 16 bits bayer image.
