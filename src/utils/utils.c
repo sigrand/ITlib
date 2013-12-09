@@ -549,7 +549,9 @@ void utils_wb_bayer(const int16 *in, int16 *out, int16 *buff, const int w, const
     //printf("zoom = %d , w1 = %d h1 = %d\n", zoom, w1, h1);
 
     utils_wb(buff, &rm, &bm, mp, mx, r, g, b, w1, h1, sh);
+#ifdef ITLIB_DEBUG
     printf("rm = %d bm = %d rm = %f bm = %f mp = %d\n", rm, bm, (double)rm/(double)(1<<sh), (double)bm/(double)(1<<sh), mp);
+#endif
     //rm = 5000;
     switch(bg){
     case(BGGR):{

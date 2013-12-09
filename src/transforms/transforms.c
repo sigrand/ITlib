@@ -218,7 +218,7 @@ static void get_basis(int *n, const float t)
     n[2] = (t2*t2*t4 + t2*t3*t5 + t3*t3*t6)*8.;
     n[3] = (-t3*t3*t3)*8.;
 
-    printf("get_basis: n0 = %d n1 = %d n2 = %d n3 = %d\n", n[0], n[1], n[2], n[3]);
+    //printf("get_basis: n0 = %d n1 = %d n2 = %d n3 = %d\n", n[0], n[1], n[2], n[3]);
 }
 
 /** \brief Interpolation points in the central square for red and blue color
@@ -365,7 +365,7 @@ void  trans_bay_to_rgb_b_spline(int16 *in, int16 *out, int16 *buff, const int w,
                 out[yx3+1] = b_spline_g(&l[0][x+br1], &l[1][x+br1], &l[2][x+br1], &l[3][x+br1], &l[4][x+br1], &l[5][x+br1], &l[6][x+br1], n2, n2);
                 //Blue
                 out[yx3+2] = b_spline_rb(&l[0][x1+br], &l[2][x1+br], &l[4][x1+br], &l[6][x1+br], n2, n2);
-                dis += abs(in[yx] - out[yx3]);
+                //dis += abs(in[yx] - out[yx3]);
 
             } else if ((xt&1) && !(yt&1)){
                 //Red
@@ -374,7 +374,7 @@ void  trans_bay_to_rgb_b_spline(int16 *in, int16 *out, int16 *buff, const int w,
                 out[yx3+1] = b_spline_g(&l[0][x1+br1], &l[1][x1+br1], &l[2][x1+br1], &l[3][x1+br1], &l[4][x1+br1], &l[5][x1+br1], &l[6][x1+br1], n3, n1);
                 //Blue
                 out[yx3+2] = b_spline_rb(&l[0][x+br], &l[2][x+br], &l[4][x+br], &l[6][x+br], n1, n2);
-                dis += abs(in[yx] - out[yx3+1]);
+                //dis += abs(in[yx] - out[yx3+1]);
 
             } else if (!(xt&1) && (yt&1)){
                 //Red
@@ -383,7 +383,7 @@ void  trans_bay_to_rgb_b_spline(int16 *in, int16 *out, int16 *buff, const int w,
                 out[yx3+1] = b_spline_g(&l[0][x1+br1], &l[1][x1+br1], &l[2][x1+br1], &l[3][x1+br1], &l[4][x1+br1], &l[5][x1+br1], &l[6][x1+br1], n3, n1);
                 //Blue
                 out[yx3+2] = b_spline_rb(&l[1][x1+br], &l[3][x1+br], &l[5][x1+br], &l[7][x1+br], n2, n1);
-                dis += abs(in[yx] - out[yx3+1]);
+                //dis += abs(in[yx] - out[yx3+1]);
 
             } else if ((xt&1) && (yt&1)){
                 //Red
@@ -393,7 +393,7 @@ void  trans_bay_to_rgb_b_spline(int16 *in, int16 *out, int16 *buff, const int w,
                 out[yx3+1] = b_spline_g(&l[0][x+br1], &l[1][x+br1], &l[2][x+br1], &l[3][x+br1], &l[4][x+br1], &l[5][x+br1], &l[6][x+br1], n2, n2);
                 //Blue
                 out[yx3+2] = b_spline_rb(&l[1][x+br], &l[3][x+br], &l[5][x+br], &l[7][x+br], n1, n1);
-                dis += abs(in[yx] - out[yx3+2]);
+                //dis += abs(in[yx] - out[yx3+2]);
             }
             //out[yx3] = 0;
             //out[yx3+1] = 0;
@@ -418,7 +418,7 @@ void  trans_bay_to_rgb_b_spline(int16 *in, int16 *out, int16 *buff, const int w,
         for(i=1; i < ns; i++) l[i-1] = l[i];
         l[ns-1] =  tm;
     }
-    printf("dist = %d\n", dis/size);
+    //printf("dist = %d\n", dis/size);
 
     //for(i=0; i< 20; i++) printf("r = %d g = %d b = %d\n", out[i*3], out[i*3+1], out[i*3+2]);
 }

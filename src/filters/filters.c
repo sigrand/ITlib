@@ -214,7 +214,9 @@ int filters_median_bayer(int16 *in, int16 *out, int16 *buff, const int w, const 
         }
         tm = l[0]; l[0] = l[1]; l[1] = l[2]; l[2] = l[3]; l[3] = l[4]; l[4] = tm;
     }
+#ifdef ITLIB_DEBUG
     printf("cn = %d ds = %d persent = %d\n",cn, vc/cn, (cn*100)/(w*h));
+#endif
     return vc/cn;
 }
 

@@ -7,4 +7,6 @@ libpng
 autoreconf
 ./configure
 make
-
+### usage ###
+cd examples/
+./itlib -h

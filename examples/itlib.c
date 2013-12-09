@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 #include <png.h>
 
@@ -193,9 +194,9 @@ int writePNG(FILE* out_file, uint8* const buff, const int w, const int h, const 
     }
     png_write_end(png, info);
     png_destroy_write_struct(&png, &info);
-
-    if(verb)  print_first_pixels(buff, 10, bpp, colort, w);
-
+#ifdef ITLIB_DEBUG
+    print_first_pixels(buff, 10, bpp, colort, w);
+#endif
     return 0;
 }
 
@@ -240,9 +241,9 @@ int readPGM(FILE* in_file, uint8** buff, int* const w, int* const h, int* const 
         free(*buff);
         return 1;
     }
-
-    if(verb)  print_first_pixels(*buff, 10, 8, GREY, *w);
-
+#ifdef ITLIB_DEBUG
+    print_first_pixels(*buff, 10, 8, GREY, *w);
+#endif
     return 0;
 }
 
@@ -351,6 +352,9 @@ int main(int argc, const char *argv[]) {
     int min=0, max=0, size, sd = 100;
     TransState ts[2];
     void *tmp;
+    clock_t start, end;
+    struct timeval tv;
+    double time;
     in_file[0] = NULL; in_file[1] = NULL;
     buff[0] = NULL; buff[1] = NULL;
 
@@ -467,6 +471,7 @@ int main(int argc, const char *argv[]) {
                         ok = 1; goto End;
                     }
                     if(!strcmp(&in_file[f][strlen(in_file[f])-4],".pgm") || !strcmp(&in_file[f][strlen(in_file[f])-4],".PGM")){
+                        gettimeofday(&tv, NULL); start = tv.tv_usec + tv.tv_sec*1000000;
 
                         ok = readPGM(IN_FILE, &buff[f], &ts[f].w, &ts[f].h, &ts[f].bpp);
 
@@ -481,11 +486,14 @@ int main(int argc, const char *argv[]) {
                             copy_image8_to16(ts[f].pic[0], ts[f].pic[1], ts[f].w*ts[f].h);
                             tmp = ts[f].pic[0]; ts[f].pic[0] = ts[f].pic[1]; ts[f].pic[1] = tmp;
                         }
+                        gettimeofday(&tv, NULL); end  = tv.tv_usec + tv.tv_sec*1000000;
+                        time = (double)(end-start)/1000000.;
 
-                        if(verb) printf("Read %s file w = %d h = %d bpp = %d max = %d min = %d\n", in_file[f], ts[f].w, ts[f].h, ts[f].bpp, max, min);
+                        if(verb) printf("%9.6f Read %s file w = %d h = %d bpp = %d max = %d min = %d \n", time, in_file[f], ts[f].w, ts[f].h, ts[f].bpp, max, min);
 
                     } else if(!strcmp(&in_file[f][strlen(in_file[f])-4],".png") || !strcmp(&in_file[f][strlen(in_file[f])-4],".PNG")){
 
+                        gettimeofday(&tv, NULL); start = tv.tv_usec + tv.tv_sec*1000000;
                         ok = readPNG(IN_FILE, &buff[f], &ts[f].w, &ts[f].h, &ts[f].bpp, &ts[f].colort);
 
                         ts[f].pic[0] = buff[f];
@@ -494,7 +502,9 @@ int main(int argc, const char *argv[]) {
                         else copy_image8_to16(buff[f], ts[f].pic[1], ts[f].w*ts[f].h);
                         tmp = ts[f].pic[0]; ts[f].pic[0] = ts[f].pic[1]; ts[f].pic[1] = tmp; ts[f].bpp = 16;
 
-                        if(verb) printf("Read %s file w = %d h = %d bpp = %d colort = %d\n", in_file[f], ts[f].w, ts[f].h, ts[f].bpp, ts[f].colort);
+                        gettimeofday(&tv, NULL); end  = tv.tv_usec + tv.tv_sec*1000000;
+                        time = (double)(end-start)/1000000.;
+                        if(verb) printf("%9.6f Read %s file w = %d h = %d bpp = %d colort = %d\n", time, in_file[f], ts[f].w, ts[f].h, ts[f].bpp, ts[f].colort);
 
                     } else ok = 1;
 
@@ -527,32 +537,30 @@ int main(int argc, const char *argv[]) {
 
             if(!strcmp(&out_file[strlen(out_file)-4],".pgm") || !strcmp(&out_file[strlen(out_file)-4],".PGM")){
 
+                gettimeofday(&tv, NULL); start = tv.tv_usec + tv.tv_sec*1000000;
                 ok = writePGM(OUT_FILE, ts[n].pic[0], ts[n].w, ts[n].h, ts[n].bpp);
-                //if(verb) printf("Write %s file\n", out_file);
+
+                gettimeofday(&tv, NULL); end  = tv.tv_usec + tv.tv_sec*1000000;
+                time = (double)(end-start)/1000000.;
+                if(verb) printf("%9.6f Write %s file\n", time, out_file);
 
             } else if(!strcmp(&out_file[strlen(out_file)-4],".png") || !strcmp(&out_file[strlen(out_file)-4],".PNG")){
                 //printf("n = %d color = %d\n", n, ts[n].colort);
+                gettimeofday(&tv, NULL); start = tv.tv_usec + tv.tv_sec*1000000;
                 if(ts[n].colort == GREY || ts[n].colort == BAYER || ts[n].colort == YUV444 || ts[n].colort == YUV420){
-                    if(ts[n].bpp != 8) {
-                        utils_16_to_8(ts[n].pic[0], ts[n].pic[1], ts[n].w, ts[n].h, ts[n].bpp, 1);
-                        ok = writePNG(OUT_FILE, ts[n].pic[1], ts[n].w, ts[n].h, 8, GREY);
-                        //tmp = ts[n].pic[0]; ts[n].pic[0] = ts[n].pic[1]; ts[n].pic[1] = tmp; ts[n].bpp = 8;
-                    }
-
-                    ok = writePNG(OUT_FILE, ts[n].pic[0], ts[n].w, ts[n].h, ts[n].bpp, GREY);
+                    utils_16_to_8(ts[n].pic[0], (uint8 *)ts[n].pic[1], ts[n].w, ts[n].h, ts[n].bpp, 1);
+                    ok = writePNG(OUT_FILE, (uint8 *)ts[n].pic[1], ts[n].w, ts[n].h, 8, GREY);
                 } else if (ts[n].colort == RGB){
-                    if(ts[n].bpp != 8) {
-                        utils_16_to_8(ts[n].pic[0], ts[n].pic[1], ts[n].w, ts[n].h, ts[n].bpp, 2);
-                        ok = writePNG(OUT_FILE, ts[n].pic[1], ts[n].w, ts[n].h, 8, RGB);
-                        //tmp = ts[n].pic[0]; ts[n].pic[0] = ts[n].pic[1]; ts[n].pic[1] = tmp; ts[n].bpp = 8;
-                    }
-
-                    ok = writePNG(OUT_FILE, ts[n].pic[0], ts[n].w, ts[n].h, ts[n].bpp, RGB);
+                    utils_16_to_8(ts[n].pic[0], (uint8 *)ts[n].pic[1], ts[n].w, ts[n].h, ts[n].bpp, 3);
+                    ok = writePNG(OUT_FILE, (uint8 *)ts[n].pic[1], ts[n].w, ts[n].h, 8, RGB);
                 } else {
                     fprintf(stderr, "Error! Don't support color type %d\n", ts[n].colort);
                     ok = 1; goto End;
                 }
-                //if(verb) printf("Write %s file\n", out_file);
+
+                gettimeofday(&tv, NULL); end  = tv.tv_usec + tv.tv_sec*1000000;
+                time = (double)(end-start)/1000000.;
+                if(verb) printf("%9.6f Write %s file\n", time, out_file);
 
             } else ok = 1;
 
@@ -612,6 +620,8 @@ int main(int argc, const char *argv[]) {
             printf("%d ", n);
         } else if (!strcmp(argv[i], "wb") && tr) {
             //White balancing.........................................................................
+            gettimeofday(&tv, NULL); start = tv.tv_usec + tv.tv_sec*1000000;
+
             if(ts[n].colort == BAYER ){
                 utils_wb_bayer(ts[n].pic[0], ts[n].pic[1], (int16*)tmpb, ts[n].w, ts[n].h, ts[n].bpp, ts[n].bg);
                 tmp = ts[n].pic[0]; ts[n].pic[0] = ts[n].pic[1]; ts[n].pic[1] = tmp;
@@ -622,7 +632,10 @@ int main(int argc, const char *argv[]) {
                 fprintf(stderr, "Error! wb: Input image should be in bayer or rgb format.\n", out_file);
                 ok = 1; goto End;
             }
-            if(verb) printf("white balancing \n");
+
+            gettimeofday(&tv, NULL); end  = tv.tv_usec + tv.tv_sec*1000000;
+            time = (double)(end-start)/1000000.;
+            if(verb) printf("%9.6f White balancing \n", time);
 
         } else if (!strcmp(argv[i], "bay_rgb_bi") && tr) {
             if(ts[n].colort == BAYER){
@@ -646,6 +659,7 @@ int main(int argc, const char *argv[]) {
 
         } else if (!strcmp(argv[i], "med") && tr) {
             par = strtol(argv[i+1], NULL, 0);
+            gettimeofday(&tv, NULL); start = tv.tv_usec + tv.tv_sec*1000000;
 
             if(ts[n].colort == BAYER){
                 sd = filters_median_bayer(ts[n].pic[0], ts[n].pic[1], (int16*)tmpb, ts[n].w, ts[n].h, par);
@@ -657,24 +671,31 @@ int main(int argc, const char *argv[]) {
                 fprintf(stderr, "Error! median: Input image should be in bayer format.\n", out_file);
                 ok = 1; goto End;
             }
-            if(verb) printf("median filter\n");
+
+            gettimeofday(&tv, NULL); end  = tv.tv_usec + tv.tv_sec*1000000;
+            time = (double)(end-start)/1000000.;
+            if(verb) printf("%9.6f Median filter\n", time);
         } else if (!strcmp(argv[i], "ace") && tr) {
             par = strtol(argv[i+1], NULL, 0);
             if(!par) par = 8;
-            //printf("par = %d\n", par);
+
+            gettimeofday(&tv, NULL); start = tv.tv_usec + tv.tv_sec*1000000;
             if(ts[n].colort < RGBA){
                 //printf("bpp = %d\n", ts[n].bpp);
                 hdr_ace(ts[n].pic[0], ts[n].pic[1], (int*)tmpb, ts[n].w, ts[n].h, ts[n].bpp, par, ts[n].colort);
-                tmp = ts[n].pic[0]; ts[n].pic[0] = ts[n].pic[1]; ts[n].pic[1] = tmp; //ts[n].bpp = par;
+                tmp = ts[n].pic[0]; ts[n].pic[0] = ts[n].pic[1]; ts[n].pic[1] = tmp; ts[n].bpp = par;
             } else {
                 fprintf(stderr, "Error! ace: Input image should be in bayer or grey.\n", out_file);
                 ok = 1; goto End;
             }
-            if(verb) printf("ace filter\n");
+
+            gettimeofday(&tv, NULL); end  = tv.tv_usec + tv.tv_sec*1000000;
+            time = (double)(end-start)/1000000.;
+            if(verb) printf("%9.6f ACE transform\n", time);
         } else if (!strcmp(argv[i], "ace_local") && tr) {
             if(ts[n].colort == BAYER || ts[n].colort == GREY){
                 hdr_ace_local(ts[n].pic[0], ts[n].pic[1], (int16*)tmpb, ts[n].w, ts[n].h, ts[n].bpp);
-                tmp = ts[n].pic[0]; ts[n].pic[0] = ts[n].pic[1];  ts[n].pic[1] = tmp; //ts[n].bpp = 8;
+                tmp = ts[n].pic[0]; ts[n].pic[0] = ts[n].pic[1];  ts[n].pic[1] = tmp; ts[n].bpp = 8;
             } else {
                 fprintf(stderr, "Error! ace_local: Input image should be in bayer or grey format.\n", out_file);
                 ok = 1; goto End;
@@ -803,6 +824,8 @@ int main(int argc, const char *argv[]) {
             if(verb) printf("denoise  filter\n");
         } else if (!strcmp(argv[i], "dnois_bil") && tr) {
             par = strtol(argv[i+1], NULL, 0);
+
+            gettimeofday(&tv, NULL); start = tv.tv_usec + tv.tv_sec*1000000;
             if(ts[n].colort == GREY || ts[n].colort == BAYER){
                 filters_bilateral_denoise_bayer(ts[n].pic[0], ts[n].pic[1], (int16*)tmpb, par, sd, ts[n].w, ts[n].h);
                 tmp = ts[n].pic[0]; ts[n].pic[0] = ts[n].pic[1]; ts[n].pic[1] = tmp;
@@ -811,9 +834,14 @@ int main(int argc, const char *argv[]) {
                 fprintf(stderr, "Error! dnois_bil: Input image should be in bayer or grey format.\n", out_file);
                 ok = 1; goto End;
             }
-            if(verb) printf("denoise bilateral filter\n");
+
+            gettimeofday(&tv, NULL); end  = tv.tv_usec + tv.tv_sec*1000000;
+            time = (double)(end-start)/1000000.;
+            if(verb) printf("%9.6f Denoise bilateral filter\n", time);
         } else if (!strcmp(argv[i], "bay_rgb_s") && tr) {
             par = strtol(argv[i+1], NULL, 0);
+
+            gettimeofday(&tv, NULL); start = tv.tv_usec + tv.tv_sec*1000000;
             if(ts[n].colort == BAYER){
                 trans_bay_to_rgb_b_spline(ts[n].pic[0], ts[n].pic[1], (int16*)tmpb, ts[n].w, ts[n].h, ts[n].bg);
                 tmp = ts[n].pic[0]; ts[n].pic[0] = ts[n].pic[1]; ts[n].colort = RGB; ts[n].pic[1] = tmp;
@@ -822,8 +850,10 @@ int main(int argc, const char *argv[]) {
                 fprintf(stderr, "Error! bay_rgb_s: Input image should be in bayer format.\n", out_file);
                 ok = 1; goto End;
             }
-            if(verb) printf("bay_rgb_s spline approximation \n");
 
+            gettimeofday(&tv, NULL); end  = tv.tv_usec + tv.tv_sec*1000000;
+            time = (double)(end-start)/1000000.;
+            if(verb) printf("%9.6f Bayer to RGB B-spline approximation\n", time);
         } else if (!strcmp(argv[i], "rgb_yuv444") && tr) {
             if(ts[n].colort == RGB){
                 trans_rgb_to_yuv444(ts[n].pic[0], ts[n].pic[1], &((int16*)ts[n].pic[1])[ts[n].w*ts[n].h], &((int16*)ts[n].pic[1])[ts[n].w*ts[n].h<<1], ts[n].w, ts[n].h);

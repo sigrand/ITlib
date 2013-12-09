@@ -54,7 +54,7 @@ void hdr_ace(const int16 *in, int16 *out, int *buff, const int w, const int h, c
         //if(x<500) printf("%d \n", hi[x]);
         //hi[x] = (sum<<bpp1)/size;
     }
-    printf("hs = %d sum = %d\n", hs, sum);
+    //printf("hs = %d sum = %d\n", hs, sum);
     for(x=0; x < size; x++) out[x] = hi[in[x]];
     /*
     for(y=0; y < h; y++){
