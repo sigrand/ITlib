@@ -914,3 +914,35 @@ void utils_resize_down_2(const int16 *in, int16 *out, int16 *buff, const int w, 
     }
 }
 
+/** \brief Make binary array form 8bits array.
+    \param in	The input 8 bits array.
+    \param out 	The output 8 bits array.
+    \param size	The input array size.
+*/
+void array_to_bin(uint8 *in, uint8 *out, int size)
+{
+    uint32 i, j, k;
+    uint8 st = 1<<7;
+    for(i=0; i < size; i+=8){
+        k = i>>3;
+        out[k] = 0;
+        for(j=0; j < 8; j++){
+            out[k] |= in[i+j] ? (st>>j) : 0;
+        }
+    }
+}
+
+/** \brief Make 8bits array form bits array.
+    \param in	The input 8 bits array.
+    \param out 	The output 8 bits array.
+    \param size	The input array size.
+*/
+void bin_to_array(uint8 *in, uint8 *out, int size)
+{
+    uint32 i, j;
+    uint8 st = 1<<7;
+    for(i=0; i < size; i++){
+        j = i&7;
+        out[i] = (st>>j)&in[i>>3];
+    }
+}
