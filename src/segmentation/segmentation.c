@@ -111,7 +111,7 @@ void seg_canny_edge(int16 *in, int16 *out, int16 *buff, const int w, const int h
     uint32 i, j, y, x, x2, yx, yx1, yw, yw1, h1 = h-1, sh = 1, w2 = w + (sh<<1); //, sh1 = sh+1;
     int16  *tm, *l[3], *gr[3];
     int g[4], max, min[2];
-    uint8 *dr[2], *tm1, drt;
+    uint8 *dr[3], *tm1, drt;
 
     //Buffer for image
     l[0] = buff;
@@ -511,9 +511,8 @@ uint32 seg_end_of_edges(int16 *in, int16 *out, int16 *buff, const int w, const i
 
             if(l[3][x+sh]) {
                 //if(end_of_edge(l[2], l[3], l[4], x+sh)) { out[yx] = 252; i++; }
-                if(connect_edge(out, l[1], l[2], l[3], l[4], l[5], l[6], x+sh, yx, w)); // { out[yx] = 252; i++; }
+                if(connect_edge(out, l[1], l[2], l[3], l[4], l[5], l[6], x+sh, yx, w)) { out[yx] = 252; i++; }
             }
-
         }
         tm = l[0]; l[0] = l[1]; l[1] = l[2]; l[2] = l[3]; l[3] = l[4]; l[4] = l[5]; l[5] = l[6]; l[6] = tm;
     }
@@ -568,6 +567,7 @@ static inline uint32 find_dir(int *dr, int in)
     if(dr[5] == in) return 5;
     if(dr[6] == in) return 6;
     if(dr[7] == in) return 7;
+    return 8;
 }
 
 /**	\brief	Find the maximum around the pixel.

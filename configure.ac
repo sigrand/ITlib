@@ -1,17 +1,17 @@
-AC_INIT([ITlib], [0.01.0], [vadim@sigrand.com], [ITlib], [http://www.sigrand.com])
+AC_INIT([ITlib],[0.01.0],[vadim@sigrand.com],[ITlib],[http://www.sigrand.com])
 
-AC_PREREQ([2.59])
+AC_PREREQ([2.69])
 AM_INIT_AUTOMAKE([1.10 no-define])
 AC_CONFIG_HEADERS([config.h])
 #AC_CONFIG_FILES([Makefile])
 
-#AC_ISC_POSIX
+#AC_SEARCH_LIBS([strerror],[cposix])
 AC_PROG_CC
 AM_PROG_CC_C_O
 #AC_HEADER_STDC
-AM_PROG_LIBTOOL
+LT_INIT
 AC_PROG_RANLIB
-AC_PROG_LIBTOOL
+LT_INIT
 
 AC_ARG_ENABLE(debug,[--enable-debug  Enable debug notices],[debug=$enableval], [debug=no])
 
@@ -85,4 +85,5 @@ AC_SUBST(PNG_INCLUDES)
 CPPFLAGS=$SAVED_CPPFLAGS
 LIBS=$SAVED_LIBS
 
-AC_OUTPUT(Makefile  src/Makefile src/stereo/Makefile src/utils/Makefile src/transforms/Makefile src/filters/Makefile src/hdr/Makefile src/segmentation/Makefile examples/Makefile src/motion/Makefile)
+AC_CONFIG_FILES([Makefile  src/Makefile src/stereo/Makefile src/utils/Makefile src/transforms/Makefile src/filters/Makefile src/hdr/Makefile src/segmentation/Makefile examples/Makefile src/motion/Makefile])
+AC_OUTPUT

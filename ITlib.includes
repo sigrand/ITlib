@@ -1,0 +1,9 @@
+examples
+src/filters
+src/hdr
+src/libit
+src/motion
+src/segmentation
+src/stereo
+src/transforms
+src/utils

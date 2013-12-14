@@ -218,7 +218,7 @@ static inline uint32 check_pixel(int16 *l1, int16 *l2, int16 *l3, const int x, i
     \param  md      The maching distance.
     \retval			The start pixel for the left image for matching.
 */
-static uint32 get_left_array(int16 *st, int16 *en, double R, double r, double f, double d, double w, double pw, int *ls, int *md)
+static void get_left_array(int16 *st, int16 *en, double R, double r, double f, double d, double w, double pw, int *ls, int *md)
 {
     double a, b, a1, b1, c1;
     double x1, y1, x2, y2, xf, xn, yf, yn;
@@ -309,7 +309,7 @@ static uint32 get_left_array(int16 *st, int16 *en, double R, double r, double f,
     \param	w       The image width.
     \param  sh      The line shift.
 */
-static inline seg_horiz_max(int16 *r, int16 *l, int16 *inr, int16 *inl, const int w, const int sh, const int sl, int *nr, int *nl)
+static inline void seg_horiz_max(int16 *r, int16 *l, int16 *inr, int16 *inl, const int w, const int sh, const int sl, int *nr, int *nl)
 {
     int  x, xs;
     *nr = 0;

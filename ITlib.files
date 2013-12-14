@@ -1,0 +1,17 @@
+examples/itlib.c
+examples/itlib.h
+src/filters/filters.c
+src/filters/filters.h
+src/hdr/hdr.c
+src/hdr/hdr.h
+src/libit/types.h
+src/motion/motion.c
+src/motion/motion.h
+src/segmentation/segmentation.c
+src/segmentation/segmentation.h
+src/stereo/stereo.c
+src/stereo/stereo.h
+src/transforms/transforms.c
+src/transforms/transforms.h
+src/utils/utils.c
+src/utils/utils.h

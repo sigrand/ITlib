@@ -150,7 +150,7 @@ void utils_zoom_out_rgb16_to_rgb16(const int16 *in, int16 *out, uint32 *buff, co
     \param zoom 	The zoom parameter 1 - 2x, 2 - 4x, 3 - 6x times ...
     \param bay		The Bayer grids pattern.
 */
-void utils_zoom_out_bayer16_to_rgb16(const uint16 *in, uint16 *out, uint32 *buff, const int w, const int h, const int zoom, const BayerGrid bay)
+void utils_zoom_out_bayer16_to_rgb16(const int16 *in, int16 *out, uint32 *buff, const int w, const int h, const int zoom, const BayerGrid bay)
 {
     int i, j, x, x1, y, y1, yw, yx, sq = zoom*zoom, zoom2 = zoom<<1, w1 = w/zoom2, zm;
     uint32 max = 1<<31, sh = 0;
@@ -305,7 +305,7 @@ void utils_fill_hist_bayer(const uint16 *in, int *R, int *G, int *B, int *Y, int
     \param bg		The Bayer grids pattern.
     \param bpp		The pits per pixel.
 */
-void utils_hist_wb(const uint16 *in, int *hi, int *r, int *g, int *b, const int w, const int h, const BayerGrid bg, const int bpp)
+void utils_hist_wb(const int16 *in, int *hi, int *r, int *g, int *b, const int w, const int h, const BayerGrid bg, const int bpp)
 {
     int i, x,  y, yw, yx;
     int ns = 1<<bpp, sz = w*h;

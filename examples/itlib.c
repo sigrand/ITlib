@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <time.h>
+#include <sys/time.h>
 
 #include <png.h>
 
@@ -52,7 +52,7 @@ static void PNGAPI error_function(png_structp png, png_const_charp dummy)
     \param colort	The pointer to color types.
     \retval         The return value, if 0 - OK.
 */
-int readPNG(FILE* in_file, uint8** buff, int* const w, int* const h, int* const bpp, int* const colort)
+int readPNG(FILE* in_file, uint8** buff, int *w, int *h, int *bpp, int *colort)
 {
     png_structp png;
     png_infop info = NULL, end_info = NULL;
@@ -86,7 +86,7 @@ int readPNG(FILE* in_file, uint8** buff, int* const w, int* const h, int* const 
 
     png_init_io(png, in_file);
     png_read_info(png, info);
-    if (!png_get_IHDR(png, info, w, h, bpp, colort, &interlaced, NULL, NULL)) {
+    if (!png_get_IHDR(png, info, (uint32*)w, (uint32*)h, bpp, colort, &interlaced, NULL, NULL)) {
         fprintf(stderr, "Error! readPNG: Can't create png_get_IHDR\n");
         ok = 1; goto End;
     }
@@ -210,7 +210,7 @@ int writePNG(FILE* out_file, uint8* const buff, const int w, const int h, const 
 */
 int readPGM(FILE* in_file, uint8** buff, int* const w, int* const h, int* const bpp)
 {
-    uint8 line[10];
+    char line[10];
     int size;
 
     fscanf(in_file, "%s", line);
@@ -629,7 +629,7 @@ int main(int argc, const char *argv[]) {
                 utils_wb_rgb(ts[n].pic[0], ts[n].pic[1], (int16*)tmpb, ts[n].w, ts[n].h, ts[n].bpp);
                 tmp = ts[n].pic[0]; ts[n].pic[0] = ts[n].pic[1]; ts[n].pic[1] = tmp;
             } else {
-                fprintf(stderr, "Error! wb: Input image should be in bayer or rgb format.\n", out_file);
+                fprintf(stderr, "Error! wb: Input image should be in bayer or rgb format.\n");
                 ok = 1; goto End;
             }
 
@@ -642,7 +642,7 @@ int main(int argc, const char *argv[]) {
                 trans_bay_to_rgb_bi(ts[n].pic[0], ts[n].pic[1], (int16*)tmpb, ts[n].w, ts[n].h, ts[n].bg);
                 tmp = ts[n].pic[0]; ts[n].pic[0] = ts[n].pic[1]; ts[n].pic[1] = tmp; ts[n].colort = RGB;
             } else {
-                fprintf(stderr, "Error! bay_to_rgb_bi: Input image should be in bayer format .\n", out_file);
+                fprintf(stderr, "Error! bay_to_rgb_bi: Input image should be in bayer format .\n");
                 ok = 1; goto End;
             }
             if(verb) printf("bay_to_rgb_bi transform\n");
@@ -652,7 +652,7 @@ int main(int argc, const char *argv[]) {
                 trans_bay_to_grey_bi(ts[n].pic[0], ts[n].pic[1], (int16*)tmpb, ts[n].w, ts[n].h, ts[n].bg);
                 tmp = ts[n].pic[0]; ts[n].pic[0] = ts[n].pic[1]; ts[n].pic[1] = tmp; ts[n].colort = GREY;
             } else {
-                fprintf(stderr, "Error! bay_to_grey_bi: Input image should be in bayer format.\n", out_file);
+                fprintf(stderr, "Error! bay_to_grey_bi: Input image should be in bayer format.\n");
                 ok = 1; goto End;
             }
             if(verb) printf("bay_to_grey_bi transform\n");
@@ -668,7 +668,7 @@ int main(int argc, const char *argv[]) {
                 filters_median(ts[n].pic[0], ts[n].pic[1], (int16*)tmpb, ts[n].w, ts[n].h, par);
                 tmp = ts[n].pic[0]; ts[n].pic[0] = ts[n].pic[1]; ts[n].pic[1] = tmp;
             } else {
-                fprintf(stderr, "Error! median: Input image should be in bayer format.\n", out_file);
+                fprintf(stderr, "Error! median: Input image should be in bayer format.\n");
                 ok = 1; goto End;
             }
 
@@ -685,7 +685,7 @@ int main(int argc, const char *argv[]) {
                 hdr_ace(ts[n].pic[0], ts[n].pic[1], (int*)tmpb, ts[n].w, ts[n].h, ts[n].bpp, par, ts[n].colort);
                 tmp = ts[n].pic[0]; ts[n].pic[0] = ts[n].pic[1]; ts[n].pic[1] = tmp; ts[n].bpp = par;
             } else {
-                fprintf(stderr, "Error! ace: Input image should be in bayer or grey.\n", out_file);
+                fprintf(stderr, "Error! ace: Input image should be in bayer or grey.\n");
                 ok = 1; goto End;
             }
 
@@ -697,7 +697,7 @@ int main(int argc, const char *argv[]) {
                 hdr_ace_local(ts[n].pic[0], ts[n].pic[1], (int16*)tmpb, ts[n].w, ts[n].h, ts[n].bpp);
                 tmp = ts[n].pic[0]; ts[n].pic[0] = ts[n].pic[1];  ts[n].pic[1] = tmp; ts[n].bpp = 8;
             } else {
-                fprintf(stderr, "Error! ace_local: Input image should be in bayer or grey format.\n", out_file);
+                fprintf(stderr, "Error! ace_local: Input image should be in bayer or grey format.\n");
                 ok = 1; goto End;
             }
             if(verb) printf("ace_local filter\n");
@@ -712,7 +712,7 @@ int main(int argc, const char *argv[]) {
                 tmp = ts[n].pic[0]; ts[n].pic[0] = ts[n].pic[1]; ts[n].pic[1] = tmp;
 
             } else {
-                fprintf(stderr, "Error! average: Input image should be in bayer or grey format.\n", out_file);
+                fprintf(stderr, "Error! average: Input image should be in bayer or grey format.\n");
                 ok = 1; goto End;
             }
             if(verb) printf("average filter\n");
@@ -722,7 +722,7 @@ int main(int argc, const char *argv[]) {
                 tmp = ts[n].pic[0]; ts[n].pic[0] = ts[n].pic[1]; ts[n].pic[1] = tmp;
 
             } else {
-                fprintf(stderr, "Error! hess: Input image should be in bayer or grey format.\n", out_file);
+                fprintf(stderr, "Error! hess: Input image should be in bayer or grey format.\n");
                 ok = 1; goto End;
             }
             if(verb) printf("hessian filter\n");
@@ -736,11 +736,11 @@ int main(int argc, const char *argv[]) {
                     tmp = ts[n].pic[0]; ts[n].pic[0] = ts[n].pic[1]; ts[n].pic[1] = tmp;
 
                 } else {
-                    fprintf(stderr, "Error! subtract: Input image should be in bayer or grey format.\n", out_file);
+                    fprintf(stderr, "Error! subtract: Input image should be in bayer or grey format.\n");
                     ok = 1; goto End;
                 }
             } else {
-                fprintf(stderr, "Error! subtract: Should be two image in input.\n", out_file);
+                fprintf(stderr, "Error! subtract: Should be two image in input.\n");
                 ok = 1; goto End;
             }
             if(verb) printf("subtract two image\n");
@@ -752,11 +752,11 @@ int main(int argc, const char *argv[]) {
                     tmp = ts[n].pic[0]; ts[n].pic[0] = ts[n].pic[1];  ts[n].bpp = ts[1].bpp; ts[n].pic[1] = tmp;
 
                 } else {
-                    fprintf(stderr, "Error! add: Input image should be in bayer or grey format.\n", out_file);
+                    fprintf(stderr, "Error! add: Input image should be in bayer or grey format.\n");
                     ok = 1; goto End;
                 }
             } else {
-                fprintf(stderr, "Error! add: Should be two image in input.\n", out_file);
+                fprintf(stderr, "Error! add: Should be two image in input.\n");
                 ok = 1; goto End;
             }
             if(verb) printf("add two image\n");
@@ -769,11 +769,11 @@ int main(int argc, const char *argv[]) {
                     tmp = ts[n].pic[0]; ts[n].pic[0] = ts[n].pic[1];  ts[n].bpp = ts[1].bpp; ts[n].pic[1] = tmp;
 
                 } else {
-                    fprintf(stderr, "Error! dnois_nlm: Input image should be in bayer or grey format.\n", out_file);
+                    fprintf(stderr, "Error! dnois_nlm: Input image should be in bayer or grey format.\n");
                     ok = 1; goto End;
                 }
             } else {
-                fprintf(stderr, "Error! dnois_nlm: Should be two image in input.\n", out_file);
+                fprintf(stderr, "Error! dnois_nlm: Should be two image in input.\n");
                 ok = 1; goto End;
             }
             if(verb) printf("denoise filter\n");
@@ -786,11 +786,11 @@ int main(int argc, const char *argv[]) {
                     tmp = ts[n].pic[0]; ts[n].pic[0] = ts[n].pic[1]; ts[n].bpp = ts[1].bpp; ts[n].pic[1] = tmp;
 
                 } else {
-                    fprintf(stderr, "Error! mse: Input image should be in bayer or grey format.\n", out_file);
+                    fprintf(stderr, "Error! mse: Input image should be in bayer or grey format.\n");
                     ok = 1; goto End;
                 }
             } else {
-                fprintf(stderr, "Error! mse: Should be two image in input.\n", out_file);
+                fprintf(stderr, "Error! mse: Should be two image in input.\n");
                 ok = 1; goto End;
             }
             if(verb) printf("mse\n");
@@ -803,11 +803,11 @@ int main(int argc, const char *argv[]) {
                     tmp = ts[n].pic[0]; ts[n].pic[0] = ts[n].pic[1]; ts[n].bpp = ts[1].bpp; ts[n].pic[1] = tmp;
 
                 } else {
-                    fprintf(stderr, "Error! dnois: Input image should be in bayer or grey format.\n", out_file);
+                    fprintf(stderr, "Error! dnois: Input image should be in bayer or grey format.\n");
                     ok = 1; goto End;
                 }
             } else {
-                fprintf(stderr, "Error! dnois: Should be two image in input.\n", out_file);
+                fprintf(stderr, "Error! dnois: Should be two image in input.\n");
                 ok = 1; goto End;
             }
             if(verb) printf("dnois\n");
@@ -818,7 +818,7 @@ int main(int argc, const char *argv[]) {
                 tmp = ts[n].pic[0]; ts[n].pic[0] = ts[n].pic[1]; ts[n].pic[1] = tmp;
 
             } else {
-                fprintf(stderr, "Error! dnois_reg: Input image should be in bayer or grey format.\n", out_file);
+                fprintf(stderr, "Error! dnois_reg: Input image should be in bayer or grey format.\n");
                 ok = 1; goto End;
             }
             if(verb) printf("denoise  filter\n");
@@ -831,7 +831,7 @@ int main(int argc, const char *argv[]) {
                 tmp = ts[n].pic[0]; ts[n].pic[0] = ts[n].pic[1]; ts[n].pic[1] = tmp;
 
             } else {
-                fprintf(stderr, "Error! dnois_bil: Input image should be in bayer or grey format.\n", out_file);
+                fprintf(stderr, "Error! dnois_bil: Input image should be in bayer or grey format.\n");
                 ok = 1; goto End;
             }
 
@@ -847,7 +847,7 @@ int main(int argc, const char *argv[]) {
                 tmp = ts[n].pic[0]; ts[n].pic[0] = ts[n].pic[1]; ts[n].colort = RGB; ts[n].pic[1] = tmp;
 
             } else {
-                fprintf(stderr, "Error! bay_rgb_s: Input image should be in bayer format.\n", out_file);
+                fprintf(stderr, "Error! bay_rgb_s: Input image should be in bayer format.\n");
                 ok = 1; goto End;
             }
 
@@ -860,7 +860,7 @@ int main(int argc, const char *argv[]) {
                 tmp = ts[n].pic[0]; ts[n].pic[0] = ts[n].pic[1]; ts[n].colort = YUV444; ts[n].pic[1] = tmp;
 
             } else {
-                fprintf(stderr, "Error! rgb_yuv444: Input image should be in rgb format.\n", out_file);
+                fprintf(stderr, "Error! rgb_yuv444: Input image should be in rgb format.\n");
                 ok = 1; goto End;
             }
             if(verb) printf("rgb_yuv444 transform \n");
@@ -870,7 +870,7 @@ int main(int argc, const char *argv[]) {
                 tmp = ts[n].pic[0]; ts[n].pic[0] = ts[n].pic[1]; ts[n].colort = YUV420; ts[n].pic[1] = tmp;
 
             } else {
-                fprintf(stderr, "Error! rgb_yuv420: Input image should be in rgb format.\n", out_file);
+                fprintf(stderr, "Error! rgb_yuv420: Input image should be in rgb format.\n");
                 ok = 1; goto End;
             }
             if(verb) printf("rgb_yuv420 transform \n");
@@ -881,7 +881,7 @@ int main(int argc, const char *argv[]) {
                 tmp = ts[n].pic[0]; ts[n].pic[0] = ts[n].pic[1]; ts[n].pic[1] = tmp;
 
             } else {
-                fprintf(stderr, "Error! grad: Input image should be in grey format.\n", out_file);
+                fprintf(stderr, "Error! grad: Input image should be in grey format.\n");
                 ok = 1; goto End;
             }
             if(verb) printf("gradient transform \n");
@@ -891,7 +891,7 @@ int main(int argc, const char *argv[]) {
                 seg_local_max(ts[n].pic[0], ts[n].pic[1], (int16*)tmpb, ts[n].w, ts[n].h);
                 tmp = ts[n].pic[0]; ts[n].pic[0] = ts[n].pic[1]; ts[n].pic[1] = tmp;
             } else {
-                fprintf(stderr, "Error! lmax: Input image should be in grey format.\n", out_file);
+                fprintf(stderr, "Error! lmax: Input image should be in grey format.\n");
                 ok = 1; goto End;
             }
             if(verb) printf("Find local maximum\n");
@@ -901,7 +901,7 @@ int main(int argc, const char *argv[]) {
                 seg_edge_detection(ts[n].pic[0], ts[n].pic[1], ts[n].w, ts[n].h);
                 tmp = ts[n].pic[0]; ts[n].pic[0] = ts[n].pic[1]; ts[n].pic[1] = tmp;  ts[n].bpp = 8;
             } else {
-                fprintf(stderr, "Error! edge: Input image should be in grey format.\n", out_file);
+                fprintf(stderr, "Error! edge: Input image should be in grey format.\n");
                 ok = 1; goto End;
             }
             if(verb) printf("Edge detection\n");
@@ -911,7 +911,7 @@ int main(int argc, const char *argv[]) {
                 seg_canny_edge(ts[n].pic[0], ts[n].pic[1], (int16*)tmpb, ts[n].w, ts[n].h, par);
                 tmp = ts[n].pic[0]; ts[n].pic[0] = ts[n].pic[1]; ts[n].pic[1] = tmp;
             } else {
-                fprintf(stderr, "Error! canny: Input image should be in grey format.\n", out_file);
+                fprintf(stderr, "Error! canny: Input image should be in grey format.\n");
                 ok = 1; goto End;
             }
             if(verb) printf("Canny edge detection\n");
@@ -922,7 +922,7 @@ int main(int argc, const char *argv[]) {
                 tmp = ts[n].pic[0]; ts[n].pic[0] = ts[n].pic[1]; ts[n].pic[1] = tmp;
                 ts[n].w = ts[n].w>>1; ts[n].h = ts[n].h>>1;
             } else {
-                fprintf(stderr, "Error! res_down_2: Input image should be in grey format.\n", out_file);
+                fprintf(stderr, "Error! res_down_2: Input image should be in grey format.\n");
                 ok = 1; goto End;
             }
             if(verb) printf("Two times downsampling image\n");
@@ -932,7 +932,7 @@ int main(int argc, const char *argv[]) {
                 seg_end_of_edges(ts[n].pic[0], ts[n].pic[1], (int16*)tmpb, ts[n].w, ts[n].h);
                 tmp = ts[n].pic[0]; ts[n].pic[0] = ts[n].pic[1]; ts[n].pic[1] = tmp;
             } else {
-                fprintf(stderr, "Error! end_of_edges: Input image should be in grey format.\n", out_file);
+                fprintf(stderr, "Error! end_of_edges: Input image should be in grey format.\n");
                 ok = 1; goto End;
             }
             if(verb) printf("Found end of edges\n");
@@ -942,7 +942,7 @@ int main(int argc, const char *argv[]) {
                 seg_corners(ts[n].pic[0], ts[n].pic[1], (int16*)tmpb, ts[n].w, ts[n].h, par);
                 tmp = ts[n].pic[0]; ts[n].pic[0] = ts[n].pic[1]; ts[n].pic[1] = tmp;
             } else {
-                fprintf(stderr, "Error! corners: Input image should be in grey format.\n", out_file);
+                fprintf(stderr, "Error! corners: Input image should be in grey format.\n");
                 ok = 1; goto End;
             }
             if(verb) printf("Corners detection\n");
@@ -955,11 +955,11 @@ int main(int argc, const char *argv[]) {
                     dis3d = 1;
 
                 } else {
-                    fprintf(stderr, "Error! s_disp: Input image should be RGB format.\n", out_file);
+                    fprintf(stderr, "Error! s_disp: Input image should be RGB format.\n");
                     ok = 1; goto End;
                 }
             } else {
-                fprintf(stderr, "Error! s_disp: Should be stereo pair in input.\n", out_file);
+                fprintf(stderr, "Error! s_disp: Should be stereo pair in input.\n");
                 ok = 1; goto End;
             }
             if(verb) printf("Calculate disparity\n");
@@ -972,11 +972,11 @@ int main(int argc, const char *argv[]) {
                     tmp = ts[n].pic[0]; ts[n].pic[0] = ts[n].pic[1]; ts[n].pic[1] = tmp;
 
                 } else {
-                    fprintf(stderr, "Error! s_filt: Input image should be GREY format.\n", out_file);
+                    fprintf(stderr, "Error! s_filt: Input image should be GREY format.\n");
                     ok = 1; goto End;
                 }
             } else {
-                fprintf(stderr, "Error! s_filt: Should be disparity in input.\n", out_file);
+                fprintf(stderr, "Error! s_filt: Should be disparity in input.\n");
                 ok = 1; goto End;
             }
             if(verb) printf("Filter disparity\n");
@@ -987,7 +987,7 @@ int main(int argc, const char *argv[]) {
                         tmp = ts[n].pic[0]; ts[n].pic[0] = ts[n].pic[1]; ts[n].pic[1] = tmp;
 
             } else {
-                fprintf(stderr, "Error! ton_map: Input image should be BAYER format.\n", out_file);
+                fprintf(stderr, "Error! ton_map: Input image should be BAYER format.\n");
                 ok = 1; goto End;
             }
             if(verb) printf("Tone mapping filter\n");
