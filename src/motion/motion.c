@@ -10,15 +10,17 @@
 */
 void find_object(uint32 *ing, uint16 *out, const int w, const int h, const int br, Object *obj)
 {
-    int x, y, yw, yx, wb = w + br, hb = h + br;
-    int w1 = w + br*2, ox = (obj->sz.x-1)>>1, oy = (obj->sz.y-1)>>1;
+    int x, y, yw, yw1, yx, yx1, w1 = w + br*2, h1 = h + br*2;
+    int ox = obj->sz.x, oy = obj->sz.y, oxh = (obj->sz.x>>1)+1, oyh = (obj->sz.y>>1)+1;
 
 
-    for(y=br; y < hb; y++){
-        yw = y*w1;
-        for(x=br; x < wb; x++){
+    for(y=0; y < h; y++){
+        yw = y*w;
+        yw1 = (y + br - oyh)*w1;
+        for(x=0; x < w; x++){
             yx = yw + x;
-            out[yx] = ing[yx + ox + oy*w1] + ing[yx - (ox+1) - (oy+1)*w1] - ing[yx + ox - (oy+1)*w1] - ing[yx - (ox+1) + oy*w1];
+            yx1 = yw1 + (x + br - oxh);
+            out[yx] = (ing[yx1 + ox + oy*w1] + ing[yx1] - ing[yx1 + ox] - ing[yx1 + oy*w1]);
         }
     }
 }
