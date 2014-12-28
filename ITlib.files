@@ -15,3 +15,6 @@ src/transforms/transforms.c
 src/transforms/transforms.h
 src/utils/utils.c
 src/utils/utils.h
+src/trans/Makefile.am
+src/trans/trans.h
+src/trans/trans.c

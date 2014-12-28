@@ -413,6 +413,7 @@ int main(int argc, const char *argv[]) {
                    "  canny <x>        Canny edge detection, x - gardient threshould, if less than th,  = 0 \n"
                    "  corner <x>       Corners detection, x - threshould, if less than th,  = 0 \n"
                    "  gamma            Calculate gamma table\n"
+                   "  trans            Calculate transformer table\n"
                    "\n"
                    "  Stereo options\n"
                    "  s_disp           Calculate disparity"
@@ -995,6 +996,9 @@ int main(int argc, const char *argv[]) {
         } else if (!strcmp(argv[i], "gamma") && tr ) {
             gamma_table(512, 1024);
             if(verb) printf("Calculate gamma table\n");
+        }else if (!strcmp(argv[i], "trans") && tr ) {
+            trans();
+            if(verb) printf("Calculate transformer table\n");
         }
     }
 

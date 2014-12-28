@@ -8,7 +8,7 @@ extern "C"
 {
 #endif /*__cplusplus*/
 
-void trans(const int16 *in, int16 *rgb, int16 *buff, const int w, const int h, const BayerGrid bay);
+void trans(void);
 
 #ifdef __cplusplus
 }
