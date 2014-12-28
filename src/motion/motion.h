@@ -10,7 +10,7 @@ typedef struct
 typedef struct
 {
     Vector sz;  //Size w and h
-    Vector cog; //Center Of Gravity
+    Vector cg; //Center Of Gravity
     int nc;     //Number of Cells in the object
 
 }   Object;
