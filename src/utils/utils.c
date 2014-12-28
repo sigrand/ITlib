@@ -946,3 +946,34 @@ void bin_to_array(uint8 *in, uint8 *out, int size)
         out[i] = (st>>j)&in[i>>3];
     }
 }
+
+/** \brief Billiniar interpolation
+    \param in	The input 8 bits array.
+    \param out 	The output 8 bits array.
+    \param size	The input array size.
+*/
+uint8 get_billiniar_value(uint8 *img, int w, int16 xh, int16 yh, int sh, int mask)
+{
+    int x = xh>>sh, y = yh>>sh;
+    int yw = w*y;
+    int xb = xh&mask, yb = yh&mask;
+    int dx1 = img[x+1+yw] - img[x+yw], dx2 = img[x+1 + (y+1)*w] - img[x + (y+1)*w];
+    int px = img[x+1+yw] + (dx1*xb>>sh);
+    int dy = px - img[x+1 + (y+1)*w] - (dx2*xb>>sh);
+    return px + (dy*yb>>sh);
+}
+
+void lut_image(uint8 *in, uint8 *out, uint16 *xy, int w, int h, int sh)
+{
+    int i, x, y, yw, yx;
+    int mask = 0;
+    for(i=0; i < sh; i++) mask = (mask<<1) + 1;
+
+    for(y=0; y < h; y++){
+        yw = y*w;
+        for(x=0; x < w; x++){
+            yx = yw + x;
+            out[yx] = get_billiniar_value(in, w, xy[yx<<1], xy[(yx<<1)+1], sh, mask);
+        }
+    }
+}

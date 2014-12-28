@@ -1,4 +1,4 @@
-SUBDIRS = utils transforms filters hdr segmentation stereo motion
+SUBDIRS = utils transforms filters hdr segmentation stereo motion trans
 #segment hdr filters transforms libit 
 
 AM_CPPFLAGS = -I$(top_srcdir)/src
@@ -23,5 +23,4 @@ libit_la_LIBADD += hdr/libithdr.la
 libit_la_LIBADD += segmentation/libitseg.la
 libit_la_LIBADD += stereo/libitstereo.la
 libit_la_LIBADD += motion/libitmotion.la
-
-
+libit_la_LIBADD += trans/libittrans.la

@@ -412,7 +412,8 @@ int main(int argc, const char *argv[]) {
                    "  edge             Edge detection \n"
                    "  canny <x>        Canny edge detection, x - gardient threshould, if less than th,  = 0 \n"
                    "  corner <x>       Corners detection, x - threshould, if less than th,  = 0 \n"
-                    "\n"
+                   "  gamma            Calculate gamma table\n"
+                   "\n"
                    "  Stereo options\n"
                    "  s_disp           Calculate disparity"
                    "  s_filt           Filter disparity"
@@ -991,6 +992,9 @@ int main(int argc, const char *argv[]) {
                 ok = 1; goto End;
             }
             if(verb) printf("Tone mapping filter\n");
+        } else if (!strcmp(argv[i], "gamma") && tr ) {
+            gamma_table(512, 1024);
+            if(verb) printf("Calculate gamma table\n");
         }
     }
 

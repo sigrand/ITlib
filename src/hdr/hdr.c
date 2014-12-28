@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <math.h>
 
 #include "../libit/types.h"
 #include "./hdr.h"
@@ -295,3 +296,78 @@ void hdr_tone_bayer(int16 *in, int16 *out, int16 *buff, const int w, const int h
     */
 }
 
+void gamma_table(int in, int out)
+{
+    double gam[512], gam1[512], gam2[512], ia, a = 0.02, a1 = 20, b;
+    uint32 i, j, gamma[512], vl0, vl1, hdr = 0;
+    in = 511; out = 1023;
+
+    if(hdr == 0){
+        for(i=0; i < 512; i++){
+            //ia = in*a;
+            gam[i] = out*((log(i + in*a) - log(in*a))/(log(in + in*a) - log(in*a)));
+        }
+
+        vl0 = 0;
+        for(i=1; i < 512; i++){
+            vl1 = gam[i];
+            gamma[i-1] = (vl0<<10) | (vl1 - vl0);
+            //gamma[i-1] = vl0;
+            //printf("%3d  %3d\n", i, vl0);
+            printf("%7d, ", gamma[i-1]);
+            if(!(i&15)) printf("\n");
+            vl0 = vl1;
+        }
+        gamma[511] = vl0<<10;
+        printf("%7d, ", gamma[511]);
+        //printf("%3d  %3d,", vl0, (vl1 - vl0));
+    } else if (hdr == 1){
+        for(i=0; i < 512; i++){
+            //ia = in*a;
+            gam1[i] = out*((log(i + in*a) - log(in*a))/(log(in + in*a) - log(in*a)));
+            gam2[i] = (out - out*((log((511-i) + in*a1) - log(in*a1))/(log(in + in*a1) - log(in*a1))));
+            gam[i] = (gam1[i]*(511-i) +  gam2[i]*i)/511;
+        }
+
+        vl0 = 0;
+        for(i=1; i < 512; i++){
+            vl1 = gam[i];
+            gamma[i-1] = (vl0<<10) | (vl1 - vl0);
+            //rintf("%3d   %3d  %3d\n", i-1, vl0, (vl1 - vl0));
+            printf("%7d, ", gamma[i-1]);
+            if(!(i&15)) printf("\n");
+            vl0 = vl1;
+        }
+        gamma[511] = vl0<<10;
+        printf("%7d, \n", gamma[511]);
+        //printf("%3d   %3d  %3d\n", 511, vl0, (vl1 - vl0));
+
+    } else if(hdr == 2){
+        float px[6], py[6];
+        px[0] = 0; px[1] = 20;  px[2] = 40;  px[3] = 512;  //px[3] = px[5] - 20; px[4] = px[5] - 10;
+        py[0] = 0; py[1] = 200; py[2] = 300; py[3] = 1023; //py[3] = py[5] - 40; py[4] = py[5] - 20;
+
+        for(j=0; j < 3; j++){
+            a = (py[j] - py[j+1])/(px[j] - px[j+1]);
+            b = (px[j]*py[j+1] - px[j+1]*py[j])/(px[j] - px[j+1]);
+            for(i=px[j]; i < px[j+1]; i++){
+                gam[i] = a*i + b;
+                printf("i = %d gam = %f a = %f b = %f j = %d\n", i, gam[i], a, b, j);
+            }
+        }
+
+        vl0 = 0;
+        for(i=1; i < 512; i++){
+            vl1 = gam[i];
+            gamma[i-1] = (vl0<<10) | (vl1 - vl0);
+            //printf("%3d  %3d\n", i, vl0);
+            printf("%7d, ", gamma[i-1]);
+            if(!(i&15)) printf("\n");
+            vl0 = vl1;
+        }
+        gamma[511] = vl0<<10;
+        printf("%7d, ", gamma[511]);
+        //printf("%3d  %3d,", vl0, (vl1 - vl0));
+
+    }
+}

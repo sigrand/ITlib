@@ -32,7 +32,7 @@ void find_object(uint32 *ing, uint16 *out, uint32 *hist, const int w, const int 
             out[yx] = (ing[yx1 + ox + oy*w1] + ing[yx1] - ing[yx1 + ox] - ing[yx1 + oy*w1]);
             //Update histogram
             hist[out[yx] ]++;
-         }
+        }
     }
 
     //Find local max
@@ -46,8 +46,8 @@ void find_object(uint32 *ing, uint16 *out, uint32 *hist, const int w, const int 
             if(cn == 8) {
 
             }
-         }
+        }
     }
-
-
 }
+
+
