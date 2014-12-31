@@ -294,7 +294,7 @@ void trans(void)
     double Dfe = 7.874; //Density of transformer steel kg/gm**3
     double Din = 1.5;  //Density of insulation kg/gm**3
     double R[5], U[2], M[5], N[2], I[3], s[2], P[2], L[2], S[2], Rz[2], B, T[2];
-    double LM, mu, h, In, Rm, Sfc, Tin;
+    double LM, mu, h, In, Rm, Sfc, Lc;
     double MT, PT, Mmin=100000, Pmin = 100000;
     struct save min;
 
@@ -305,17 +305,18 @@ void trans(void)
 
     I[0] = 10./3.; //the max current of 10Kv coil
     I[1] = 250./sqrt(3.); //the max current of 400v coil
-    U[0] = 10000.; //10000kV
+    U[0] = 10000.;      //10000kV
     U[1] = 400./sqrt(3.); //400V
     mu = 2000.;     //Magnetic permeability of transformer steel
-    B = 1.6;    //The max magnetic field
+    B = 1.7;    //The max magnetic field
+    Lc = 2.5; //Loss in magnetic core
     In = 2.;    //The thickness of the insulation
     Sfc = 0.97; //Core Stacking Factor
     T[0] = 0.06; //The thickness of the insulation of first coil
-    T[1] = 0.06; //The thickness of the insulation of first coil
+    T[1] = 0.06; //The thickness of the insulation of second coil
 
     for(N[1]=1; N[1] <= 100; N[1]++){
-        for(h=100.; h < 800.; h+=10.){
+        for(h=100.; h < 600.; h+=10.){
             for(s[0]=1.; s[0] < 20.; s[0]+=0.1){
                 for(s[1]=10.; s[1] < 300.; s[1]+=1.){
 
@@ -333,16 +334,16 @@ void trans(void)
                     M[0] = Vol(h, 0, R[0])*Dfe/1000. + Vou1(R[0],R[4])*Dfe/1000.;           //Mass steel
                     M[1] = Vol(h, R[0], R[1])*Din/1000.;        //Mass of insulation
                     M[2] = Vol(h, R[1], R[2])*Dal/1000.;        //Mass 10kV coil
-                    M[3] = Vol(h, R[2], R[3])*Din/1000.;        //Mass 10kV coil
+                    M[3] = Vol(h, R[2], R[3])*Din/1000.;        //Mass of insulation
                     M[4] = Vol(h, R[3], R[4])*Dal/1000.;        //Mass 400V coil
                     MT = 3.*(M[0] + M[1] + M[2] + M[3] + M[4]);
 
-                    P[0] = M[0];                         //Loss in steel
+                    P[0] = M[0]*Lc;                         //Loss in steel
                     P[2] = Pw(h, s[0], N[0], R[1], Cal, I[0], T[0]);  //Loss in 10kV coil
                     P[4] = Pw(h, s[1], N[1], R[3], Cal, I[1], T[1]);  //Loss in 400V coil
                     PT = 3.*(P[0] + P[2] + P[4]);
 
-                    if(PT <= 900.) {
+                    if(PT <= 1000.) {
                          if(MT < Mmin) {
                          //if(PT < Pmin){
                             Mmin = MT;
@@ -401,8 +402,9 @@ void trans(void)
     printf("Максимальный ток первичной обмотки %f А\n", I[0]);
     printf("Максимальный ток вторичной обмотки %f А\n", I[1]);
     printf("Максимальное поле в магнитном сердечнике %f Тл\n", B);
+    printf("Потери в магнитном сердечнике %f Вт/кг\n", Lc);
     printf("Толщина изоляции между катушками %f мм\n", In);
-    printf("Коэффициент заполнения магнитопровода %f \%\n",Sfc*100.);
+    printf("Коэффициент заполнения магнитопровода %f %%\n",Sfc*100.);
     printf("Толщина изоляции первичной обмотки %f мм\%\n",T[0]);
     printf("Толщина изоляции вторичной обмотки %f мм\%\n",T[1]);
 
