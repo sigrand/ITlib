@@ -108,7 +108,7 @@ inline double Vou(double R1, double R2)
 //R2 - External radius
 inline double Vou1(double R1, double R2)
 {
-    return 4.*(PI*R1*R1*PI*R1/4. + (R2-R1)*PI*R1*R1/2.)/1000.;
+    return 4.*(PI*R1*R1*PI*R1*5./(4*6.) + (R2-R1)*PI*R1*R1/2.)/1000.;
 }
 
 //Calculate mass
@@ -291,7 +291,7 @@ void trans(void)
 {
     double Cal = 0.0282; //Conductivity aluminum OM*m/mm**2
     double Dal = 2.6989; //Density aluminum kg/gm**3
-    double Dfe = 7.874; //Density of transformer steel kg/gm**3
+    double Dfe = 7.65; //Density of transformer steel kg/gm**3
     double Din = 1.5;  //Density of insulation kg/gm**3
     double R[5], U[2], M[5], N[2], I[3], s[2], P[2], L[2], S[2], Rz[2], B, T[2];
     double LM, mu, h, In, Rm, Sfc, Lc;
@@ -303,24 +303,36 @@ void trans(void)
     N[0] = 2000.;   //the number of coils in 10Kv coil
     N[1] = 80.;     //the number of coils in 400v coil
 
-    I[0] = 10./3.; //the max current of 10Kv coil
-    I[1] = 250./sqrt(3.); //the max current of 400v coil
-    U[0] = 10000.;      //10000kV
+    U[0] = 35000.;      //10000kV
     U[1] = 400./sqrt(3.); //400V
+    I[0] = 100000/U[0]/3.; //the max current of 10Kv coil
+    I[1] = 100000/U[1]/3.; //the max current of 400v coil
     mu = 2000.;     //Magnetic permeability of transformer steel
     B = 1.7;    //The max magnetic field
-    Lc = 2.5; //Loss in magnetic core
+    Lc = 1; //Loss in magnetic core W/kg
     In = 2.;    //The thickness of the insulation
-    Sfc = 0.97; //Core Stacking Factor
+    Sfc = 0.955; //Core Stacking Factor
     T[0] = 0.06; //The thickness of the insulation of first coil
     T[1] = 0.06; //The thickness of the insulation of second coil
 
-    for(N[1]=1; N[1] <= 100; N[1]++){
+    /*
+    U[0] = 240.;
+    U[1] = 40.;
+    I[0] = 6.25;
+    I[1] = 37.5;
+    R[0] = 24.;
+    N[0] = 300.;
+    N[1] = 49.;
+    h = 2.14*14.;
+    */
+
+    for(N[1]=1; N[1] <= 50; N[1]++){
         for(h=100.; h < 600.; h+=10.){
-            for(s[0]=1.; s[0] < 20.; s[0]+=0.1){
+            for(s[0]=0.1; s[0] < 5.; s[0]+=0.1){
                 for(s[1]=10.; s[1] < 300.; s[1]+=1.){
 
-                    N[0] = N[1]*25.;
+                    //N[0] = N[1]*25.;
+                    N[0] = N[1]*87;
                     R[0] = 1000.*Rc(B, U[0], N[0], 50)*sqrt(2.-Sfc);
                     R[1] = R[0] + In;
                     R[2] = R[1]+Rr(h, s[0], N[0]);
@@ -372,11 +384,9 @@ void trans(void)
                             min.PT = PT;
                         }
                     }
-
                 //printf("h = %f s1 = %f s2 = %f PT = %f MT = %f\n",h, s[0], s[1], PT, MT);
                 //printf("R1 = %f R2 = %f M0 = %f M2 = %f M4 = %f P0 = %f P2 = %f P4 = %f\n",
                 //       R[1], R[2], M[0], M[2], M[4], P[0], P[2], P[4]);
-
                 }
             }
         }
@@ -427,6 +437,7 @@ void trans(void)
     printf("Сечение %f мм**2\n", min.s[0]);
     printf("Площадь поверхности провода %f м**2\n", S[0]);
     printf("Радиус внутренний %f мм внешний %f мм высота %f мм\n", min.R[1], min.R[2], min.h);
+    printf("Число витков по высоте %f по радиусу %f \n", min.h/sqrt(min.s[0]), (min.R[2] - min.R[1])/sqrt(min.s[0]));
 
     printf("\nВторичная катушка\n");
     printf("Количество витков %f\n", min.N[1]);
@@ -437,6 +448,7 @@ void trans(void)
     printf("Сечение %f мм**2\n", min.s[1]);
     printf("Площадь поверхности провода %f м**2\n", S[1]);
     printf("Радиус внутренний %f мм внешний %f мм высота %f мм\n", min.R[3], min.R[4], min.h);
+    printf("Число витков по высоте %f по радиусу %f \n", min.h/sqrt(min.s[1]), (min.R[4] - min.R[3])/sqrt(min.s[1]));
 
 
 }
