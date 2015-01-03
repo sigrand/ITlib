@@ -49,7 +49,7 @@ inline double Nh(double h, double s)
 //h - vertical size in mm
 //s - square of one wire in mm**2
 //n - number of coils
-inline double Nr1(double h, double s, double n)
+inline double Nr(double h, double s, double n)
 {
     return sq(s,n)/(h*ln(s));
 }
@@ -58,7 +58,7 @@ inline double Nr1(double h, double s, double n)
 //h - vertical size in mm
 //s - square of one wire in mm**2
 //n - number of coils
-inline double Nr(double h, double s, double n)
+inline double Nr1(double h, double s, double n)
 {
     return round(sq(s,n)/(h*ln(s)));
 }
