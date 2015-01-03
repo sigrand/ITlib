@@ -49,9 +49,25 @@ inline double Nh(double h, double s)
 //h - vertical size in mm
 //s - square of one wire in mm**2
 //n - number of coils
-inline double Nr(double h, double s, double n)
+inline double Nr1(double h, double s, double n)
 {
     return sq(s,n)/(h*ln(s));
+}
+
+//Calculate number of ring radial direction
+//h - vertical size in mm
+//s - square of one wire in mm**2
+//n - number of coils
+inline double Nr(double h, double s, double n)
+{
+    return round(sq(s,n)/(h*ln(s)));
+}
+
+//Calculate size of wire
+//s - square of one wire in mm**2
+inline double lr(double h, double s, double n, double Nr)
+{
+    return sqrt(s);
 }
 
 //Calculate lenght of coil in m
@@ -61,7 +77,7 @@ inline double Nr(double h, double s, double n)
 //r - inside radius of coil
 inline double Ln(double h, double s, double n, double r)
 {
-    return 2.*PI*Nh(h,s)*Nr(h,s,n)*(r + (Nr(h,s,n)-1)*ln(s)/2.)/1000.;
+    return 2.*PI*Nh(h,s)*Nr(h,s,n)*(r + ln(s)/2. + (Nr(h,s,n)-1)*ln(s)/2.)/1000.;
 }
 
 //Calculate radial size of the coil
@@ -150,141 +166,7 @@ inline double Iid(double h, double R1, double R2, double U, double mu, double N,
 //F - frequency
 inline double Rc(double B, double U, double N, double F)
 {
-    return sqrt(U/(2.*PI*PI*F*B*N));
-}
-
-void trans1(void)
-{
-    double Cal = 0.0282; //Conductivity aluminum OM*m/mm**2
-    double Dal = 2.6989; //Density aluminum kg/gm**3
-    double Dfe = 7.874; //Density of transformer steel kg/gm**3
-    double R[5], U[2], M[5], N[2], I[3], s[2], P[2], L[2], S[2], Rz[2], B;
-    double LM, mu, h, In;
-    double MT, PT, Mmin=100000, Pmin = 100000;
-    struct save min;
-
-
-    R[0] = 60.;     //Radius of magnetic core mm
-    N[0] = 2000.;   //the number of coils in 10Kv coil
-    N[1] = 80.;     //the number of coils in 400v coil
-
-    I[0] = 10./3.; //the max current of 10Kv coil
-    I[1] = 250./sqrt(3.); //the max current of 400v coil
-    U[0] = 10000.; //10000kV
-    U[1] = 400./sqrt(3.); //400V
-    mu = 2000.;     //Magnetic permeability of transformer steel
-    B = 1.7;    //The max magnetic field
-    In = 1.;    //The thickness of the insulation
-
-    for(N[1]=1; N[1] <= 100; N[1]++){
-        for(h=100.; h < 800.; h+=10.){
-            for(s[0]=1.; s[0] < 20.; s[0]+=0.1){
-                for(s[1]=10.; s[1] < 300.; s[1]+=1.){
-
-                    N[0] = N[1]*25.;
-                    R[0] = 1000.*Rc(B, U[0], N[0], 50);
-                    R[1] = R[0]+Rr(h, s[0], N[0]);
-                    R[2] = R[1]+Rr(h, s[1], N[1]);
-
-                    L[0] = Ln(h, s[0], N[0], R[0]);
-                    L[1] = Ln(h, s[1], N[1], R[1]);
-
-                    //M[0] = (Vol(h, 0, R[0]) + Vou(R[0],R[2]))*Dfe/1000.;            //Mass steel
-                    M[0] = Vol(h, 0, R[0])*Dfe/1000.;           //Mass steel
-                    M[1] = Vou1(R[0],R[2])*Dfe/1000.;
-                    M[2] = Vol(h, R[0], R[1])*Dal/1000.;        //Mass 10kV coil
-                    M[4] = Vol(h, R[1], R[2])*Dal/1000.;        //Mass 400V coil
-                    MT = 3.*(M[0] + M[1] + M[2] + M[4]);
-
-                    P[0] = M[0] + M[1];                         //Loss in steel
-                    P[2] = Pw(h, s[0], N[0], R[0], Cal, I[0], 0);  //Loss in 10kV coil
-                    P[4] = Pw(h, s[1], N[1], R[1], Cal, I[1], 0);  //Loss in 400V coil
-                    PT = 3.*(P[0] + P[2] + P[4]);
-
-                    if(PT <= 700.) {
-                         if(MT < Mmin) {
-                         //if(PT < Pmin){
-                            Mmin = MT;
-                            Pmin = PT;
-                            min.h = h;
-                            min.s[0] = s[0];
-                            min.s[1] = s[1];
-                            min.M[0] = M[0];
-                            min.M[1] = M[1];
-                            min.M[2] = M[2];
-                            min.M[4] = M[4];
-                            min.P[0] = P[0];
-                            min.P[2] = P[2];
-                            min.P[4] = P[4];
-                            min.R[0] = R[0];
-                            min.R[1] = R[1];
-                            min.R[2] = R[2];
-                            min.L[0] = L[0];
-                            min.L[1] = L[1];
-                            min.N[0] = N[0];
-                            min.N[1] = N[1];
-                            min.MT = MT;
-                            min.PT = PT;
-                        }
-                    }
-
-                //printf("h = %f s1 = %f s2 = %f PT = %f MT = %f\n",h, s[0], s[1], PT, MT);
-                //printf("R1 = %f R2 = %f M0 = %f M2 = %f M4 = %f P0 = %f P2 = %f P4 = %f\n",
-                //       R[1], R[4], M[0], M[2], M[4], P[0], P[2], P[4]);
-
-                }
-            }
-        }
-    }
-
-    S[0] = 4.*min.L[0]*sqrt(min.s[0])/1000.;
-    S[1] = 4.*min.L[1]*sqrt(min.s[1])/1000.;
-    LM = Lm(min.h, min.R[0], min.R[2])/1000.;
-    I[2] = Iid(min.h, min.R[0], min.R[2], U[0], mu, N[0], 50);
-    Rz[0] = min.L[0]*Cal/min.s[0];
-    Rz[1] = min.L[1]*Cal/min.s[1];
-    //B = I[2]*mu*MU*N[0]/LM;
-    R[0] = 1000.*Rc(1.8, U[0], N[0], 50);
-    printf("h = %f s1 = %f s2 = %f PT = %f MT = %f\n",min.h, min.s[0], min.s[1], min.PT, min.MT);
-    printf("I0 = %f I1 = %f L1 = %f L2 = %f S1 = %f S2 = %f R1 = %f R2 = %f Lm = %f Iid = %f \n",
-           I[0], I[1], min.L[0], min.L[1], S[0], S[1], Rz[0], Rz[1], LM, I[2]);
-    printf("N0 = %f N1 = %f R0 = %f R1 = %f R2 = %f M0 = %f M1 = %f M2 = %f M4 = %f P0 = %f P2 = %f P4 = %f\n",
-           min.N[0], min.N[1], min.R[0], min.R[1], min.R[2], min.M[0], min.M[1], min.M[2], min.M[4], min.P[0], min.P[2], min.P[4]);
-
-    printf("Входные параметры\n");
-    printf("Схема подключения треугольник - звезда\n");
-    printf("Напряжение первичной обмотки %f В\n", U[0]);
-    printf("Напряжение вторичной обмотки %f В\n", U[1]);
-    printf("Максимальный ток первичной обмотки %f А\n", I[0]);
-    printf("Максимальный ток вторичной обмотки %f А\n", I[1]);
-    printf("Максимальное поле в магнитном сердечнике %f Тл\n", B);
-    printf("Толщина изоляции между катушками %f\n", In);
-    printf("\nВыходные параметры\n");
-    printf("Суммарные потери %f Вт\n", min.PT);
-    printf("Масса %f кг\n", min.MT);
-    printf("Ток холостого хода %f А\n", I[2]);
-    printf("\nМагнитный сердечник\n");
-    printf("Масса  %f кг\n", min.M[0] + min.M[1]);
-    printf("Потери %f Вт\n", min.P[0]);
-    printf("Радиус %f мм\n", min.R[0]);
-    printf("\nПервичная катушка\n");
-    printf("Масса  %f кг\n", min.M[2]);
-    printf("Потери %f Вт\n", min.P[2]);
-    printf("Сопротивление %f Ом\n", Rz[0]);
-    printf("Длина %f м\n", min.L[0]);
-    printf("Сечение %f мм**2\n", min.s[0]);
-    printf("Площадь поверхности провода %f м**2\n", S[0]);
-    printf("Радиус внутренний %f мм внешний %f мм высота %f мм\n", min.R[0], min.R[1], min.h);
-    printf("\nВторичная катушка\n");
-    printf("Масса  %f кг\n", min.M[4]);
-    printf("Потери %f Вт\n", min.P[4]);
-    printf("Сопротивление %f Ом\n", Rz[1]);
-    printf("Длина %f м\n", min.L[1]);
-    printf("Сечение %f мм**2\n", min.s[1]);
-    printf("Площадь поверхности провода %f м**2\n", S[1]);
-    printf("Радиус внутренний %f мм внешний %f мм высота %f мм\n", min.R[1], min.R[2], min.h);
-
-
+    return sqrt(U/(sqrt(2.)*PI*PI*F*B*N));
 }
 
 void trans(void)
@@ -294,19 +176,16 @@ void trans(void)
     double Dfe = 7.65; //Density of transformer steel kg/gm**3
     double Din = 1.5;  //Density of insulation kg/gm**3
     double R[5], U[2], M[5], N[2], I[3], s[2], P[2], L[2], S[2], Rz[2], B, T[2];
-    double LM, mu, h, In, Rm, Sfc, Lc;
+    double LM, mu, h, In, Rm, Sfc, Lc, PW, NN;
     double MT, PT, Mmin=100000, Pmin = 100000;
     struct save min;
+    int i;
 
-
-    R[0] = 60.;     //Radius of magnetic core mm
-    N[0] = 2000.;   //the number of coils in 10Kv coil
-    N[1] = 80.;     //the number of coils in 400v coil
-
-    U[0] = 35000.;      //10000kV
+    PW = 100; //Power in kW
+    U[0] = 315.;      //10000kV
     U[1] = 400./sqrt(3.); //400V
-    I[0] = 100000/U[0]/3.; //the max current of 10Kv coil
-    I[1] = 100000/U[1]/3.; //the max current of 400v coil
+    I[0] = PW*1000./U[0]/3.; //the max current of 10Kv coil
+    I[1] = PW*1000/U[1]/3.; //the max current of 400v coil
     mu = 2000.;     //Magnetic permeability of transformer steel
     B = 1.7;    //The max magnetic field
     Lc = 1; //Loss in magnetic core W/kg
@@ -314,6 +193,7 @@ void trans(void)
     Sfc = 0.955; //Core Stacking Factor
     T[0] = 0.06; //The thickness of the insulation of first coil
     T[1] = 0.06; //The thickness of the insulation of second coil
+    NN = U[0]/U[1]/sqrt(3.); // Transformation coefficient
 
     /*
     U[0] = 240.;
@@ -325,19 +205,20 @@ void trans(void)
     N[1] = 49.;
     h = 2.14*14.;
     */
+    i = 0;
+    for(N[1]=2; N[1] <= 200; N[1]++){
+        for(h=100.; h < 500.; h+=5.){
+            for(s[0]=50; s[0] < 300.; s[0]+=1){
+            //for(s[0]=0.1; s[0] < 5.; s[0]+=0.1){
+                for(s[1]=50.; s[1] < 300.; s[1]+=1.){
 
-    for(N[1]=1; N[1] <= 50; N[1]++){
-        for(h=100.; h < 600.; h+=10.){
-            for(s[0]=0.1; s[0] < 5.; s[0]+=0.1){
-                for(s[1]=10.; s[1] < 300.; s[1]+=1.){
-
-                    //N[0] = N[1]*25.;
-                    N[0] = N[1]*87;
+                    N[0] = N[1]*NN;
+                    //N[0] = N[1]*87;
                     R[0] = 1000.*Rc(B, U[0], N[0], 50)*sqrt(2.-Sfc);
                     R[1] = R[0] + In;
-                    R[2] = R[1]+Rr(h, s[0], N[0]);
+                    R[2] = R[1]+Rr(h, s[i], N[i]);
                     R[3] = R[2] + In;
-                    R[4] = R[3]+Rr(h, s[1], N[1]);
+                    R[4] = R[3]+Rr(h, s[!i], N[!i]);
 
                     L[0] = Ln(h, s[0], N[0], R[1]);
                     L[1] = Ln(h, s[1], N[1], R[3]);
@@ -407,6 +288,7 @@ void trans(void)
            min.N[0], min.N[1], min.R[0], min.R[1], min.R[2], min.R[3], min.R[4], min.M[0], min.M[1], min.M[2], min.M[3], min.M[4], min.P[0], min.P[2], min.P[4]);
     printf("Входные параметры\n");
     printf("Схема подключения треугольник - звезда\n");
+    printf("Мощность %f кВ\n", PW);
     printf("Напряжение первичной обмотки %f В\n", U[0]);
     printf("Напряжение вторичной обмотки %f В\n", U[1]);
     printf("Максимальный ток первичной обмотки %f А\n", I[0]);
@@ -415,8 +297,9 @@ void trans(void)
     printf("Потери в магнитном сердечнике %f Вт/кг\n", Lc);
     printf("Толщина изоляции между катушками %f мм\n", In);
     printf("Коэффициент заполнения магнитопровода %f %%\n",Sfc*100.);
-    printf("Толщина изоляции первичной обмотки %f мм\%\n",T[0]);
-    printf("Толщина изоляции вторичной обмотки %f мм\%\n",T[1]);
+    printf("Толщина изоляции первичной обмотки %f мм\n",T[0]);
+    printf("Толщина изоляции вторичной обмотки %f мм\n",T[1]);
+    printf("Коэффициент трансформации обмоток %f \n", NN);
 
     printf("\nВыходные параметры\n");
     printf("Суммарные потери %f Вт\n", min.PT);
