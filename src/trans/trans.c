@@ -102,7 +102,7 @@ inline double Pw(double h, double s, double n, double r, double C, double I, dou
     return C*Ln(h, s, n, r)*I*I/((sqrt(s) - 2.*Ti)*(sqrt(s) - 2.*Ti));
 }
 
-//Calculate valume
+//Calculate volume
 //h - vertical size in mm
 //R1 - internal radius in mm
 //R2 - External radius
@@ -111,18 +111,10 @@ inline double Vol(double h, double R1, double R2)
     return PI*h*(R2*R2 - R1*R1)/1000.;
 }
 
-//Calculate valume outside
+//Calculate vоlume outside
 //R1 - internal radius in mm
 //R2 - External radius
 inline double Vou(double R1, double R2)
-{
-    return PI*PI*R1*R1*R2/1000.;
-}
-
-//Calculate valume outside
-//R1 - internal radius in mm
-//R2 - External radius
-inline double Vou1(double R1, double R2)
 {
     return 4.*(PI*R1*R1*PI*R1*5./(4*6.) + (R2-R1)*PI*R1*R1/2.)/1000.;
 }
@@ -159,14 +151,26 @@ inline double Iid(double h, double R1, double R2, double U, double mu, double N,
     return U*Lm(h, R1, R2)*1000./(2.*PI*PI*F*R1*R1*mu*MU*N*N);
 }
 
+//Idle current
+//h - vertical size in mm
+//R1 - internal radius in mm
+//R2 - External radius im mm
+//B  - Max Magnetic field
+//mu - magnetic permeability
+//N - number of coils
+inline double Iid1(double h, double R1, double R2, double B, double mu, double N)
+{
+    return (B/sqrt(2.))*Lm(h, R1, R2)/(mu*MU*N*1000.);
+}
+
 //The magnetic core radius
-//B - Magnetic field
+//B - Max Magnetic field
 //U  - Input Voltage
 //N - number of coils
 //F - frequency
 inline double Rc(double B, double U, double N, double F)
 {
-    return sqrt(U/(sqrt(2.)*PI*PI*F*B*N));
+    return sqrt(U*2./(sqrt(2.)*3.*PI*PI*F*B*N));
 }
 
 void trans(void)
@@ -175,7 +179,7 @@ void trans(void)
     double Dal = 2.6989; //Density aluminum kg/gm**3
     double Dfe = 7.65; //Density of transformer steel kg/gm**3
     double Din = 1.5;  //Density of insulation kg/gm**3
-    double R[5], U[2], M[5], N[2], I[3], s[2], P[2], L[2], S[2], Rz[2], B, T[2];
+    double R[5], U[2], M[5], N[2], I[4], s[2], P[2], L[2], S[2], Rz[2], B, T[2];
     double LM, mu, h, In, Rm, Sfc, Lc, PW, NN;
     double MT, PT, Mmin=100000, Pmin = 100000;
     struct save min;
@@ -186,8 +190,8 @@ void trans(void)
     U[1] = 400./sqrt(3.); //400V
     I[0] = PW*1000./U[0]/3.; //the max current of 10Kv coil
     I[1] = PW*1000/U[1]/3.; //the max current of 400v coil
-    mu = 2000.;     //Magnetic permeability of transformer steel
-    B = 1.7;    //The max magnetic field
+    mu = 20000.;     //Magnetic permeability of transformer steel
+    B = 1.85;    //The max magnetic field
     Lc = 1; //Loss in magnetic core W/kg
     In = 2.;    //The thickness of the insulation
     Sfc = 0.955; //Core Stacking Factor
@@ -206,11 +210,11 @@ void trans(void)
     h = 2.14*14.;
     */
     i = 0;
-    for(N[1]=2; N[1] <= 200; N[1]++){
-        for(h=100.; h < 500.; h+=5.){
-            for(s[0]=50; s[0] < 300.; s[0]+=1){
+    for(N[1]=2; N[1] <= 150; N[1]++){
+        for(h=100.; h < 400.; h+=5.){
+            for(s[0]=50; s[0] < 200.; s[0]+=1){
             //for(s[0]=0.1; s[0] < 5.; s[0]+=0.1){
-                for(s[1]=50.; s[1] < 300.; s[1]+=1.){
+                for(s[1]=50.; s[1] < 200.; s[1]+=1.){
 
                     N[0] = N[1]*NN;
                     //N[0] = N[1]*87;
@@ -223,8 +227,7 @@ void trans(void)
                     L[0] = Ln(h, s[0], N[0], R[1]);
                     L[1] = Ln(h, s[1], N[1], R[3]);
 
-                    //M[0] = (Vol(h, 0, R[0]) + Vou(R[0],R[2]))*Dfe/1000.;            //Mass steel
-                    M[0] = Vol(h, 0, R[0])*Dfe/1000. + Vou1(R[0],R[4])*Dfe/1000.;           //Mass steel
+                    M[0] = Vol(h, 0, R[0])*Dfe/1000. + Vou(R[0],R[4])*Dfe/1000.;           //Mass steel
                     M[1] = Vol(h, R[0], R[1])*Din/1000.;        //Mass of insulation
                     M[2] = Vol(h, R[1], R[2])*Dal/1000.;        //Mass 10kV coil
                     M[3] = Vol(h, R[2], R[3])*Din/1000.;        //Mass of insulation
@@ -276,6 +279,7 @@ void trans(void)
     S[1] = 4.*min.L[1]*sqrt(min.s[1])/1000.;
     LM = Lm(min.h, min.R[0], min.R[4])/1000.;
     I[2] = Iid(min.h, min.R[0], min.R[4], U[0], mu, N[0], 50);
+    I[3] = Iid1(min.h, min.R[0], min.R[4], B, mu, N[0]);
     Rz[0] = min.L[0]*Cal/min.s[0];
     Rz[1] = min.L[1]*Cal/min.s[1];
     //B = I[2]*mu*MU*N[0]/LM;
@@ -304,7 +308,7 @@ void trans(void)
     printf("\nВыходные параметры\n");
     printf("Суммарные потери %f Вт\n", min.PT);
     printf("Масса %f кг\n", min.MT);
-    printf("Ток холостого хода %f А\n", I[2]);
+    printf("Ток холостого хода %f А %f A\n", I[2], I[3]);
 
     printf("\nМагнитный сердечник\n");
     printf("Масса  %f кг\n", min.M[0]);
