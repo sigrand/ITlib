@@ -9,78 +9,8 @@
 
 #define PI 3.1415926535
 #define MU 1.256637E-6
+#define POWER 100
 
-struct save {
-    double h;
-    double s[2];
-    double M[5];
-    double P[5];
-    double R[5];
-    double L[2];
-    double N[2];
-    double MT;
-    double PT;
-};
-
-struct COIL {
-    double U;   //Voltage V
-    double I;   //Current A
-    double T;   //The thickness of the wire insulation mm
-    double R;   //The external radius mm
-    double s;   //The cross-sectional area of the wire mm**2
-    double L;   //The lenght of coil wire m
-    double N;   //The number of turns
-    double Nr;   //The number of turns in radial derection
-    double Nh;   //The number of turns vertical direction
-    double M;   //Mass kg
-    double V;   //Volume dm**3
-    double P;   //The loss power W
-    double Rz;   //Resistance
-    double h;   //The wire height
-    double w;   //The wire width
-    double C;   //Conductivity
-    double D;   //Density aluminum kg/gm**3
-    double S;   //The surface area of the wire m**2
-    double sp[2]; //The cross-sectional area of the wire range
-    double Np[2]; //The number of turns range and step
-};
-
-struct MCORE {
-    double R;   //The external radius mm
-    double M;   //Mass kg
-    double V;   //Volume dm**3
-    double P;   //The loss power W
-    double D;   //Density of transformer steel
-    double Sfc; //Core Stacking Factor
-    double Lc;  //Loss in magnetic core W/kg
-    double Mu;  //Magnetic permeability of transformer steel
-    double B;   //The max magnetic field T
-};
-
-struct INS {
-    double R;   //The external radius mm
-    double M;   //Mass kg
-    double V;   //Volume dm**3
-    double P;   //The loss power W
-    double D;   //Density of insulation kg/gm**3
-    double T;   //The thickness of the insulation mm
-};
-
-struct TRANS {
-    struct MCORE m;  //Magnetic core
-    struct INS  i[2];  //Insulation
-    struct COIL c[2];  //First coil
-
-    double PW;  //Power in kW
-    double NN;  //Transformation coefficient
-    double M;   //Mass kg
-    double V;   //Volume dm**3
-    double S;   //square м**2
-    double P;   //The loss power W
-    double H;   //The height of the coil, insulation and magnetic core mm
-    double I;   //No-load current
-    double Hp[2];   //The height of the coilrange mm
-};
 
 //Calculate square of the coil,
 //s - square of one wire in mm**2
@@ -199,9 +129,18 @@ inline double Vol(double h, double R1, double R2)
 //Calculate vоlume outside
 //R1 - internal radius in mm
 //R2 - External radius
-inline double Vou(double R1, double R2)
+//W  - The distance between the coils
+inline double Vou(double R1, double R2, double W)
 {
-    return 4.*(PI*R1*R1*PI*R1*5./(4*6.) + (R2-R1)*PI*R1*R1/2.)/1000.;
+    return 4.*(PI*R1*R1*PI*R1*5./(4*6.) + (R2-R1)*PI*R1*R1/2. + PI*R1*R1*W/4.)/1000.;
+}
+
+//Calculate vоlume outside
+//R1 - internal radius in mm
+//R2 - External radius
+inline double Vou1(double R1, double R2)
+{
+    return (8.*PI*R1*R1*PI*R1*2./(4*3.) + 4*(R2-R1)*PI*R1*R1/2.)/1000.;
 }
 
 //Calculate mass
@@ -268,7 +207,7 @@ inline double Nc(double B, double U, double R, double F)
     return U*1000000./(sqrt(2.)*PI*PI*F*B*R*R);
 }
 
-int trans_3_phase(struct TRANS *t, double PT, int p)
+int trans_optim(TRANS *t, double PT, int p, int ph)
 {
     struct TRANS tm;
     double Mmin=1000000, Pmin = 1000000, s, s1, H, N[2];
@@ -287,14 +226,14 @@ int trans_3_phase(struct TRANS *t, double PT, int p)
         t->c[i].N = N[i];
     } else k = 1;
 
-    printf("i = %d N0 = %f N1 = %f H = %f Hp1 = %f Hp2 = %f  Np1 = %f  Np2 = %f \n", i, N[0], N[1], t->H, t->Hp[0], t->Hp[1], t->c[i].Np[0], t->c[i].Np[1]);
+    //printf("i = %d N0 = %f N1 = %f H = %f Hp1 = %f Hp2 = %f  Np1 = %f  Np2 = %f \n", i, N[0], N[1], t->H, t->Hp[0], t->Hp[1], t->c[i].Np[0], t->c[i].Np[1]);
     for(N[i] = t->c[i].N; N[i] <= t->c[i].Np[0]; N[i] += t->c[i].Np[1]){
         for(H = t->H; H <= t->Hp[0]; H += t->Hp[1]){
             for(s = t->c[0].s; s <= t->c[0].sp[0]; s += t->c[0].sp[1]){
-                {//for(s1 = t->c[1].s ; s1 <= t->c[1].sp[0]; s1 += t->c[1].sp[1]){
+                for(s1 = t->c[1].s ; s1 <= t->c[1].sp[0]; s1 += t->c[1].sp[1]){
                     //printf("N = %f H = %f s = %f s1 = %f \n", N[i], H, s, s1);
                     //printf("U0 = %f U1 = %f i = %d N = %f H = %f s1 = %f s2 = %f\n", t->c[0].U, t->c[1].U, i, t->c[i].N, t->H, t->c[0].s, t->c[1].s);
-                    s1 = s;
+                    //s1 = s;
                     if(k){
                         N[!i] = N[i]*t->NN;
                         t->m.R = 1000.*Rc(t->m.B, t->c[p].U, N[p], 50)/sqrt(t->m.Sfc);
@@ -308,7 +247,8 @@ int trans_3_phase(struct TRANS *t, double PT, int p)
                     t->c[0].L = Ln(H, s , N[0], t->i[0].R);
                     t->c[1].L = Ln(H, s1, N[1], t->i[1].R);
 
-                    t->m.V    = Vol(H, 0, t->m.R) + Vou(t->m.R, t->c[1].R);
+                    if(ph == 3) t->m.V = Vol(H, 0, t->m.R) + Vou(t->m.R, t->c[1].R, t->W);
+                    else        t->m.V = Vol(H, 0, t->m.R)*2. + Vou1(t->m.R, t->c[1].R);
                     t->i[0].V = Vol(H, t->m.R, t->i[0].R);
                     t->c[0].V = Vol(H, t->i[0].R, t->c[0].R);
                     t->i[1].V = Vol(H, t->c[0].R, t->i[1].R);
@@ -320,13 +260,15 @@ int trans_3_phase(struct TRANS *t, double PT, int p)
                     t->i[1].M = t->i[1].V*t->i[1].D/1000.; //Mass of insulation
                     t->c[1].M = t->c[1].V*t->c[1].D/1000.; //Mass 1coil
 
-                    t->M = 3.*(t->m.M + t->i[0].M + t->c[0].M + t->i[1].M + t->c[1].M);
+                    if(ph == 3) t->M = 3.*(t->m.M + t->i[0].M + t->c[0].M + t->i[1].M + t->c[1].M);
+                    else        t->M =    (t->m.M + t->i[0].M + t->c[0].M + t->i[1].M + t->c[1].M);
 
                     t->m.P = t->m.M*t->m.Lc;                         //Loss in steel
                     t->c[0].P = Pw(H, s , N[0], t->i[0].R, t->c[0].C, t->c[0].I, t->c[0].T);
                     t->c[1].P = Pw(H, s1, N[1], t->i[1].R, t->c[1].C, t->c[1].I, t->c[1].T);
 
-                    t->P = 3.*(t->m.P + t->c[0].P + t->c[1].P);
+                    if(ph == 3) t->P = 3.*(t->m.P + t->c[0].P + t->c[1].P);
+                    else        t->P =    (t->m.P + t->c[0].P + t->c[1].P);
 
                     if(t->P <= PT) {
                          if(t->M < Mmin) {
@@ -349,227 +291,225 @@ int trans_3_phase(struct TRANS *t, double PT, int p)
 
     if(j) {
         memcpy (t, &tm, sizeof(tm));
+
+        t->c[0].Sw = 4.*t->c[0].L*sqrt(t->c[0].s)/1000.;
+        t->c[1].Sw = 4.*t->c[1].L*sqrt(t->c[1].s)/1000.;
+        t->I = Iid1(t->H, t->i[p].R, t->c[p].R, t->m.B, t->m.Mu, t->c[p].N);
+        t->c[0].Rz = t->c[0].L*t->c[0].C/t->c[0].s;
+        t->c[1].Rz = t->c[1].L*t->c[1].C/t->c[1].s;
+
         return 0;
     } else return 1;
+
+}
+
+void trans_calc(TRANS *t, int p, int ph)
+{
+    struct TRANS tm;
+    int i;
+
+    if(t->c[0].U > t->c[1].U)   { t->NN = t->c[0].U/t->c[1].U; i = 1; }
+    else                        { t->NN = t->c[1].U/t->c[0].U; i = 0; }
+
+    //t->c[p].N = Nc(t->m.B, t->c[p].U, t->m.R*sqrt(t->m.Sfc), 50);
+    //if(p == i) t->c[!i].N = t->c[i].N*t->NN;
+    //else       t->c[i].N = t->c[!i].N/t->NN;
+
+    t->i[0].R = t->m.R + t->i[0].T;
+    t->c[0].R = t->i[0].R + Rr(t->H, t->c[0].s, t->c[0].N);
+    t->i[1].R = t->c[0].R + t->i[1].T;
+    t->c[1].R = t->i[1].R + Rr(t->H, t->c[1].s, t->c[1].N);
+
+    t->c[0].L = Ln1(t->c[0].Nh, t->c[0].Nr, t->c[0].h, t->i[0].R);
+    t->c[1].L = Ln1(t->c[1].Nh, t->c[1].Nr, t->c[1].h, t->i[1].R);
+
+    if(ph == 3) t->m.V = Vol(t->H, 0, t->m.R) + Vou(t->m.R, t->c[1].R, t->W);
+    else        t->m.V = Vol(t->H, 0, t->m.R)*2. + Vou1(t->m.R, t->c[1].R);
+    t->i[0].V = Vol(t->H, t->m.R, t->i[0].R);
+    t->c[0].V = Vol(t->H, t->i[0].R, t->c[0].R);
+    t->i[1].V = Vol(t->H, t->c[0].R, t->i[1].R);
+    t->c[1].V = Vol(t->H, t->i[1].R, t->c[1].R);
+
+    t->m.M    = t->m.V*t->m.D/1000;        //Mass steel
+    t->i[0].M = t->i[0].V*t->i[0].D/1000.; //Mass of insulation
+    t->c[0].M = t->c[0].V*t->c[0].D/1000.; //Mass coil
+    t->i[1].M = t->i[1].V*t->i[1].D/1000.; //Mass of insulation
+    t->c[1].M = t->c[1].V*t->c[1].D/1000.; //Mass 1coil
+
+    if(ph == 3) t->M = 3.*(t->m.M + t->i[0].M + t->c[0].M + t->i[1].M + t->c[1].M);
+    else        t->M =    (t->m.M + t->i[0].M + t->c[0].M + t->i[1].M + t->c[1].M);
+
+    t->m.P = t->m.M*t->m.Lc;                         //Loss in steel
+    t->c[0].P = Pw(t->H, t->c[0].s, t->c[0].N, t->i[0].R, t->c[0].C, t->c[0].I, t->c[0].T);
+    t->c[1].P = Pw(t->H, t->c[1].s, t->c[1].N, t->i[1].R, t->c[1].C, t->c[1].I, t->c[1].T);
+
+    if(ph == 3) t->P = 3.*(t->m.P + t->c[0].P + t->c[1].P);
+    else        t->P =    (t->m.P + t->c[0].P + t->c[1].P);
+
+
+    t->c[0].Sw = 2.*t->c[0].L*(t->c[0].h + t->c[0].w)/1000.;
+    t->c[1].Sw = 2.*t->c[1].L*(t->c[1].h + t->c[1].w)/1000.;
+    t->I = Iid1(t->H, t->i[p].R, t->c[p].R, t->m.B, t->m.Mu, t->c[p].N);
+    t->c[0].Rz = t->c[0].L*t->c[0].C/t->c[0].s;
+    t->c[1].Rz = t->c[1].L*t->c[1].C/t->c[1].s;
+
+}
+
+void real_coil(TRANS *t, int p)
+{
+    t->c[0].Nr = ceil((t->c[0].R - t->i[0].R)/sqrt(t->c[0].s));
+    t->c[0].Nh = round(t->c[0].N/t->c[0].Nr);
+    t->c[0].N = t->c[0].Nr*t->c[0].Nh;
+    t->c[0].h = (t->c[0].R - t->i[0].R)/t->c[0].Nr;
+    t->c[0].w = t->H/t->c[0].Nh;
+    //t->c[0].L = Ln1(t->c[0].Nh, t->c[0].Nr, t->c[0].h, t->i[0].R);
+    //t->c[0].Rz = t->c[0].L*t->c[0].C/((t->c[0].h - 2.*t->c[0].T)*(t->c[0].w - 2.*t->c[0].T));
+    //t->c[0].P = t->c[0].Rz*t->c[0].I*t->c[0].I;
+    //printf("Nr = %f Nh = %f N = %f h = %f w = %f L = %f Rz = %f P = %f\n",
+    //       t->c[0].Nr, t->c[0].Nh, t->c[0].N, t->c[0].h, t->c[0].w, t->c[0].L, t->c[0].Rz, t->c[0].P);
+
+    t->c[1].Nr = ceil((t->c[1].R - t->i[1].R)/sqrt(t->c[1].s));
+    t->c[1].Nh = round(t->c[1].N/t->c[1].Nr);
+    t->c[1].N = t->c[1].Nr*t->c[1].Nh;
+    t->c[1].h = (t->c[1].R - t->i[1].R)/t->c[1].Nr;
+    t->c[1].w = t->H/t->c[1].Nh;
+    //t->c[1].L = Ln1(t->c[1].Nh, t->c[1].Nr, t->c[1].h, t->i[1].R);
+    //t->c[1].Rz = t->c[1].L*t->c[1].C/((t->c[1].h - 2.*t->c[1].T)*(t->c[1].w - 2.*t->c[1].T));
+    //t->c[1].P = t->c[1].Rz*t->c[1].I*t->c[1].I;
+    //printf("Nr = %f Nh = %f N = %f h = %f w = %f L = %f Rz = %f P = %f\n",
+    //       t->c[1].Nr, t->c[1].Nh, t->c[1].N, t->c[1].h, t->c[1].w, t->c[1].L, t->c[1].Rz, t->c[1].P);
+
+    t->M = 3.*(t->m.M + t->i[0].M + t->c[0].M + t->i[1].M + t->c[1].M);
+    t->P = 3.*(t->m.P + t->c[0].P + t->c[1].P);
+
+    if(t->c[0].U > t->c[1].U)   t->NN = t->c[0].N/t->c[1].N;
+    else                        t->NN = t->c[1].N/t->c[0].N;
+
+    if(t->c[p].U < t->c[!p].U)  t->c[!p].U = t->NN*t->c[p].U;
+    else                        t->c[!p].U = t->c[p].U/t->NN;
+
+}
+
+void print_result(TRANS *t)
+{
+    printf("Входные параметры\n");
+    printf("Схема подключения треугольник - звезда\n");
+    printf("Мощность %f кВ\n", t->PW);
+    printf("Максимальное поле в магнитном сердечнике %f Тл\n", t->m.B);
+    printf("Потери в магнитном сердечнике %f Вт/кг\n", t->m.Lc);
+    printf("Коэффициент заполнения магнитопровода %f %%\n",t->m.Sfc*100.);
+    printf("Коэффициент трансформации обмоток %f \n", t->NN);
+
+    printf("\nВыходные параметры\n");
+    printf("Суммарные потери %f Вт\n", t->P);
+    printf("Масса %f кг\n", t->M);
+    printf("Ток холостого хода %f А\n", t->I);
+
+    printf("\nМагнитный сердечник\n");
+    printf("Масса  %f кг\n", t->m.M);
+    printf("Потери %f Вт\n", t->m.P);
+    printf("Радиус %f мм\n", t->m.R);
+
+    printf("\nПервая катушка\n");
+    printf("Напряжение %f В\n", t->c[0].U);
+    printf("Максимальный ток %f А\n", t->c[0].I);
+    printf("Толщина покрытия  %f мм\n",t->c[0].T);
+    printf("Толщина изоляции между магнитопроводом и обмоткой %f мм\n",t->i[0].T);
+    printf("Количество витков %f\n", t->c[0].N);
+    printf("Масса  %f кг\n", t->c[0].M);
+    printf("Потери %f Вт\n", t->c[0].P);
+    printf("Сопротивление %f Ом\n", t->c[0].Rz);
+    printf("Длина %f м\n", t->c[0].L);
+    printf("Сечение %f мм**2\n", t->c[0].s);
+    printf("Площадь поверхности провода %f м**2\n", t->c[0].Sw);
+    printf("Радиус внутренний %f мм внешний %f мм высота %f мм\n", t->i[0].R, t->c[0].R, t->H);
+    printf("Число витков по высоте %f по радиусу %f \n", t->c[0].Nh, t->c[0].Nr);
+    printf("Высота сечения провода %f ширина %f \n", t->c[0].h, t->c[0].w);
+
+    printf("\nВторая катушка\n");
+    printf("Напряжение %f В\n", t->c[1].U);
+    printf("Максимальный ток %f А\n", t->c[1].I);
+    printf("Толщина покрытия  %f мм\n",t->c[1].T);
+    printf("Толщина изоляции между обмотками                  %f мм\n",t->i[1].T);
+    printf("Количество витков %f\n", t->c[1].N);
+    printf("Масса  %f кг\n", t->c[1].M);
+    printf("Потери %f Вт\n", t->c[1].P);
+    printf("Сопротивление %f Ом\n", t->c[1].Rz);
+    printf("Длина %f м\n", t->c[1].L);
+    printf("Сечение %f мм**2\n", t->c[1].s);
+    printf("Площадь поверхности провода %f м**2\n", t->c[1].Sw);
+    printf("Радиус внутренний %f мм внешний %f мм высота %f мм\n", t->i[1].R, t->c[1].R, t->H);
+    printf("Число витков по высоте %f по радиусу %f \n", t->c[1].Nh, t->c[1].Nr);
+    printf("Высота сечения провода %f ширина %f \n", t->c[1].h, t->c[1].w);
 }
 
 void trans(void)
 {
-    struct TRANS t;
+    int i, n = 7;
+    TRANS tr[n], t;
+    COIL coil[9];
     int p = 1;                              //The primary coil
 
-    //Input parameters
-    t.PW = 100;     //Power in kW
-    t.H = 200;
-    t.Hp[0] = 400;                  //Max value
-    t.Hp[1] = 1;
+    for(i=0; i < n; i++) {
+        tr[i] = (TRANS) {.PW = POWER, .W = 2, .H = 200, .Hp[0] = 400, .Hp[1] = 1 };
+        tr[i].m = (MCORE) {.D = 7.65, .Mu = 20000., .B = 1.85, .Lc = 1., .Sfc = 0.955, .R = 0 };
+        tr[i].i[0] = (INS) {.D = 1.5, .T = 1.};
+        tr[i].i[1] = (INS) {.D = 1.5, .T = 2.};
+    }
 
-    //Magnetic core
-    t.m.D = 7.65;                    //Density of transformer steel kg/gm**3
-    t.m.Mu = 20000.;                 //Magnetic permeability of transformer steel
-    t.m.B = 1.85;                    //The max magnetic field
-    t.m.Lc = 1.;                     //Loss in magnetic core W/kg
-    t.m.Sfc = 0.955;                 //Core Stacking Factor
-    t.m.R = 70;                       //Core Radius
+    //Tree phase
+    coil[0] = (COIL) {.U = 400,   .T = 0.06,.C = 0.0282, .D = 2.6989, .s = 50,  .sp[0] = 200, .sp[1] = 1,  .N = 30, .Np[0] = 100, .Np[1] = 1};
+    coil[0].I = POWER*1000*sqrt(3.)/coil[0].U/3.;
+    coil[1] = (COIL) {.U = 315,   .T = 0.06,.C = 0.0282, .D = 2.6989, .s = 50,  .sp[0] = 200, .sp[1] = 1,  .N = 30, .Np[0] = 100, .Np[1] = 1};
+    coil[1].I = POWER*1000/coil[1].U/3.;
+    coil[2] = (COIL) {.U = 10000, .T = 0.06,.C = 0.0282, .D = 2.6989, .s = 0.1, .sp[0] = 6,  .sp[1] = 0.1, .N = 30, .Np[0] = 100, .Np[1] = 1};
+    coil[2].I = POWER*1000/coil[2].U/3.;
+    coil[3] = (COIL) {.U = 12000, .T = 0.06,.C = 0.0282, .D = 2.6989, .s = 0.1, .sp[0] = 6,  .sp[1] = 0.1, .N = 30, .Np[0] = 100, .Np[1] = 1};
+    coil[3].I = POWER*1000/coil[3].U/3.;
+    coil[4] = (COIL) {.U = 24000, .T = 0.06,.C = 0.0282, .D = 2.6989, .s = 0.1, .sp[0] = 6,  .sp[1] = 0.1, .N = 30, .Np[0] = 100, .Np[1] = 1};
+    coil[4].I = POWER*1000/coil[4].U/3.;
+    coil[5] = (COIL) {.U = 35000, .T = 0.06,.C = 0.0282, .D = 2.6989, .s = 0.1, .sp[0] = 6,  .sp[1] = 0.1, .N = 30, .Np[0] = 100, .Np[1] = 1};
+    coil[5].I = POWER*1000/coil[5].U/3.;
+    coil[6] = (COIL) {.U = 36000, .T = 0.06,.C = 0.0282, .D = 2.6989, .s = 0.1, .sp[0] = 6,  .sp[1] = 0.1, .N = 30, .Np[0] = 100, .Np[1] = 1};
+    coil[6].I = POWER*1000/coil[6].U/3.;
 
-    //First insulator
-    t.i[0].D = 1.5;                   //Density of insulation kg/gm**3
-    t.i[0].T = 0.;                    //The thickness of the insulation mm
+    for(i=0; i < n; i++) {
+        memcpy (&tr[i].c[0], &coil[0],   sizeof(coil[0]));
+        memcpy (&tr[i].c[1], &coil[i+1], sizeof(coil[1]));
+    }
+    memcpy (&t, &tr[2], sizeof(t));
 
-    //First coil
-    t.c[p].T  = 0.06;                  //The thickness of the insulation of first coil
-    t.c[p].C  = 0.0282;                //Conductivity of aluminum OM*m/mm**2
-    t.c[p].D  = 2.6989;                //Density aluminum kg/gm**3
 
-    t.c[p].U = 315.;                   //10000kV
-    t.c[p].I = t.PW*1000./t.c[p].U/3.;   //the max current of 10Kv coil
-    t.c[p].s    = 50;//0.1;                //From
-    t.c[p].sp[0] = 200; //6;                  //To
-    t.c[p].sp[1] = 1; //0.1;                //Spep
-    t.c[p].N     = 30;                  //From
-    t.c[p].Np[0] = 100;                 //To
-    t.c[p].Np[1] = 1;                   //Spep
-    /*
-    t.c[p].U = 10000.;                   //10000kV
-    t.c[p].I = t.PW*1000./t.c[p].U/3.;   //the max current of 10Kv coil
-    t.c[p].s    = 0.1;                //From
-    t.c[p].sp[0] = 6;                  //To
-    t.c[p].sp[1] = 0.1;                //Spep
-    */
-    //Secons insulator
-    t.i[1].D = 1.5;                   //Density of insulation kg/gm**3
-    t.i[1].T = 2.;                    //The thickness of the insulation mm
-
-    //Second coil
-    t.c[!p].U = 400;                    //400V
-    t.c[!p].I = t.PW*1000.*sqrt(3.)/t.c[!p].U/3.;   //the max current of 10Kv coil
-    t.c[!p].T  = 0.06;                  //The thickness of the insulation of first coil
-    t.c[!p].C  = 0.0282;                //Conductivity of aluminum OM*m/mm**2
-    t.c[!p].D  = 2.6989;                //Density aluminum kg/gm**3
-    t.c[!p].s     = 50;                  //From
-    t.c[!p].sp[0] = 200;                 //To
-    t.c[!p].sp[1] = 1;                   //Spep
-    t.c[!p].N     = 30;                  //From
-    t.c[!p].Np[0] = 100;                 //To
-    t.c[!p].Np[1] = 1;                   //Spep
-
-    //t.NN = t.c[0].U/t.c[1].U;        // Transformation coefficient
-
-    //double N[2], H[2], s[2][2];
-
-    //N[0] = 10; N[1] = 100;
-    //H[0] = 200; H[1] = 300;
-    //s[0][0] = 0.1; s[0][1] = 6;
-    //s[0][0] = 50; s[0][1] = 200;
-    //s[1][0] = 50; s[1][1] = 200;
-    //s[1][0] = 0.1; s[1][1] = 6;
-
-    if(trans_3_phase(&t, 1000, p)){
+    if(trans_optim(&t, 1000, p, 3)){
         printf("No any result!!!\n");
         return;
     }
+    /*
+    //One Phase
+    coil[7] = (COIL) {.U = 240, .T = 0.06,.C = 0.0282, .D = 2.6989, .s = 0.1, .sp[0] = 10,  .sp[1] = 0.1};
+    coil[7].I = 1.5*1000/coil[7].U;
+    coil[8] = (COIL) {.U = 40, .T = 0.06,.C = 0.0282, .D = 2.6989, .s = 1, .sp[0] = 100,  .sp[1] = 1, .N = 20, .Np[0] = 100, .Np[1] = 1};
+    coil[8].I = 1.5*1000/coil[8].U;
 
-    t.c[0].S = 4.*t.c[0].L*sqrt(t.c[0].s)/1000.;
-    t.c[1].S = 4.*t.c[1].L*sqrt(t.c[1].s)/1000.;
-    //LM = Lm(min.h, min.R[0], min.R[4])/1000.;
-    //t.I = Iid(t.H, min.R[0], min.R[4], U[i], mu, N[i], 50);
-    t.I = Iid1(t.H, t.i[p].R, t.c[p].R, t.m.B, t.m.Mu, t.c[p].N);
-    t.c[0].Rz = t.c[0].L*t.c[0].C/t.c[0].s;
-    t.c[1].Rz = t.c[1].L*t.c[1].C/t.c[1].s;
-    //B = I[2]*mu*MU*N[0]/LM;
-    //Rm = 1000.*Rc(1.8, U[i], N[0], 50);
+    t = (TRANS) {.PW = 1500, .H = 20, .Hp[0] = 200, .Hp[1] = 1 };
+    t.m = (MCORE) {.D = 7.65, .Mu = 20000., .B = 1.9, .Lc = 1., .Sfc = 0.955, .R = 24 };
+    t.i[0] = (INS) {.D = 1.5, .T = 1.};
+    t.i[1] = (INS) {.D = 1.5, .T = 1.};
+    memcpy (&t.c[0], &coil[7], sizeof(coil[0]));
+    memcpy (&t.c[1], &coil[8], sizeof(coil[1]));
+    p = 0;
 
-    printf("Входные параметры\n");
-    printf("Схема подключения треугольник - звезда\n");
-    printf("Мощность %f кВ\n", t.PW);
-    printf("Максимальное поле в магнитном сердечнике %f Тл\n", t.m.B);
-    printf("Потери в магнитном сердечнике %f Вт/кг\n", t.m.Lc);
-    printf("Коэффициент заполнения магнитопровода %f %%\n",t.m.Sfc*100.);
-    printf("Коэффициент трансформации обмоток %f \n", t.NN);
+    if(trans_optim(&t, 1500*0.04, p, 1)){
+        printf("No any result!!!\n");
+        return;
+    }
+    */
+    print_result(&t);
 
-    printf("\nВыходные параметры\n");
-    printf("Суммарные потери %f Вт\n", t.P);
-    printf("Масса %f кг\n", t.M);
-    printf("Ток холостого хода %f А\n", t.I);
+    real_coil(&t, p);
+    trans_calc(&t, p, 3);
 
-    printf("\nМагнитный сердечник\n");
-    printf("Масса  %f кг\n", t.m.M);
-    printf("Потери %f Вт\n", t.m.P);
-    printf("Радиус %f мм\n", t.m.R);
-
-    printf("\nПервая катушка\n");
-    printf("Напряжение %f В\n", t.c[0].U);
-    printf("Максимальный ток %f А\n", t.c[0].I);
-    printf("Толщина покрытия  %f мм\n",t.c[0].T);
-    printf("Толщина изоляции между магнитопроводом и обмоткой %f мм\n",t.i[0].T);
-    printf("Количество витков %f\n", t.c[0].N);
-    printf("Масса  %f кг\n", t.c[0].M);
-    printf("Потери %f Вт\n", t.c[0].P);
-    printf("Сопротивление %f Ом\n", t.c[0].Rz);
-    printf("Длина %f м\n", t.c[0].L);
-    printf("Сечение %f мм**2\n", t.c[0].s);
-    printf("Площадь поверхности провода %f м**2\n", t.c[0].S);
-    printf("Радиус внутренний %f мм внешний %f мм высота %f мм\n", t.i[0].R, t.c[0].R, t.H);
-    printf("Число витков по высоте %f по радиусу %f \n", t.H/sqrt(t.c[0].s), (t.c[0].R - t.i[0].R)/sqrt(t.c[0].s));
-
-    printf("\nВторая катушка\n");
-    printf("Напряжение %f В\n", t.c[1].U);
-    printf("Максимальный ток %f А\n", t.c[1].I);
-    printf("Толщина покрытия  %f мм\n",t.c[1].T);
-    printf("Толщина изоляции между обмотками                  %f мм\n",t.i[1].T);
-    printf("Количество витков %f\n", t.c[1].N);
-    printf("Масса  %f кг\n", t.c[1].M);
-    printf("Потери %f Вт\n", t.c[1].P);
-    printf("Сопротивление %f Ом\n", t.c[1].Rz);
-    printf("Длина %f м\n", t.c[1].L);
-    printf("Сечение %f мм**2\n", t.c[1].s);
-    printf("Площадь поверхности провода %f м**2\n", t.c[1].S);
-    printf("Радиус внутренний %f мм внешний %f мм высота %f мм\n", t.i[1].R, t.c[1].R, t.H);
-    printf("Число витков по высоте %f по радиусу %f \n", t.H/sqrt(t.c[1].s), (t.c[1].R - t.i[1].R)/sqrt(t.c[1].s));
-
-    t.c[0].Nr = ceil((t.c[0].R - t.i[0].R)/sqrt(t.c[0].s));
-    t.c[0].Nh = round(t.c[0].N/t.c[0].Nr);
-    t.c[0].N = t.c[0].Nr*t.c[0].Nh;
-    t.c[0].h = (t.c[0].R - t.i[0].R)/t.c[0].Nr;
-    t.c[0].w = t.H/t.c[0].Nh;
-    t.c[0].L = Ln1(t.c[0].Nh, t.c[0].Nr, t.c[0].h, t.i[0].R);
-    t.c[0].Rz = t.c[0].L*t.c[0].C/((t.c[0].h - 2.*t.c[0].T)*(t.c[0].w - 2.*t.c[0].T));
-    t.c[0].P = t.c[0].Rz*t.c[0].I*t.c[0].I;
-    printf("Nr = %f Nh = %f N = %f h = %f w = %f L = %f Rz = %f P = %f\n",
-           t.c[0].Nr, t.c[0].Nh, t.c[0].N, t.c[0].h, t.c[0].w, t.c[0].L, t.c[0].Rz, t.c[0].P);
-
-    t.c[1].Nr = ceil((t.c[1].R - t.i[1].R)/sqrt(t.c[1].s));
-    t.c[1].Nh = round(t.c[1].N/t.c[1].Nr);
-    t.c[1].N = t.c[1].Nr*t.c[1].Nh;
-    t.c[1].h = (t.c[1].R - t.i[1].R)/t.c[1].Nr;
-    t.c[1].w = t.H/t.c[1].Nh;
-    t.c[1].L = Ln1(t.c[1].Nh, t.c[1].Nr, t.c[1].h, t.i[1].R);
-    t.c[1].Rz = t.c[1].L*t.c[1].C/((t.c[1].h - 2.*t.c[1].T)*(t.c[1].w - 2.*t.c[1].T));
-    t.c[1].P = t.c[1].Rz*t.c[1].I*t.c[1].I;
-    printf("Nr = %f Nh = %f N = %f h = %f w = %f L = %f Rz = %f P = %f\n",
-           t.c[1].Nr, t.c[1].Nh, t.c[1].N, t.c[1].h, t.c[1].w, t.c[1].L, t.c[1].Rz, t.c[1].P);
-
-    t.M = 3.*(t.m.M + t.i[0].M + t.c[0].M + t.i[1].M + t.c[1].M);
-    t.P = 3.*(t.m.P + t.c[0].P + t.c[1].P);
-
-    if(t.c[0].U > t.c[1].U)   t.NN = t.c[0].N/t.c[1].N;
-    else                      t.NN = t.c[1].N/t.c[0].N;
-
-    if(t.c[p].U < t.c[!p].U)  t.c[!p].U = t.NN*t.c[p].U;
-    else                      t.c[!p].U = t.c[p].U/t.NN;
-
-
-    //printf("Transformation = %f U = %f\n", t.NN, t.c[!p].U);
-
-    printf("Входные параметры\n");
-    printf("Схема подключения треугольник - звезда\n");
-    printf("Мощность %f кВ\n", t.PW);
-    printf("Максимальное поле в магнитном сердечнике %f Тл\n", t.m.B);
-    printf("Потери в магнитном сердечнике %f Вт/кг\n", t.m.Lc);
-    printf("Коэффициент заполнения магнитопровода %f %%\n",t.m.Sfc*100.);
-    printf("Коэффициент трансформации обмоток %f \n", t.NN);
-
-    printf("\nВыходные параметры\n");
-    printf("Суммарные потери %f Вт\n", t.P);
-    printf("Масса %f кг\n", t.M);
-    printf("Ток холостого хода %f А\n", t.I);
-
-    printf("\nМагнитный сердечник\n");
-    printf("Масса  %f кг\n", t.m.M);
-    printf("Потери %f Вт\n", t.m.P);
-    printf("Радиус %f мм\n", t.m.R);
-
-    printf("\nПервая катушка\n");
-    printf("Напряжение %f В\n", t.c[0].U);
-    printf("Максимальный ток %f А\n", t.c[0].I);
-    printf("Толщина покрытия  %f мм\n",t.c[0].T);
-    printf("Толщина изоляции между магнитопроводом и обмоткой %f мм\n",t.i[0].T);
-    printf("Количество витков %f\n", t.c[0].N);
-    printf("Масса  %f кг\n", t.c[0].M);
-    printf("Потери %f Вт\n", t.c[0].P);
-    printf("Сопротивление %f Ом\n", t.c[0].Rz);
-    printf("Длина %f м\n", t.c[0].L);
-    printf("Сечение %f мм**2\n", t.c[0].s);
-    printf("Площадь поверхности провода %f м**2\n", t.c[0].S);
-    printf("Радиус внутренний %f мм внешний %f мм высота %f мм\n", t.i[0].R, t.c[0].R, t.H);
-    printf("Число витков по высоте %f по радиусу %f \n", t.c[0].Nh, t.c[0].Nr);
-
-    printf("\nВторая катушка\n");
-    printf("Напряжение %f В\n", t.c[1].U);
-    printf("Максимальный ток %f А\n", t.c[1].I);
-    printf("Толщина покрытия  %f мм\n",t.c[1].T);
-    printf("Толщина изоляции между обмотками                  %f мм\n",t.i[1].T);
-    printf("Количество витков %f\n", t.c[1].N);
-    printf("Масса  %f кг\n", t.c[1].M);
-    printf("Потери %f Вт\n", t.c[1].P);
-    printf("Сопротивление %f Ом\n", t.c[1].Rz);
-    printf("Длина %f м\n", t.c[1].L);
-    printf("Сечение %f мм**2\n", t.c[1].s);
-    printf("Площадь поверхности провода %f м**2\n", t.c[1].S);
-    printf("Радиус внутренний %f мм внешний %f мм высота %f мм\n", t.i[1].R, t.c[1].R, t.H);
-    printf("Число витков по высоте %f по радиусу %f \n", t.c[1].Nh, t.c[1].Nr);
-
-
+    print_result(&t);
 
 }
 
