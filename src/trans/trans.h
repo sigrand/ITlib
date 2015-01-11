@@ -21,6 +21,7 @@ typedef struct COIL {
     double w;   //The wire width
     double C;   //Conductivity
     double D;   //Density aluminum kg/gm**3
+    double S;   //square м**2
     double Sw;   //The surface area of the wire m**2
     double sp[2]; //The cross-sectional area of the wire range
     double Np[2]; //The number of turns range and step
@@ -36,6 +37,7 @@ typedef struct MCORE {
     double Lc;  //Loss in magnetic core W/kg
     double Mu;  //Magnetic permeability of transformer steel
     double B;   //The max magnetic field T
+    double S;   //square м**2
 } MCORE;
 
 typedef struct INS {
@@ -45,6 +47,7 @@ typedef struct INS {
     double P;   //The loss power W
     double D;   //Density of insulation kg/gm**3
     double T;   //The thickness of the insulation mm
+    double S;   //square м**2
 } INS;
 
 typedef struct TRANS {
@@ -61,6 +64,7 @@ typedef struct TRANS {
     double H;   //The height of the coil, insulation and magnetic core mm
     double I;   //No-load current
     double W;   //The distance between the coils
+    double T;   //Temperature of transformer
     double Hp[2];   //The height of the coilrange mm
 } TRANS;
 

@@ -117,6 +117,40 @@ inline double Pw1(double h, double s, double N, double R1, double R2, double C, 
     return PI*C*I*I*N*N*(R2 + R1)/(1000.*h*sd*(R2 - R1));
 }
 
+//Calculate square the top and bottom of the cylinder
+//R1 - internal radius in mm
+//R2 - External radius
+inline double Sup(double R1, double R2)
+{
+    return 2*PI*(R2*R2 - R1*R1)/1000000.;
+}
+
+//Calculate square the sides of the cylinder
+//h - vertical size in mm
+//R2 - External radius
+inline double Ssd(double h, double R2)
+{
+    return 2*PI*h*R2/1000000.;
+}
+
+//Calculate square of 3 phase magnetic core
+//R1 - internal radius in mm
+//R2 - External radius
+//W  - The distance between the coils
+inline double Sou(double R1, double R2, double W)
+{
+    return 4.*((PI+2)*PI*R1*R1*5/12. + (R2-R1)*(PI+2)*R1 + (PI+2)*R1*W/2.)/1000000.;
+}
+
+//Calculate square of 1 phase magnetic core
+//h - vertical size in mm
+//R1 - internal radius in mm
+//R2 - External radius
+inline double Sou1(double h, double R1, double R2)
+{
+    return (8*(PI+2)*PI*R1*R1/3. + 4*(R2-R1)*(PI+2)*R1 + 2*h*(PI+2)*R1)/1000000.;
+}
+
 //Calculate volume
 //h - vertical size in mm
 //R1 - internal radius in mm
@@ -247,6 +281,18 @@ int trans_optim(TRANS *t, double PT, int p, int ph)
                     t->c[0].L = Ln(H, s , N[0], t->i[0].R);
                     t->c[1].L = Ln(H, s1, N[1], t->i[1].R);
 
+
+                    if(ph == 3) t->m.S = Sou(t->m.R, t->c[1].R, t->W);
+                    else        t->m.S = Sou1(H, t->m.R, t->c[1].R);
+
+                    t->i[0].S = Sup(t->m.R, t->i[0].R);
+                    t->c[0].S = Sup(t->i[0].R, t->c[0].R);
+                    t->i[1].S = Sup(t->c[0].R, t->i[1].R);
+                    t->c[1].S = Sup(t->i[1].R, t->c[1].R) + Ssd(H, t->c[1].R);
+
+                    t->S = 3*(t->m.S + t->i[0].S + t->c[0].S + t->i[1].S + t->c[1].S);
+                    t->T = PT/(10*t->S);
+
                     if(ph == 3) t->m.V = Vol(H, 0, t->m.R) + Vou(t->m.R, t->c[1].R, t->W);
                     else        t->m.V = Vol(H, 0, t->m.R)*2. + Vou1(t->m.R, t->c[1].R);
                     t->i[0].V = Vol(H, t->m.R, t->i[0].R);
@@ -263,16 +309,17 @@ int trans_optim(TRANS *t, double PT, int p, int ph)
                     if(ph == 3) t->M = 3.*(t->m.M + t->i[0].M + t->c[0].M + t->i[1].M + t->c[1].M);
                     else        t->M =    (t->m.M + t->i[0].M + t->c[0].M + t->i[1].M + t->c[1].M);
 
-                    t->m.P = t->m.M*t->m.Lc;                         //Loss in steel
+                    t->m.P = 3.*t->m.M*t->m.Lc;                         //Loss in steel
                     t->c[0].P = Pw(H, s , N[0], t->i[0].R, t->c[0].C, t->c[0].I, t->c[0].T);
                     t->c[1].P = Pw(H, s1, N[1], t->i[1].R, t->c[1].C, t->c[1].I, t->c[1].T);
 
-                    if(ph == 3) t->P = 3.*(t->m.P + t->c[0].P + t->c[1].P);
+                    if(ph == 3) t->P = t->m.P + 3.*(t->c[0].P + t->c[1].P);
                     else        t->P =    (t->m.P + t->c[0].P + t->c[1].P);
 
-                    if(t->P <= PT) {
+                    if((t->P <= PT) && (t->m.P <= PT*0.3)) {
+                    //if(t->P <= PT) {
                          if(t->M < Mmin) {
-                         //if(t->P < Pmin){
+                         //if(t->m.P < Pmin){
                             Mmin = t->M;
                             Pmin = t->P;
                             memcpy (&tm, t, sizeof(tm));
@@ -294,7 +341,8 @@ int trans_optim(TRANS *t, double PT, int p, int ph)
 
         t->c[0].Sw = 4.*t->c[0].L*sqrt(t->c[0].s)/1000.;
         t->c[1].Sw = 4.*t->c[1].L*sqrt(t->c[1].s)/1000.;
-        t->I = Iid1(t->H, t->i[p].R, t->c[p].R, t->m.B, t->m.Mu, t->c[p].N);
+        //t->I = Iid1(t->H, t->i[p].R, t->c[p].R, t->m.B, t->m.Mu, t->c[p].N);
+        t->I = Iid(t->H, t->m.R, t->c[1].R, t->c[p].U, t->m.Mu, t->c[p].N, 50);
         t->c[0].Rz = t->c[0].L*t->c[0].C/t->c[0].s;
         t->c[1].Rz = t->c[1].L*t->c[1].C/t->c[1].s;
 
@@ -339,11 +387,11 @@ void trans_calc(TRANS *t, int p, int ph)
     if(ph == 3) t->M = 3.*(t->m.M + t->i[0].M + t->c[0].M + t->i[1].M + t->c[1].M);
     else        t->M =    (t->m.M + t->i[0].M + t->c[0].M + t->i[1].M + t->c[1].M);
 
-    t->m.P = t->m.M*t->m.Lc;                         //Loss in steel
+    t->m.P = 3*t->m.M*t->m.Lc;                         //Loss in steel
     t->c[0].P = Pw(t->H, t->c[0].s, t->c[0].N, t->i[0].R, t->c[0].C, t->c[0].I, t->c[0].T);
     t->c[1].P = Pw(t->H, t->c[1].s, t->c[1].N, t->i[1].R, t->c[1].C, t->c[1].I, t->c[1].T);
 
-    if(ph == 3) t->P = 3.*(t->m.P + t->c[0].P + t->c[1].P);
+    if(ph == 3) t->P = t->m.P + 3*(t->c[0].P + t->c[1].P);
     else        t->P =    (t->m.P + t->c[0].P + t->c[1].P);
 
 
@@ -359,7 +407,10 @@ void real_coil(TRANS *t, int p)
 {
     t->c[0].Nr = ceil((t->c[0].R - t->i[0].R)/sqrt(t->c[0].s));
     t->c[0].Nh = round(t->c[0].N/t->c[0].Nr);
-    t->c[0].N = t->c[0].Nr*t->c[0].Nh;
+    if(t->c[0].Nr*t->c[0].Nh != t->c[0].N) {
+        t->c[0].N = t->c[0].Nr*t->c[0].Nh;
+        t->c[0].s = (t->c[0].R - t->i[0].R)*t->H/t->c[0].N;
+    }
     t->c[0].h = (t->c[0].R - t->i[0].R)/t->c[0].Nr;
     t->c[0].w = t->H/t->c[0].Nh;
     //t->c[0].L = Ln1(t->c[0].Nh, t->c[0].Nr, t->c[0].h, t->i[0].R);
@@ -370,7 +421,10 @@ void real_coil(TRANS *t, int p)
 
     t->c[1].Nr = ceil((t->c[1].R - t->i[1].R)/sqrt(t->c[1].s));
     t->c[1].Nh = round(t->c[1].N/t->c[1].Nr);
-    t->c[1].N = t->c[1].Nr*t->c[1].Nh;
+    if(t->c[1].Nr*t->c[1].Nh != t->c[1].N) {
+        t->c[1].N = t->c[1].Nr*t->c[1].Nh;
+        t->c[1].s = (t->c[1].R - t->i[1].R)*t->H/t->c[1].N;
+    }
     t->c[1].h = (t->c[1].R - t->i[1].R)/t->c[1].Nr;
     t->c[1].w = t->H/t->c[1].Nh;
     //t->c[1].L = Ln1(t->c[1].Nh, t->c[1].Nr, t->c[1].h, t->i[1].R);
@@ -390,7 +444,7 @@ void real_coil(TRANS *t, int p)
 
 }
 
-void print_result(TRANS *t)
+void print_result(TRANS *t, int p)
 {
     printf("Входные параметры\n");
     printf("Схема подключения треугольник - звезда\n");
@@ -402,8 +456,13 @@ void print_result(TRANS *t)
 
     printf("\nВыходные параметры\n");
     printf("Суммарные потери %f Вт\n", t->P);
+    printf("Потери холостого хода %f Вт\n", t->m.P);
+    printf("Потери короткого замыкания %f Вт\n", t->P - t->m.P);
     printf("Масса %f кг\n", t->M);
+    printf("Площадь поверхности %f м**2\n", t->S);
+    printf("Темпрература над окружением %f K\n", t->T);
     printf("Ток холостого хода %f А\n", t->I);
+    printf("Ток холостого хода %f %%\n", t->I*100./t->c[p].I);
 
     printf("\nМагнитный сердечник\n");
     printf("Масса  %f кг\n", t->m.M);
@@ -452,7 +511,7 @@ void trans(void)
 
     for(i=0; i < n; i++) {
         tr[i] = (TRANS) {.PW = POWER, .W = 2, .H = 200, .Hp[0] = 400, .Hp[1] = 1 };
-        tr[i].m = (MCORE) {.D = 7.65, .Mu = 20000., .B = 1.85, .Lc = 1., .Sfc = 0.955, .R = 0 };
+        tr[i].m = (MCORE) {.D = 7.65, .Mu = 10000., .B = 1.85, .Lc = 1., .Sfc = 0.955, .R = 0 };
         tr[i].i[0] = (INS) {.D = 1.5, .T = 1.};
         tr[i].i[1] = (INS) {.D = 1.5, .T = 2.};
     }
@@ -486,7 +545,7 @@ void trans(void)
     }
     /*
     //One Phase
-    coil[7] = (COIL) {.U = 240, .T = 0.06,.C = 0.0282, .D = 2.6989, .s = 0.1, .sp[0] = 10,  .sp[1] = 0.1};
+    coil[7] = (COIL) {.U = 230, .T = 0.06,.C = 0.0282, .D = 2.6989, .s = 0.1, .sp[0] = 10,  .sp[1] = 0.1};
     coil[7].I = 1.5*1000/coil[7].U;
     coil[8] = (COIL) {.U = 40, .T = 0.06,.C = 0.0282, .D = 2.6989, .s = 1, .sp[0] = 100,  .sp[1] = 1, .N = 20, .Np[0] = 100, .Np[1] = 1};
     coil[8].I = 1.5*1000/coil[8].U;
@@ -504,12 +563,13 @@ void trans(void)
         return;
     }
     */
-    print_result(&t);
+    print_result(&t, p);
 
     real_coil(&t, p);
     trans_calc(&t, p, 3);
 
-    print_result(&t);
+    print_result(&t, p);
+    printf("H = %f R1 = %f R2 = %f R3 = %f R4 = %f R5 = %f \n", t.H, t.m.R, t.i[0].R, t.c[0].R, t.i[1].R, t.c[1].R);
 
 }
 
