@@ -44,13 +44,13 @@ inline double Nr(double h, double s, double n)
     return sq(s,n)/(h*ln(s));
 }
 
-//Calculate number of ring radial direction
-//h - vertical size in mm
-//s - square of one wire in mm**2
-//n - number of coils
-inline double Nr1(double h, double s, double n)
+//Calculate spiral h correction
+//h - vertical one wire size
+//Nh - number of coils
+//R - radius of spiral
+inline double Hspi(double h, double Nh, double R)
 {
-    return round(sq(s,n)/(h*ln(s)));
+    return (Nh+1)*h/sqrt(1 - h*h/(4.*PI*PI*R*R));
 }
 
 //Calculate size of wire
@@ -80,11 +80,35 @@ inline double Ln1(double Nh, double Nr, double H, double R1)
     return 2.*PI*Nh*Nr*(R1 + H/2. + (Nr-1)*H/2.)/1000.;
 }
 
+//Calculate lenght of coil in m
+//Nh - number of turns in vertical
+//Nr - number of turns in radial
+//H - the height of the wire
+//R1 - inside radius of coil
+inline double Ln2(double Nh, double Nr, double H, double R1)
+{
+    int i;
+    double L = 0;
+    for(i = 0; i < Nr; i++){
+        L+= 2.*PI*Nh*(R1 + H/2. + H*i)/1000.;
+    }
+    return L;
+}
+
 //Calculate radial size of the coil
 //h - vertical size in mm
 //s - square of one wire in mm**2
 //n - number of coils
 inline double Rr(double h, double s, double n)
+{
+    return sq(s,n)/h;
+}
+
+//Calculate radial size of the coil with spiral wire
+//h - vertical size in mm
+//s - square of one wire in mm**2
+//n - number of coils
+inline double Rrsp(double h, double s, double n)
 {
     return sq(s,n)/h;
 }
@@ -100,6 +124,18 @@ inline double Rr(double h, double s, double n)
 inline double Pw(double h, double s, double n, double r, double C, double I, double Ti)
 {
     return C*Ln(h, s, n, r)*I*I/((sqrt(s) - 2.*Ti)*(sqrt(s) - 2.*Ti));
+}
+
+//Calculate loss power in coil in W
+//Ln - lenght ow wire
+//h - the vertical size of wire
+//w - the horisontal size of wire
+//C - Conductivity
+//I - Current
+//Ti - The thickness of the insulation
+inline double Pw2(double Ln, double h, double w, double C, double I, double Ti)
+{
+    return C*Ln*I*I/((h - 2.*Ti)*(w - 2.*Ti));
 }
 
 //Calculate loss power in coil in W
@@ -241,10 +277,161 @@ inline double Nc(double B, double U, double R, double F)
     return U*1000000./(sqrt(2.)*PI*PI*F*B*R*R);
 }
 
+int trans_optim_spiral(TRANS *t, double PT, int p, int ph)
+{
+    struct TRANS tm;
+    double Mmin=1000000, Pmin = 1000000, s, s1, H, H1, N[2], l;
+    double Hb, sb, s1b, Nb;
+    int i, j=0, k;
+
+    k = !t->m.R ? 1 : 0;
+    if(t->c[0].U > t->c[1].U)   { t->NN = t->c[0].U/t->c[1].U; i = 1; }
+    else                        { t->NN = t->c[1].U/t->c[0].U; i = 0; }
+
+    if(t->m.R) {
+        k = 0;
+        N[p] = Nc(t->m.B, t->c[p].U, t->m.R*sqrt(t->m.Sfc), 50);
+        if(p == i) N[!i] = N[i]*t->NN;
+        else       N[i] = N[!i]/t->NN;
+        t->c[i].Np[0] = N[i];
+        t->c[i].N = N[i];
+    } else k = 1;
+
+    Nb = t->c[i].N; Hb = t->H; sb = t->c[0].s; s1b = t->c[1].s;
+    //printf("i = %d N0 = %f N1 = %f H = %f Hp1 = %f Hp2 = %f  Np1 = %f  Np2 = %f \n", i, N[0], N[1], t->H, t->Hp[0], t->Hp[1], t->c[i].Np[0], t->c[i].Np[1]);
+    for(N[i] = Nb; N[i] <= t->c[i].Np[0]; N[i] += t->c[i].Np[1]){
+        for(H1 = Hb; H1 <= t->Hp[0]; H1 += t->Hp[1]){
+            for(s = sb; s <= t->c[0].sp[0]; s += t->c[0].sp[1]){
+                for(s1 = s1b; s1 <= t->c[1].sp[0]; s1 += t->c[1].sp[1]){
+                    //printf("N = %f H = %f s = %f s1 = %f \n", N[i], H, s, s1);
+                    //printf("U0 = %f U1 = %f i = %d N = %f H = %f s1 = %f s2 = %f\n", t->c[0].U, t->c[1].U, i, t->c[i].N, t->H, t->c[0].s, t->c[1].s);
+                    //s1 = s;
+                    if(k){
+                        N[!i] = N[i]*t->NN;
+                        t->m.R = 1000.*Rc(t->m.B, t->c[p].U, N[p], 50)/sqrt(t->m.Sfc);
+                    }
+
+                    t->i[0].R = t->m.R + t->i[0].T;
+                    t->c[0].R = t->i[0].R + Rr(H1, s , N[0]);
+                    t->i[1].R = t->c[0].R + t->i[1].T;
+                    t->c[1].R = t->i[1].R + Rr(H1, s1, N[1]);
+
+                    t->c[0].Nr = ceil((t->c[0].R - t->i[0].R)/sqrt(s));
+                    t->c[0].Nh = ceil(N[0]/t->c[0].Nr);
+                    if(t->c[0].Nr*t->c[0].Nh != t->c[0].N) {
+                        t->c[0].N = t->c[0].Nr*t->c[0].Nh;
+                        t->c[0].s = (t->c[0].R - t->i[0].R)*H1/t->c[0].N;
+                    } else {
+                        t->c[0].N = N[0];
+                        t->c[0].s = s;
+                    }
+                    t->c[0].h = (t->c[0].R - t->i[0].R)/t->c[0].Nr;
+                    t->c[0].w = H1/t->c[0].Nh;
+
+                    t->c[1].Nr = ceil((t->c[1].R - t->i[1].R)/sqrt(s1));
+                    t->c[1].Nh = ceil(N[1]/t->c[1].Nr);
+                    if(t->c[1].Nr*t->c[1].Nh != t->c[1].N) {
+                        t->c[1].N = t->c[1].Nr*t->c[1].Nh;
+                        t->c[1].s = (t->c[1].R - t->i[1].R)*H1/t->c[1].N;
+                    } else {
+                        t->c[1].N = N[1];
+                        t->c[1].s = s1;
+                    }
+                    t->c[1].h = (t->c[1].R - t->i[1].R)/t->c[1].Nr;
+                    t->c[1].w = H1/t->c[1].Nh;
+
+                    //l = t->c[1].h > t->c[0].h ? t->c[1].h : t->c[0].h;
+                    //H = Hspi(l, H1/l, t->i[0].R);
+                    H = H1;
+                    //printf("H = %f Hp[0] = %f N0 = %f N1 =%f Np[0] = %f s = %f s1 = %f \n", H1, t->Hp[0],  N[0], N[1], t->c[i].Np[0], s, s1);
+
+                    t->c[0].L = Ln2(t->c[0].Nh, t->c[0].Nr, t->c[0].h, t->i[0].R);
+                    t->c[1].L = Ln2(t->c[1].Nh, t->c[1].Nr, t->c[1].h, t->i[1].R);
+                    //t->c[0].L = Ln(H, s , N[0], t->i[0].R);
+                    //t->c[1].L = Ln(H, s1, N[1], t->i[1].R);
+
+
+                    if(ph == 3) t->m.S = Sou(t->m.R, t->c[1].R, t->W);
+                    else        t->m.S = Sou1(H, t->m.R, t->c[1].R);
+
+                    t->i[0].S = Sup(t->m.R, t->i[0].R);
+                    t->c[0].S = Sup(t->i[0].R, t->c[0].R);
+                    t->i[1].S = Sup(t->c[0].R, t->i[1].R);
+                    t->c[1].S = Sup(t->i[1].R, t->c[1].R) + Ssd(H, t->c[1].R);
+
+                    t->S = 3*(t->m.S + t->i[0].S + t->c[0].S + t->i[1].S + t->c[1].S);
+                    t->T = PT/(10*t->S);
+
+                    if(ph == 3) t->m.V = Vol(H, 0, t->m.R) + Vou(t->m.R, t->c[1].R, t->W);
+                    else        t->m.V = Vol(H, 0, t->m.R)*2. + Vou1(t->m.R, t->c[1].R);
+                    t->i[0].V = Vol(H, t->m.R, t->i[0].R);
+                    t->c[0].V = Vol(H, t->i[0].R, t->c[0].R);
+                    t->i[1].V = Vol(H, t->c[0].R, t->i[1].R);
+                    t->c[1].V = Vol(H, t->i[1].R, t->c[1].R);
+
+                    t->m.M    = t->m.V*t->m.D*(t->m.Sfc + 1)/(2*1000);        //Mass steel
+                    t->i[0].M = t->i[0].V*t->i[0].D/1000.; //Mass of insulation
+                    t->c[0].M = t->c[0].V*t->c[0].D/1000.; //Mass coil
+                    t->i[1].M = t->i[1].V*t->i[1].D/1000.; //Mass of insulation
+                    t->c[1].M = t->c[1].V*t->c[1].D/1000.; //Mass 1coil
+
+                    if(ph == 3) t->M = 3.*(t->m.M + t->i[0].M + t->c[0].M + t->i[1].M + t->c[1].M);
+                    else        t->M =    (t->m.M + t->i[0].M + t->c[0].M + t->i[1].M + t->c[1].M);
+
+                    t->m.P = 3.*t->m.M*t->m.Lc*t->m.Sfc;                         //Loss in steel
+                    t->c[0].P = Pw2(t->c[0].L, t->c[0].h, t->c[0].w, t->c[0].C, t->c[0].I, t->c[0].T);
+                    t->c[1].P = Pw2(t->c[1].L, t->c[1].h, t->c[1].h, t->c[1].C, t->c[1].I, t->c[1].T);
+
+                    if(ph == 3) t->P = t->m.P + 3.*(t->c[0].P + t->c[1].P);
+                    else        t->P =    (t->m.P + t->c[0].P + t->c[1].P);
+
+                    if((t->P <= PT) && (t->m.P <= PT*0.3)) {
+                    //if(t->P <= PT) {
+                         if(t->M < Mmin) {
+                         //if(t->m.P < Pmin){
+                            Mmin = t->M;
+                            Pmin = t->P;
+                            memcpy (&tm, t, sizeof(tm));
+                            //tm.c[0].s  = s ;
+                            //tm.c[1].s  = s1;
+                            //tm.c[0].N = N[0];
+                            //tm.c[1].N = N[1];
+                            tm.H = H;
+                            tm.H1 = H1;
+                            j++;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    if(j) {
+        memcpy (t, &tm, sizeof(tm));
+
+        t->c[0].Sw = 4.*t->c[0].L*sqrt(t->c[0].s)/1000.;
+        t->c[1].Sw = 4.*t->c[1].L*sqrt(t->c[1].s)/1000.;
+        //t->I = Iid1(t->H, t->i[p].R, t->c[p].R, t->m.B, t->m.Mu, t->c[p].N);
+        t->I = Iid(t->H, t->m.R, t->c[1].R, t->c[p].U, t->m.Mu, t->c[p].N, 50);
+        t->c[0].Rz = t->c[0].L*t->c[0].C/t->c[0].s;
+        t->c[1].Rz = t->c[1].L*t->c[1].C/t->c[1].s;
+
+        if(t->c[0].U > t->c[1].U)   t->NN = t->c[0].N/t->c[1].N;
+        else                        t->NN = t->c[1].N/t->c[0].N;
+
+        if(t->c[p].U < t->c[!p].U)  t->c[!p].U = t->NN*t->c[p].U;
+        else                        t->c[!p].U = t->c[p].U/t->NN;
+
+
+        return 0;
+    } else return 1;
+
+}
+
 int trans_optim(TRANS *t, double PT, int p, int ph)
 {
     struct TRANS tm;
-    double Mmin=1000000, Pmin = 1000000, s, s1, H, N[2];
+    double Mmin=1000000, Pmin = 1000000, s, s1, H, H1, N[2], l;
     int i, j=0, k;
 
     k = !t->m.R ? 1 : 0;
@@ -262,7 +449,7 @@ int trans_optim(TRANS *t, double PT, int p, int ph)
 
     //printf("i = %d N0 = %f N1 = %f H = %f Hp1 = %f Hp2 = %f  Np1 = %f  Np2 = %f \n", i, N[0], N[1], t->H, t->Hp[0], t->Hp[1], t->c[i].Np[0], t->c[i].Np[1]);
     for(N[i] = t->c[i].N; N[i] <= t->c[i].Np[0]; N[i] += t->c[i].Np[1]){
-        for(H = t->H; H <= t->Hp[0]; H += t->Hp[1]){
+        for(H1 = t->H; H1 <= t->Hp[0]; H1 += t->Hp[1]){
             for(s = t->c[0].s; s <= t->c[0].sp[0]; s += t->c[0].sp[1]){
                 for(s1 = t->c[1].s ; s1 <= t->c[1].sp[0]; s1 += t->c[1].sp[1]){
                     //printf("N = %f H = %f s = %f s1 = %f \n", N[i], H, s, s1);
@@ -274,9 +461,14 @@ int trans_optim(TRANS *t, double PT, int p, int ph)
                     }
 
                     t->i[0].R = t->m.R + t->i[0].T;
-                    t->c[0].R = t->i[0].R + Rr(H, s , N[0]);
+                    t->c[0].R = t->i[0].R + Rr(H1, s , N[0]);
                     t->i[1].R = t->c[0].R + t->i[1].T;
-                    t->c[1].R = t->i[1].R + Rr(H, s1, N[1]);
+                    t->c[1].R = t->i[1].R + Rr(H1, s1, N[1]);
+
+                    //l = sqrt(s);
+                    //H = Hspi(l, H1/l, t->i[0].R);
+                    H = H1;
+                    //printf("k = %d H1 = %f H = %f l =%f N = %f R = %f \n", k, H1, H, l, H1/l, t->i[0].R);
 
                     t->c[0].L = Ln(H, s , N[0], t->i[0].R);
                     t->c[1].L = Ln(H, s1, N[1], t->i[1].R);
@@ -328,6 +520,7 @@ int trans_optim(TRANS *t, double PT, int p, int ph)
                             tm.c[0].N = N[0];
                             tm.c[1].N = N[1];
                             tm.H = H;
+                            tm.H1 = H1;
                             j++;
                         }
                     }
@@ -424,8 +617,8 @@ void real_coil(TRANS *t, int p)
     t->c[1].h = (t->c[1].R - t->i[1].R)/t->c[1].Nr;
     t->c[1].w = t->H/t->c[1].Nh;
 
-    t->M = 3.*(t->m.M + t->i[0].M + t->c[0].M + t->i[1].M + t->c[1].M);
-    t->P = 3.*(t->m.P + t->c[0].P + t->c[1].P);
+    //t->M = 3.*(t->m.M + t->i[0].M + t->c[0].M + t->i[1].M + t->c[1].M);
+    //t->P = 3.*(t->m.P + t->c[0].P + t->c[1].P);
 
     if(t->c[0].U > t->c[1].U)   t->NN = t->c[0].N/t->c[1].N;
     else                        t->NN = t->c[1].N/t->c[0].N;
@@ -531,7 +724,7 @@ void print_result(TRANS *t, int p)
     printf("Длина %f м\n", t->c[0].L);
     printf("Сечение %f мм**2\n", t->c[0].s);
     printf("Площадь поверхности провода %f м**2\n", t->c[0].Sw);
-    printf("Радиус внутренний %f мм внешний %f мм высота %f мм\n", t->i[0].R, t->c[0].R, t->H);
+    printf("Радиус внутренний %f мм внешний %f мм высота %f мм  %f \n", t->i[0].R, t->c[0].R, t->H, t->H1);
     printf("Число витков по высоте %f по радиусу %f \n", t->c[0].Nh, t->c[0].Nr);
     printf("Высота сечения провода %f ширина %f \n", t->c[0].h, t->c[0].w);
 
@@ -547,7 +740,7 @@ void print_result(TRANS *t, int p)
     printf("Длина %f м\n", t->c[1].L);
     printf("Сечение %f мм**2\n", t->c[1].s);
     printf("Площадь поверхности провода %f м**2\n", t->c[1].Sw);
-    printf("Радиус внутренний %f мм внешний %f мм высота %f мм\n", t->i[1].R, t->c[1].R, t->H);
+    printf("Радиус внутренний %f мм внешний %f мм высота %f мм  %f \n", t->i[1].R, t->c[1].R, t->H, t->H1);
     printf("Число витков по высоте %f по радиусу %f \n", t->c[1].Nh, t->c[1].Nr);
     printf("Высота сечения провода %f ширина %f \n", t->c[1].h, t->c[1].w);
 }
@@ -562,8 +755,8 @@ void trans(void)
     for(i=0; i < n; i++) {
         tr[i] = (TRANS) {.PW = POWER, .W = 2, .H = 200, .Hp[0] = 400, .Hp[1] = 1 };
         tr[i].m = (MCORE) {.D = 7.65, .Mu = 10000., .B = 1.85, .Lc = 1., .Sfc = 0.95, .R = 0 };
-        tr[i].i[0] = (INS) {.D = 1.5, .T = 1.};
-        tr[i].i[1] = (INS) {.D = 1.5, .T = 2.};
+        tr[i].i[0] = (INS) {.D = 3.26, .T = 1.};
+        tr[i].i[1] = (INS) {.D = 3.26, .T = 2.};
     }
 
     //Tree phase
@@ -586,7 +779,7 @@ void trans(void)
         memcpy (&tr[i].c[0], &coil[0],   sizeof(coil[0]));
         memcpy (&tr[i].c[1], &coil[i+1], sizeof(coil[1]));
     }
-    memcpy (&t, &tr[0], sizeof(t));
+    memcpy (&t, &tr[1], sizeof(t));
 
     /*
     //One Phase
@@ -609,14 +802,15 @@ void trans(void)
     }
     */
 
-    if(trans_optim(&t, 980, p, 3)){
+    //if(trans_optim(&t, 980, p, 3)){
+    if(trans_optim_spiral(&t, 980, p, 3)){
         printf("No any result!!!\n");
         return;
     }
 
-    print_result(&t, p);
-    real_coil(&t, p);
-    trans_calc(&t, p, 3);
+    //print_result(&t, p);
+    //real_coil(&t, p);
+    //trans_calc(&t, p, 3);
 
 
     //H = 275.000000 R1 = 70.646946 R2 = 71.646946 R3 = 102.137855 R4 = 104.137855 R5 = 129.665128

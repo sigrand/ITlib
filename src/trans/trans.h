@@ -61,7 +61,8 @@ typedef struct TRANS {
     double V;   //Volume dm**3
     double S;   //square м**2
     double P;   //The loss power W
-    double H;   //The height of the coil, insulation and magnetic core mm
+    double H1;   //The height of the coil, insulation and magnetic core mm
+    double H;   //The height of the coil with spiral
     double I;   //No-load current
     double W;   //The distance between the coils
     double T;   //Temperature of transformer
