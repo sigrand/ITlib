@@ -10,6 +10,7 @@ typedef struct COIL {
     double R;   //The external radius mm
     double s;   //The cross-sectional area of the wire mm**2
     double L;   //The lenght of coil wire m
+    double L1;   //The lenght of coil wire m
     double N;   //The number of turns
     double Nr;   //The number of turns in radial derection
     double Nh;   //The number of turns vertical direction
@@ -18,7 +19,8 @@ typedef struct COIL {
     double P;   //The loss power W
     double Rz;   //Resistance
     double h;   //The wire height
-    double w;   //The wire width
+    double w;   //The wire width with spiral
+    double w1;   //The wire width
     double C;   //Conductivity
     double D;   //Density aluminum kg/gm**3
     double S;   //square м**2
@@ -61,7 +63,6 @@ typedef struct TRANS {
     double V;   //Volume dm**3
     double S;   //square м**2
     double P;   //The loss power W
-    double H1;   //The height of the coil, insulation and magnetic core mm
     double H;   //The height of the coil with spiral
     double I;   //No-load current
     double W;   //The distance between the coils
