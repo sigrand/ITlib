@@ -9,6 +9,7 @@ typedef struct COIL {
     double T;   //The thickness of the wire insulation mm
     double R;   //The external radius mm
     double s;   //The cross-sectional area of the wire mm**2
+    double s1;   //The cross-sectional area of the wire mm**2 without isolation
     double L;   //The lenght of coil wire m
     double L1;   //The lenght of coil wire m
     double N;   //The number of turns
@@ -68,6 +69,7 @@ typedef struct TRANS {
     double W;   //The distance between the coils
     double T;   //Temperature of transformer
     double Hp[2];   //The height of the coilrange mm
+    double Ks[2];   //Spin effect paramrters
 } TRANS;
 
 
