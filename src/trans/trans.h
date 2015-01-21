@@ -41,6 +41,7 @@ typedef struct MCORE {
     double Mu;  //Magnetic permeability of transformer steel
     double B;   //The max magnetic field T
     double S;   //square м**2
+    double Rp[2];   //Radius search paraments
 } MCORE;
 
 typedef struct INS {
