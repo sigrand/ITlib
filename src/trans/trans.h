@@ -73,6 +73,8 @@ typedef struct TRANS {
     double Ks[2];   //Spin effect paramrters
 } TRANS;
 
+typedef double (*fp)(double, double);
+typedef double (*fp1)(double , double ,  double , double );
 
 #ifdef __cplusplus
 extern "C"

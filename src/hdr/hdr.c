@@ -298,14 +298,16 @@ void hdr_tone_bayer(int16 *in, int16 *out, int16 *buff, const int w, const int h
 
 void gamma_table(int in, int out)
 {
-    double gam[512], gam1[512], gam2[512], ia, a = 0.02, a1 = 20, b;
+    double gam[512], gam1[512], gam2[512], ia, a = 0.005, a1 = 20, g = 0.4, b;
     uint32 i, j, gamma[512], vl0, vl1, hdr = 0;
     in = 511; out = 1023;
 
     if(hdr == 0){
         for(i=0; i < 512; i++){
             //ia = in*a;
-            gam[i] = out*((log(i + in*a) - log(in*a))/(log(in + in*a) - log(in*a)));
+            //gam[i] = out*((log(i + in*a) - log(in*a))/(log(in + in*a) - log(in*a)));
+            gam[i] = out*pow((double)i/(double)in, g);
+            //printf("%3d  %d\n", i, (int)gam[i]);
         }
 
         vl0 = 0;
