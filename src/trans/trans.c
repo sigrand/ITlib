@@ -237,6 +237,14 @@ inline double Sou1(double h, double R1, double R2)
 //    return PI*h*(R2*R2 - R1*R1)/1000.;
 //}
 
+//Calculate volume of tor
+//R - Tor radius
+//S - the square
+inline double Vol_tor(double R, double S)
+{
+    return 2*S*PI*R/1000.;
+}
+
 //Calculate volume
 //h - vertical size in mm
 //R1 - internal radius in mm
@@ -279,6 +287,17 @@ inline double Vou2(double S, double R1,  double R2, double W)
 inline double Vou1(double R1, double R2)
 {
     return (8.*PI*R1*R1*PI*R1*2./(4*3.) + 4*(R2-R1)*PI*R1*R1/2.)/1000.;
+}
+
+//The cross section of tor wire
+//R - Tor radius
+//S1 - Square of cross section core
+//S2 - Square of cross section core + first coil
+//N - Number of windings
+//Ln - length of wire
+inline double CS_tor(double R, double S1, double S2, double N, double Ln)
+{
+    return 2*(S2-S1)*PI*R/((N-1)*Ln);
 }
 
 //Calculate mass
@@ -345,7 +364,91 @@ inline double Nc(double B, double U, double Sq, double F)
     return U*1000000./(1.414*PI*F*B*Sq);
 }
 
-int trans_optim(TRANS *t, double PT, int p, int ph, double FR, int circle)
+int trans_optim_tor(TRANS *t, double M, double FR)
+{
+    struct TRANS tm;
+    double Mmin=10000000, Pmin = 10000000, s, s1, H, N[2], Nr[2], l, SP; // Ln[2];
+    double th, Ks, R1, R;
+    int j=0;
+    fp sq, ln;
+    fp1 vou;
+
+    //sq = SQ; ln = LN;
+    //R1 = t->m.R;
+
+    t->NN = t->c[1].U/t->c[0].U;
+
+    for(; t->m.R <= t->m.Rp[0]; t->m.R += t->m.Rp[1]) {
+        for(R1 = t->m.R1; R1 <= t->m.R1p[0]; R1 += t->m.R1p[1]){
+            for(R = R1+t->c[0].Rp[1]; R <= t->c[0].Rp[0]; R += t->c[0].Rp[1]){
+                if (R + R1 < t->m.R) {
+                    //printf("m.R = %f m.R1 = %f c.R = %f\n", t->m.R, R1, R);
+
+                    t->c[0].N = Nc(t->m.B, t->c[0].U, SQ(R1*sqrt(t->m.Sfc), 0), FR);
+                    //t->c[1].N = t->c[0].N*t->NN;
+
+                    t->c[0].s = CS_tor(t->m.R, SQ(R1,0), SQ(R,0), t->c[0].N+1, LN((R1 + R)/2., 0));
+                    t->c[0].h =  R - t->m.R;
+                    t->c[0].w =  t->c[0].s/t->c[0].h;
+
+                    t->c[0].L = LN((R1 + R)/2., 0)*(t->c[0].N+1)/1000.;
+                    // t->c[1].L = LnS(t->c[1].Nh, t->c[1].Nr, t->c[1].h, t->i[1].R, t->c[1].w, ln);
+
+                    t->m.V = Vol_tor(t->m.R, SQ(R1,0));
+                    t->c[0].V = Vol_tor(t->m.R, SQ(R,0)) - Vol_tor(t->m.R, SQ(R1,0));
+
+                    t->m.M    = t->m.V*t->m.D*(t->m.Sfc + 1)/(2*1000);        //Mass steel
+                    t->c[0].M = t->c[0].V*t->c[0].D/1000.; //Mass coil
+
+                    t->M =   t->m.M + t->c[0].M;
+
+                    t->m.P = t->m.M*t->m.Lc*t->m.Sfc;                         //Loss in steel
+                    Ks = t->Ks[0]*t->c[0].s + t->Ks[1];
+                    t->c[0].P = Pw2(t->c[0].L, t->c[0].h, t->c[0].w, t->c[0].C, t->c[0].I, t->c[0].T, Ks);
+                    //Ks = t->Ks[0]*t->c[1].s + t->Ks[1];
+                    //t->c[1].P = Pw2(t->c[1].L, t->c[1].h, t->c[1].w, t->c[1].C, t->c[1].I, t->c[1].T, Ks);
+                    t->c[1].P = 0;
+
+                    t->P =    (t->m.P + t->c[0].P + t->c[1].P);
+                    printf("m.R = %f m.R1 = %f c.R = %f N = %f s = %f L = %f  m.V = %f  c[0].V = %f m.M = %f c.M = %f P = %f th = %f\n",
+                           t->m.R, R1, R, t->c[0].N, t->c[0].s, t->c[0].L, t->m.V, t->c[0].V, t->m.M, t->c[0].M, t->P, th);
+
+                    if(t->M <= M) {
+                        if(t->m.P < Pmin){
+                            Mmin = t->M;
+                            Pmin = t->P;
+                            memcpy (&tm, t, sizeof(tm));
+                            tm.m.R1 = R1;
+                            tm.c[0].R = R;
+                            j++;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    if(j) {
+        memcpy (t, &tm, sizeof(tm));
+
+        t->c[0].Sw = 2.*t->c[0].L*(t->c[0].h + t->c[0].w)/1000.;
+        t->c[1].Sw = 2.*t->c[1].L*(t->c[1].h + t->c[1].w)/1000.;
+        //t->I = Iid1(t->H, t->i[p].R, t->c[p].R, t->m.B, t->m.Mu, t->c[p].N);
+        t->I = Iid(t->H, t->m.R, t->c[1].R, t->c[0].U, t->m.Mu, t->c[0].N, FR);
+        Ks = t->Ks[0]*t->c[0].s + t->Ks[1];
+        t->c[0].Rz = t->c[0].L*t->c[0].C*Ks/t->c[0].s;
+        Ks = t->Ks[0]*t->c[1].s + t->Ks[1];
+        t->c[1].Rz = t->c[1].L*t->c[1].C*Ks/t->c[1].s;
+
+        printf("m.R = %f m.R1 = %f c.R = %f N = %f s = %f L = %f  m.V = %f  c[0].V = %f m.M = %f c.M = %f P = %f th = %f\n",
+               t->m.R, t->m.R1, t->c[0].R, t->c[0].N, t->c[0].s, t->c[0].L, t->m.V, t->c[0].V, t->m.M, t->c[0].M, t->P, th);
+
+        return 0;
+    } else return 1;
+
+}
+
+int trans_optim(TRANS *t, double PT, int p, double FR, int type)
 {
     struct TRANS tm;
     double Mmin=10000000, Pmin = 10000000, s, s1, H, N[2], Nr[2], l, SP; // Ln[2];
@@ -354,10 +457,17 @@ int trans_optim(TRANS *t, double PT, int p, int ph, double FR, int circle)
     fp sq, ln;
     fp1 vou;
 
-    if(circle){
+    if(type == Round_3phase)
+    {
         sq = SQ; ln = LN; vou = Vou;
-    } else {
+    }
+    else if(type == Round_120_3phase)
+    {
         sq = SQ1; ln = LN1; vou = Vou2;
+    }
+    else if(type == Tore_1phase)
+    {
+        sq = SQ; ln = LN;
     }
     R1 = t->m.R;
 
@@ -415,7 +525,8 @@ int trans_optim(TRANS *t, double PT, int p, int ph, double FR, int circle)
                     t->c[0].L = LnS(t->c[0].Nh, t->c[0].Nr, t->c[0].h, t->i[0].R, t->c[0].w, ln);
                     t->c[1].L = LnS(t->c[1].Nh, t->c[1].Nr, t->c[1].h, t->i[1].R, t->c[1].w, ln);
 
-                    if(ph == 3) t->m.S = Sou(t->m.R, t->c[1].R, t->W);
+
+                    if(type == Round_3phase || type == Round_120_3phase) t->m.S = Sou(t->m.R, t->c[1].R, t->W);
                     else        t->m.S = Sou1(H, t->m.R, t->c[1].R);
 
                     t->i[0].S = Sup(t->m.R, t->i[0].R);
@@ -426,8 +537,10 @@ int trans_optim(TRANS *t, double PT, int p, int ph, double FR, int circle)
                     t->S = 3*(t->m.S + t->i[0].S + t->c[0].S + t->i[1].S + t->c[1].S);
                     t->T = PT/(10*t->S);
 
-                    if(ph == 3) t->m.V = Vol(H, 0, (sq)(t->m.R, R1)) + (vou)((sq)(t->m.R, R1), t->m.R, t->c[1].R, t->W);
+                    if(type == Round_3phase || type == Round_120_3phase)
+                        t->m.V = Vol(H, 0, (sq)(t->m.R, R1)) + (vou)((sq)(t->m.R, R1), t->m.R, t->c[1].R, t->W);
                     else        t->m.V = Vol(H, 0, (sq)(t->m.R, R1))*2. + Vou1(t->m.R, t->c[1].R);
+
                     t->i[0].V = Vol(H, (sq)(t->m.R, R1)   , (sq)(t->i[0].R, R1));
                     t->c[0].V = Vol(H, (sq)(t->i[0].R, R1), (sq)(t->c[0].R, R1));
                     t->i[1].V = Vol(H, (sq)(t->c[0].R, R1), (sq)(t->i[1].R, R1));
@@ -439,7 +552,7 @@ int trans_optim(TRANS *t, double PT, int p, int ph, double FR, int circle)
                     t->i[1].M = t->i[1].V*t->i[1].D/1000.; //Mass of insulation
                     t->c[1].M = t->c[1].V*t->c[1].D/1000.; //Mass 1coil
 
-                    if(ph == 3) t->M = 3.*(t->m.M + t->i[0].M + t->c[0].M + t->i[1].M + t->c[1].M);
+                    if(type == Round_3phase || type == Round_120_3phase) t->M = 3.*(t->m.M + t->i[0].M + t->c[0].M + t->i[1].M + t->c[1].M);
                     else        t->M =    (t->m.M + t->i[0].M + t->c[0].M + t->i[1].M + t->c[1].M);
 
 
@@ -449,7 +562,7 @@ int trans_optim(TRANS *t, double PT, int p, int ph, double FR, int circle)
                     Ks = t->Ks[0]*t->c[1].s + t->Ks[1];
                     t->c[1].P = Pw2(t->c[1].L, t->c[1].h, t->c[1].w, t->c[1].C, t->c[1].I, t->c[1].T, Ks);
 
-                    if(ph == 3) t->P = t->m.P + 3.*(t->c[0].P + t->c[1].P);
+                    if(type == Round_3phase || type == Round_120_3phase) t->P = t->m.P + 3.*(t->c[0].P + t->c[1].P);
                     else        t->P =    (t->m.P + t->c[0].P + t->c[1].P);
 
                     if((t->P <= PT) && (t->m.P <= PT*1)) {
@@ -492,7 +605,8 @@ int trans_optim(TRANS *t, double PT, int p, int ph, double FR, int circle)
 
 }
 
-void trans_param(TRANS *t, double PT, int p, int ph, double FR, int circle)
+
+void trans_param(TRANS *t, double PT, int p, double FR, int type)
 {
     struct TRANS tm;
     int i;
@@ -500,10 +614,17 @@ void trans_param(TRANS *t, double PT, int p, int ph, double FR, int circle)
     fp sq, ln;
     fp1 vou;
 
-    if(circle){
+    if(type == Round_3phase)
+    {
         sq = SQ; ln = LN; vou = Vou;
-    } else {
+    }
+    else if(type == Round_120_3phase)
+    {
         sq = SQ1; ln = LN1; vou = Vou2;
+    }
+    else if(type == Tore_1phase)
+    {
+
     }
     R1 = t->m.R;
 
@@ -545,7 +666,7 @@ void trans_param(TRANS *t, double PT, int p, int ph, double FR, int circle)
     t->c[0].L = LnS(t->c[0].Nh, t->c[0].Nr, t->c[0].h, t->i[0].R, t->c[0].w, ln);
     t->c[1].L = LnS(t->c[1].Nh, t->c[1].Nr, t->c[1].h, t->i[1].R, t->c[1].w, ln);
 
-    if(ph == 3) t->m.S = Sou(t->m.R, t->c[1].R, t->W);
+    if(type == Round_3phase || type == Round_120_3phase)  t->m.S = Sou(t->m.R, t->c[1].R, t->W);
     else        t->m.S = Sou1(t->H, t->m.R, t->c[1].R);
 
     t->i[0].S = Sup(t->m.R, t->i[0].R);
@@ -556,7 +677,7 @@ void trans_param(TRANS *t, double PT, int p, int ph, double FR, int circle)
     t->S = 3*(t->m.S + t->i[0].S + t->c[0].S + t->i[1].S + t->c[1].S);
     t->T = PT/(10*t->S);
 
-    if(ph == 3) t->m.V = Vol(t->H, 0, (sq)(t->m.R, R1)) + (vou)((sq)(t->m.R, R1), t->m.R, t->c[1].R, t->W);
+    if(type == Round_3phase || type == Round_120_3phase)  t->m.V = Vol(t->H, 0, (sq)(t->m.R, R1)) + (vou)((sq)(t->m.R, R1), t->m.R, t->c[1].R, t->W);
     else        t->m.V = Vol(t->H, 0, (sq)(t->m.R, R1))*2. + Vou1(t->m.R, t->c[1].R);
     t->i[0].V = Vol(t->H, (sq)(t->m.R, R1)   , (sq)(t->i[0].R, R1));
     t->c[0].V = Vol(t->H, (sq)(t->i[0].R, R1), (sq)(t->c[0].R, R1));
@@ -569,7 +690,7 @@ void trans_param(TRANS *t, double PT, int p, int ph, double FR, int circle)
     t->i[1].M = t->i[1].V*t->i[1].D/1000.; //Mass of insulation
     t->c[1].M = t->c[1].V*t->c[1].D/1000.; //Mass 1coil
 
-    if(ph == 3) t->M = 3.*(t->m.M + t->i[0].M + t->c[0].M + t->i[1].M + t->c[1].M);
+    if(type == Round_3phase || type == Round_120_3phase)  t->M = 3.*(t->m.M + t->i[0].M + t->c[0].M + t->i[1].M + t->c[1].M);
     else        t->M =    (t->m.M + t->i[0].M + t->c[0].M + t->i[1].M + t->c[1].M);
 
     t->m.P = 3.*t->m.M*t->m.Lc*t->m.Sfc;  //Loss in steel
@@ -578,7 +699,7 @@ void trans_param(TRANS *t, double PT, int p, int ph, double FR, int circle)
     Ks = t->Ks[0]*t->c[1].s + t->Ks[1];
     t->c[1].P = Pw2(t->c[1].L, t->c[1].h, t->c[1].w, t->c[1].C, t->c[1].I, t->c[1].T, Ks);
 
-    if(ph == 3) t->P = t->m.P + 3*(t->c[0].P + t->c[1].P);
+    if(type == Round_3phase || type == Round_120_3phase)  t->P = t->m.P + 3*(t->c[0].P + t->c[1].P);
     else        t->P =   (t->m.P + t->c[0].P + t->c[1].P);
 
 
@@ -659,11 +780,11 @@ void trans(void)
     int i, n = 7;
     TRANS tr[n], t;
     //COIL coil[9];
-    double LOST, POWER = 100;
+    double LOST, POWER = 23;
     double FR = 50;
     int p = 1;
-    int circle = 0;
 
+    //3 Phase power treasformer
     if(POWER == 25){
         i=0;
         LOST = 400;
@@ -692,7 +813,7 @@ void trans(void)
         i=2;
         LOST = 980;
         tr[i] = (TRANS) {.PW = POWER, .W = 3, .H = 200, .Hp[0] = 400, .Hp[1] = 1, .Ks[0] = 0.000155, .Ks[1] = 0.999845 };
-        tr[i].m = (MCORE) {.D = 7.65, .Mu = 10000., .B = 1.7, .Lc = 1.05, .Sfc = 0.95, .R = 75, .Rp[0] = 75, .Rp[1] = 1 };
+        tr[i].m = (MCORE) {.D = 7.65, .Mu = 10000., .B = 1.9, .Lc = 1.55, .Sfc = 0.95, .R = 65, .Rp[0] = 80, .Rp[1] = 1 }; //1.9 1.55
         tr[i].i[0] = (INS) {.D = 3.26, .T = 2.5};
         tr[i].c[0] = (COIL) {.U = 400,   .T = 0.06,.C = 0.0282, .D = 2.6989, .s = 100,  .sp[0] = 200, .sp[1] = 1, .Nr = 0}; //100KW
         tr[i].c[0].I = POWER*1000*sqrt(3.)/tr[i].c[0].U/3.;
@@ -730,52 +851,40 @@ void trans(void)
         tr[i].c[1] = (COIL) {.U = 10000, .T = 0.06,.C = 0.0282, .D = 2.6989, .s = 35, .sp[0] = 50,  .sp[1] = 1, .Nr = 20}; //1000KW
         tr[i].c[1].I = POWER*1000/tr[i].c[1].U/3.;
     }
-    else if(POWER == 2000){
-        i=6;
-        LOST = 12000;
-        tr[i] = (TRANS) {.PW = POWER, .W = 5, .H = 400, .Hp[0] = 600, .Hp[1] = 1, .Ks[0] = 0.000155, .Ks[1] = 0.999845 };
-        tr[i].m = (MCORE) {.D = 7.65, .Mu = 10000., .B = 1.85, .Lc = 1., .Sfc = 0.95, .R = 140, .Rp[0] = 160, .Rp[1] = 1 };
-        tr[i].i[0] = (INS) {.D = 3.26, .T = 1.};
-        tr[i].c[0] = (COIL) {.U = 400,   .T = 0.06,.C = 0.0282, .D = 2.6989, .s = 1500,  .sp[0] = 2300, .sp[1] = 2, .Nr = 0}; //2000KW
-        tr[i].c[0].I = POWER*1000*sqrt(3.)/tr[i].c[0].U/3.;
-        tr[i].i[1] = (INS) {.D = 3.26, .T = 2.};
-        tr[i].c[1] = (COIL) {.U = 10000, .T = 0.06,.C = 0.0282, .D = 2.6989, .s = 60, .sp[0] = 85,  .sp[1] = 1, .Nr = 20}; //2000KW
-        tr[i].c[1].I = POWER*1000/tr[i].c[1].U/3.;
-    }
+        else if(POWER == 2000){
+            i=6;
+            LOST = 12000;
+            tr[i] = (TRANS) {.PW = POWER, .W = 5, .H = 400, .Hp[0] = 600, .Hp[1] = 1, .Ks[0] = 0.000155, .Ks[1] = 0.999845 };
+            tr[i].m = (MCORE) {.D = 7.65, .Mu = 10000., .B = 1.85, .Lc = 1., .Sfc = 0.95, .R = 140, .Rp[0] = 160, .Rp[1] = 1 };
+            tr[i].i[0] = (INS) {.D = 3.26, .T = 1.};
+            tr[i].c[0] = (COIL) {.U = 400,   .T = 0.06,.C = 0.0282, .D = 2.6989, .s = 1500,  .sp[0] = 2300, .sp[1] = 2, .Nr = 0}; //2000KW
+            tr[i].c[0].I = POWER*1000*sqrt(3.)/tr[i].c[0].U/3.;
+            tr[i].i[1] = (INS) {.D = 3.26, .T = 2.};
+            tr[i].c[1] = (COIL) {.U = 10000, .T = 0.06,.C = 0.0282, .D = 2.6989, .s = 60, .sp[0] = 85,  .sp[1] = 1, .Nr = 20}; //2000KW
+            tr[i].c[1].I = POWER*1000/tr[i].c[1].U/3.;
+        }
 
-    if(trans_optim(&(tr[i]), LOST, p, 3, FR, circle)) { printf("No any result!!!\n"); return; }
 
-    /*
-    //One Phase
-    coil[7] = (COIL) {.U = 230, .T = 0.06,.C = 0.0282, .D = 2.6989, .s = 0.1, .sp[0] = 10,  .sp[1] = 0.1};
-    coil[7].I = 1.5*1000/coil[7].U;
-    coil[8] = (COIL) {.U = 40, .T = 0.06,.C = 0.0282, .D = 2.6989, .s = 1, .sp[0] = 100,  .sp[1] = 1, .N = 20, .Np[0] = 100, .Np[1] =
-    coil[8].I = 1.5*1000/coil[8].U;
+    //if(trans_optim(&(tr[i]), LOST, p, FR, Round_120_3phase)) { printf("No any result!!!\n"); return; }
 
-    t = (TRANS) {.PW = 1500, .H = 20, .Hp[0] = 200, .Hp[1] = 1 };
-    t.m = (MCORE) {.D = 7.65, .Mu = 20000., .B = 1.9, .Lc = 1., .Sfc = 0.955, .R = 24 };
-    t.i[0] = (INS) {.D = 1.5, .T = 1.};
-    t.i[1] = (INS) {.D = 1.5, .T = 1.};
-    memcpy (&t.c[0], &coil[7], sizeof(coil[0]));
-    memcpy (&t.c[1], &coil[8], sizeof(coil[1]));
-    p = 0;
+    //One phase tor transformer
+            if(POWER == 23){
+                i=10;
+                LOST = POWER*1000.*(1 - 0.8);
+                tr[i] = (TRANS) {.PW = POWER, .W = 5, .H = 400, .Hp[0] = 600, .Hp[1] = 1, .Ks[0] = 0.000155, .Ks[1] = 0.999845 };
+                tr[i].m = (MCORE) {.D = 7.65, .Mu = 10000., .B = 1.9, .Lc = 1.55, .Sfc = 0.95, .R = 40, .Rp[0] = 150, .Rp[1] = 1, .R1 = 10, .R1p[0] = 50, .R1p[1] = 1 };
+                //tr[i].i[0] = (INS) {.D = 3.26, .T = 1.};
+                tr[i].c[0] = (COIL) {.U = 230,   .T = 0.06,.C = 0.0282, .D = 2.6989, .Rp[0] = 70, .Rp[1] = 1};
+                tr[i].c[0].I = 100.;
+                //tr[i].i[1] = (INS) {.D = 3.26, .T = 2.};
+                tr[i].c[1] = (COIL) {.U = 3, .T = 0.06,.C = 0.0282, .D = 2.6989, .s = 60, .sp[0] = 85,  .sp[1] = 1, .Nr = 20};
+                //tr[i].c[1].I = POWER*1000/tr[i].c[1].U/3.;
+            }
 
-    if(trans_optim(&t, 1500*0.04, p, 1)){
-        printf("No any result!!!\n");
-        return;
-    }
-    */
-    /*
-    tr[2].H = 280;
-    tr[2].m.R = 77;
+                if(trans_optim_tor(&(tr[i]), 5, FR)) { printf("No any result!!!\n"); return; }
 
-    //400V
-    tr[2].c[0].R = 113;
-    tr[2].c[0].Nh = 62;
-    tr[2].c[0].Nr = 1;
-    tr[2].c[0].N = tr[2].c[0].Nh*tr[2].c[0].Nr;
-    tr[2].c[0].I = POWER*1000*sqrt(3.)/tr[2].c[0].U/3.;
-    */
+
+
     //10000kV
     /*
     tr[2].c[1].R = 133;
@@ -792,17 +901,25 @@ void trans(void)
     tr[2].c[1].N = tr[2].c[1].Nh*tr[2].c[1].Nr;
     tr[2].c[1].I = POWER*1000/tr[2].c[1].U/3.;
     */
-
-    //315V
     /*
-    tr[2].c[1].R = 141;
-    tr[2].c[1].Nh = 49;
+    tr[2].H = 256;
+    tr[2].m.R = 77;
+
+    //400V
+    tr[2].c[0].R = 114;
+    tr[2].c[0].Nh = 56;
+    tr[2].c[0].Nr = 1;
+    tr[2].c[0].N = tr[2].c[0].Nh*tr[2].c[0].Nr;
+    tr[2].c[0].I = POWER*1000*sqrt(3.)/tr[2].c[0].U/3.;
+    //315V
+    tr[2].c[1].R = 143;
+    tr[2].c[1].Nh = 44;
     tr[2].c[1].Nr = 1;
     tr[2].c[1].N = tr[2].c[1].Nh*tr[2].c[1].Nr;
     tr[2].c[1].I = POWER*1000/tr[2].c[1].U/3.;
 
 
-    trans_param(&(tr[i]), LOST, p, 3, FR, circle);
+    trans_param(&(tr[i]), LOST, p, FR, Round_120_3phase);
     */
     print_result(&(tr[i]), p);
 

@@ -28,10 +28,12 @@ typedef struct COIL {
     double Sw;   //The surface area of the wire m**2
     double sp[2]; //The cross-sectional area of the wire range
     double Np[2]; //The number of turns range and step
+    double Rp[2];   //Radius search paraments
 } COIL;
 
 typedef struct MCORE {
     double R;   //The external radius mm
+    double R1;  //The tor radius mm
     double M;   //Mass kg
     double V;   //Volume dm**3
     double P;   //The loss power W
@@ -42,6 +44,7 @@ typedef struct MCORE {
     double B;   //The max magnetic field T
     double S;   //square м**2
     double Rp[2];   //Radius search paraments
+    double R1p[2];   //Tor Radius search paraments
 } MCORE;
 
 typedef struct INS {
@@ -70,11 +73,19 @@ typedef struct TRANS {
     double W;   //The distance between the coils
     double T;   //Temperature of transformer
     double Hp[2];   //The height of the coilrange mm
-    double Ks[2];   //Spin effect paramrters
+    double Ks[2];   //Skin effect paramrters
 } TRANS;
 
 typedef double (*fp)(double, double);
 typedef double (*fp1)(double , double ,  double , double );
+
+enum Trans_types
+{
+    Round_3phase        = 0,
+    Round_120_3phase	= 1,
+    Tore_1phase         = 2
+};
+
 
 #ifdef __cplusplus
 extern "C"
