@@ -26,6 +26,7 @@ typedef struct COIL {
     double D;   //Density aluminum kg/gm**3
     double S;   //square м**2
     double Sw;   //The surface area of the wire m**2
+    double a,b; //Elips parameters
     double sp[2]; //The cross-sectional area of the wire range
     double Np[2]; //The number of turns range and step
     double Rp[2];   //Radius search paraments
@@ -43,6 +44,7 @@ typedef struct MCORE {
     double Mu;  //Magnetic permeability of transformer steel
     double B;   //The max magnetic field T
     double S;   //square м**2
+    double a,b; //Elips parameters
     double Rp[2];   //Radius search paraments
     double R1p[2];   //Tor Radius search paraments
 } MCORE;
