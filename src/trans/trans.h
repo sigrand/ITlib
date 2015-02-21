@@ -13,12 +13,14 @@ typedef struct COIL {
     double L;   //The lenght of coil wire m
     double L1;   //The lenght of coil wire m
     double N;   //The number of turns
+    double N1, N2;   //The number of turns
     double Nr;   //The number of turns in radial derection
     double Nh;   //The number of turns vertical direction
     double M;   //Mass kg
     double V;   //Volume dm**3
     double P;   //The loss power W
     double Rz;   //Resistance
+    double Rl;  //Induction Resistance
     double h;   //The wire height
     double w;   //The wire width with spiral
     double w1;   //The wire width
@@ -43,6 +45,8 @@ typedef struct MCORE {
     double Lc;  //Loss in magnetic core W/kg
     double Mu;  //Magnetic permeability of transformer steel
     double B;   //The max magnetic field T
+    double B1;   //The max magnetic field T
+    double H;   //The magnetic industion
     double S;   //square м**2
     double a,b; //Elips parameters
     double Rp[2];   //Radius search paraments
