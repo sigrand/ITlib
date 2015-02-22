@@ -49,6 +49,10 @@ typedef struct MCORE {
     double H;   //The magnetic industion
     double S;   //square м**2
     double a,b; //Elips parameters
+    double l;
+    double L[3]; //The lenght of spiral
+    double fi[3]; //The angels of spiral
+    double V1, M1; //The angels of spiral
     double Rp[2];   //Radius search paraments
     double R1p[2];   //Tor Radius search paraments
 } MCORE;
