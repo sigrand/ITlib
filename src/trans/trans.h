@@ -82,6 +82,7 @@ typedef struct TRANS {
     double I;   //No-load current
     double W;   //The distance between the coils
     double T;   //Temperature of transformer
+    double Per;   //Performence
     double Hp[2];   //The height of the coilrange mm
     double Ks[2];   //Skin effect paramrters
 } TRANS;
@@ -95,6 +96,15 @@ enum Trans_types
     Round_120_3phase	= 1,
     Tore_1phase         = 2
 };
+
+double HBM[8][3] = {{230000, 2.3, 7    },
+                    {10000 , 2  , 158  },
+                    {1000  , 1.9, 1500 },
+                    {200   , 1.8, 7150 },
+                    {70    , 1.7, 19300},
+                    {45    , 1.6, 28200},
+                    {35    , 1.5, 34000},
+                    {30    , 1.4, 37000}};
 
 
 #ifdef __cplusplus
