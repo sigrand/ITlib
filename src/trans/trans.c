@@ -445,11 +445,11 @@ inline double get_B(double H)
 int trans_optim_tor(TRANS *t, double PW, double M, double FR)
 {
     struct TRANS tm;
-    double Mmin=10000000, Pmin = 10000000, Imax = 0, Pmax = 0, s, s1, N, Nr[2], SP; // Ln[2];
+    double Mmin=10000000, Pmin = 10000000, Imax = 0, Pmax = 0, s, s1, N2, Nr[2], SP; // Ln[2];
     double tmp, Ks, R1, R, r, sq, a, b, a1, b1, mR, xl, N1, L;
-    int j=0;
+    int i, j=0;
     double U, UP = 2;
-    double L0, L1, L2, fi, V, I, Rz, E, A, cosf, hc = 0.35, st = hc/(2*PI);
+    double L0, L1, L2, fi, V, I, I1, E1, E2, Rz, E, A, cosf, hc = 0.35, st = hc/(2*PI);
     double SF1 = 0.8, SF2 = 0.8; //The coils fill factor
     //fp sq, ln;
     //fp1 vou;
@@ -462,12 +462,9 @@ int trans_optim_tor(TRANS *t, double PW, double M, double FR)
     for(mR = t->m.R; mR <= t->m.Rp[0]; mR += t->m.Rp[1]) {
         for(R1 = t->m.R1; R1 <= t->m.R1p[0]; R1 += t->m.R1p[1]){
             for(N1 = t->c[0].N; N1 <= t->c[0].Np[0]; N1 += t->c[0].Np[1]){
-                for(N = t->c[1].N; N  <= t->c[1].Np[0]; N += t->c[1].Np[1]){
+                for(N2 = t->c[1].N; N2  <= t->c[1].Np[0]; N2 += t->c[1].Np[1]){
                     for(a = R1; a <=  R1; a += 0.2) {
                         b = R1;
-                        //t->c[0].Rl = sqrt(t->c[0].U*t->c[0].U/(t->c[0].I*t->c[0].I) - t->c[0].Rz*t->c[0].Rz) - 0.3;
-                        //L = t->c[0].Rl/(2*PI*FR);
-                        //N1 = round(sqrt(2*PI*L*mR*1000/(1.26e-6*7.4*SQL(a,b))));
 
                         sq = t->c[0].s*N1/SF1;
                         if(PI*(mR - b)*(mR - b) <= sq) continue;
@@ -476,26 +473,16 @@ int trans_optim_tor(TRANS *t, double PW, double M, double FR)
                         R = mR - sqrt((PI*(mR - b)*(mR - b) - sq)/PI);
                         b1 = b + (R - b)/2; a1 = a + (R - b)/2;
                         t->c[0].L = LNL(a1, b1)*N1/1000.;
-
                         t->c[0].V = t->c[0].s*t->c[0].L/1000.;
 
-                        //printf("N = %f Rl = %f s = %f Sq = %f R = %f L = %f V = %f\n", N1, t->c[0].Rl, t->c[0].s, sq, R, t->c[0].L, t->c[0].V);
                         if (R + b > mR) continue;
 
-                        //t->c[0].h =  R - b;
-                        //t->c[0].w =  t->c[0].s/t->c[0].h;
-
-                        t->c[1].s = SQ(mR-R,0)*SF2/N;
-                        //r = sqrt(t->c[1].s/PI);
+                        t->c[1].s = SQ(mR-R,0)*SF2/N2;
                         r = (mR - R)/2.;
-                        //t->c[1].L = LNL(R + r/2., a + R - b + r/2.)*N/1000. + 0.3;
-                        t->c[1].L = LNL(R + r, a + R - b + r)*N/1000. + 0.3;
+                        t->c[1].L = LNL(R + r, a + R - b + r)*N2/1000. + 0.3;
                         t->c[1].V = t->c[1].s*t->c[1].L/1000.;
 
-
-                        //t->m.V = Vol_tor(t->m.R, SQ(R1,0))/1000;
                         t->m.V = Vol_tor(mR, SQL(a,b))/1000;
-                        //t->c[0].V = (Vol_tor(t->m.R, SQ(R,0)) - Vol_tor(t->m.R, SQ(R1,0)))/1000;
 
                         t->m.M    = t->m.V*t->m.D*(t->m.Sfc + 1)/(2);       //Mass steel
                         t->c[0].M = t->c[0].V*t->c[0].D;                    //Mass coil
@@ -504,42 +491,62 @@ int trans_optim_tor(TRANS *t, double PW, double M, double FR)
                         t->M =   t->m.M + t->c[0].M + t->c[1].M;
 
                         t->m.P = t->m.M*t->m.Lc*t->m.Sfc;                         //Loss in steel
+
+                        //Resistance
                         Ks = t->Ks[0]*t->c[0].s + t->Ks[1];
                         t->c[0].Rz = t->c[0].L*t->c[0].C*Ks/t->c[0].s;
 
-                        //Current caculation
-                        //L = N1*N1*1.26e-6*7.4*SQL(a,b)/(2*PI*mR*1000);
-                        //t->c[0].Rl = 2*PI*FR*L;
-                        //t->c[0].I = t->c[0].U/sqrt(t->c[0].Rz*t->c[0].Rz + (t->c[0].Rl + 0.3)*(t->c[0].Rl + 0.3));
+                        Ks = t->Ks[0]*t->c[1].s + t->Ks[1];
+                        t->c[1].Rz = t->c[1].L*t->c[1].C*Ks/t->c[1].s;
+
 
                         //Calculate MU and B
-                        t->c[0].I = 50;
+                        t->c[0].I = 10;
+                        t->c[1].I = t->c[0].I*(N1-10)/N2;
+                        i = 0;
                         do{
+                            i++;
                             I = t->c[0].I;
-                            t->m.H = t->c[0].I*N1*1000/(1.4*PI*mR);
+                            I1 = t->c[1].I;
+                            t->m.H = (t->c[0].I*N1 - t->c[1].I*N2)*1000/(1.4*PI*mR);
+                            if(t->m.H < 0) break;
 
                             t->m.Mu = get_mu(t->m.H);
                             if(!t->m.Mu) break;
                             t->m.B1 = get_B(t->m.H);
 
-                            //t->m.Mu = 160;
-                            //t->m.B1 = 1.26e-6*t->m.Mu*t->m.H;
-                            //t->m.Mu = t->m.B/(1.26e-6*t->m.H);
-                            //if(t->m.B1 > 2.3  || t->m.B1 < 1.4) continue;
+                            E1 = 1.41*PI*SQL(a,b)*FR*N1*t->m.B1/1000000;
+                            E2 = 1.41*PI*SQL(a,b)*FR*N2*t->m.B1/1000000;
+                            if(E2 <= UP) break;
 
-                            L = t->m.Mu*1.26e-6*N1*N1*SQL(a,b)*0.001/(2*PI*mR);
-                            t->c[0].Rl = L*2*PI*FR;
-                            t->c[0].I = t->c[0].U/sqrt(t->c[0].Rz*t->c[0].Rz + (t->c[0].Rl + 0.3)*(t->c[0].Rl + 0.3));
+                            //t->c[0].I = sqrt(t->c[0].U*t->c[0].U - E1*E1)/t->c[0].Rz;
+                            t->c[0].I = (t->c[0].U - E1)/t->c[0].Rz;
+                            //t->c[1].I = (t->c[0].I*t->c[0].U - t->c[0].Rz*t->c[0].I*t->c[0].I)/(E2-UP);
 
-                            //printf(" I = %f I0 = %f H = %f Mu = %f B = %f L = %f N = %f diff = %f \n",
-                            //       I, t->c[0].I, t->m.H, t->m.Mu, t->m.B1, L, N1, fabs(t->c[0].I - I));
-                        } while(fabs(t->c[0].I - I) > 1);
+                            t->c[1].I = (E2 - 0)/t->c[1].Rz;
+                            //t->c[0].I = (t->c[0].I*t->c[0].U - t->c[0].Rz*t->c[0].I*t->c[0].I)/(E2-UP);
+                            //t->c[1].I = t->c[0].I*E1/E2;
 
-                        if(!t->m.Mu) continue;
+                            //t->c[1].Rz = (t->c[0].I*t->c[0].U - t->c[0].Rz*t->c[0].I*t->c[0].I)/(t->c[1].I*t->c[1].I);
+
+                            //printf("%d I = %f In = %f I1 = %f I1n = %f H = %f Mu = %f B = %f N1 = %f N2 = %f E1 = %f E2 = %f diff = %f \n",
+                            //       i, I, t->c[0].I, I1, t->c[1].I, t->m.H, t->m.Mu, t->m.B1, N1, N2, E1, E2, fabs(t->c[1].I - I1));
+
+                        } while(fabs(t->c[1].I - I1) > 1);
                         //return;
 
-                        U = t->c[0].Rl*t->c[0].I;
-                        t->m.B = Bc(N1, U, SQL(a,b), FR);
+                        if(t->m.H < 0) continue;
+                        if(!t->m.Mu) continue;
+                        if(E2 <= 2.5) continue;
+                        //return;
+                        if(t->c[0].I*t->c[0].U - t->c[0].Rz*t->c[0].I*t->c[0].I - t->c[1].Rz*t->c[1].I*t->c[1].I < 0) continue;
+
+                        //if(i > 5) printf("%d I = %f In = %f I1 = %f I1n = %f H = %f Mu = %f B = %f N1 = %f N2 = %f E1 = %f E2 = %f diff = %f \n",
+                        //                i, I, t->c[0].I, I1, t->c[1].I, t->m.H, t->m.Mu, t->m.B1, N1, N2, E1, E2, fabs(t->c[1].I - I1));
+
+                        t->c[0].Rl = sqrt(t->c[0].U*t->c[0].U/(t->c[0].I*t->c[0].I) - t->c[0].Rz*t->c[0].Rz);
+                        //U = t->c[0].Rl*t->c[0].I;
+                        //t->m.B = Bc(N1, U, SQL(a,b), FR);
 
                         //printf(" I = %f I0 = %f H = %f Mu = %f B = %f B1 = %f L = %f N = %f diff = %f \n",
                         //       I, t->c[0].I, t->m.H, t->m.Mu, t->m.B1, t->m.B, L, N1, fabs(t->c[0].I - I));
@@ -547,18 +554,17 @@ int trans_optim_tor(TRANS *t, double PW, double M, double FR)
 
                         //Checking the fields
 
-                        if(t->c[0].I > 200) continue;
+                        //if(t->c[0].I > 100) continue;
 
                         t->c[0].P = t->c[0].Rz*t->c[0].I*t->c[0].I;
                         //t->c[0].P = Pw3(t->c[0].L, t->c[0].h, t->c[0].w, t->c[0].C, t->c[0].I, t->c[0].T, Ks);
-                        Ks = t->Ks[0]*t->c[1].s + t->Ks[1];
-                        t->c[1].Rz = t->c[1].L*t->c[1].C*Ks/t->c[1].s;
 
                         //t->c[1].U = U*N/N1;
-                        t->c[1].U = 1.41*PI*SQL(a,b)*FR*N*t->m.B1/1000000;
+                        //t->c[1].U = 1.41*PI*SQL(a,b)*FR*N2*t->m.B1/1000000;
                         //t->m.B = Bc(N, t->c[1].U, SQL(a,b), FR);
 
-                        if(t->c[1].U < UP || t->c[1].U > 2.6) continue;
+                        t->c[1].U = E2;
+                        //if(t->c[1].U < UP || t->c[1].U > 6) continue;
 
 
                         //if(fabs(t->m.B - t->m.B1)/t->m.B > 0.1) continue;
@@ -568,14 +574,14 @@ int trans_optim_tor(TRANS *t, double PW, double M, double FR)
 
                         //printf("xl = %f R = %f U = %f U1 = %f\n", xl, t->c[0].Rz,t->c[1].U, tmp);
 
-                        t->c[1].I = (t->c[0].I*t->c[0].U - (t->m.P + t->c[0].P))/t->c[1].U;
+                        //t->c[1].I = (t->c[0].I*t->c[0].U - (t->m.P + t->c[0].P))/t->c[1].U;
                         //if(t->c[1].I > 4500 || t->c[1].I < 4000) continue;
 
 
-                        Rz = (t->c[1].U - UP)/t->c[1].I;
-                        if(t->c[1].Rz <=  Rz) t->c[1].Rz = Rz;
+                        //Rz = (t->c[1].U - UP)/t->c[1].I;
+                        //if(t->c[1].Rz <=  Rz) t->c[1].Rz = Rz;
                         //else t->c[1].I = (t->c[1].U - UP)/t->c[1].Rz;
-                        else continue;
+                        //else continue;
 
                         //if(t->c[1].I > 4200) continue;
 
@@ -584,7 +590,7 @@ int trans_optim_tor(TRANS *t, double PW, double M, double FR)
                         t->c[1].P = t->c[1].Rz*t->c[1].I*t->c[1].I;
 
 
-                        t->P =    (t->m.P + t->c[0].P + t->c[1].P + UP*t->c[1].I);
+                        t->P =    (t->m.P + t->c[0].P + t->c[1].P); // + UP*t->c[1].I);
                         t->Per = UP*t->c[1].I/t->P;
                         //if(t->P < t->c[0].I*t->c[0].U) continue;
                         /*
@@ -613,7 +619,7 @@ int trans_optim_tor(TRANS *t, double PW, double M, double FR)
                                 memcpy (&tm, t, sizeof(tm));
                                 tm.m.R1 = R1;
                                 tm.c[0].R = R;
-                                tm.c[1].N = N;
+                                tm.c[1].N = N2;
                                 tm.c[0].N = N1;
                                 tm.m.R = mR;
                                 tm.m.a = a; tm.m.b = b;
@@ -629,6 +635,29 @@ int trans_optim_tor(TRANS *t, double PW, double M, double FR)
 
     if(j) {
         memcpy (t, &tm, sizeof(tm));
+
+
+        i = 0;
+        t->c[0].I = 1;
+        do{
+            i++;
+            I = t->c[0].I;
+            t->m.H = (t->c[0].I*t->c[0].N)*1000./(1.4*PI*t->m.R);
+            //printf("H = %f\n", t->m.H)
+
+            t->m.Mu = get_mu(t->m.H);
+            if(!t->m.Mu) break;
+            t->m.B1 = get_B(t->m.H);
+
+            E1 = 1.41*PI*SQL(t->m.a,t->m.b)*FR*t->c[0].N*t->m.B1/1000000;
+
+            t->c[0].I = (t->c[0].U - E1)/t->c[0].Rz;
+
+            printf("%d I = %f In = %f  H = %f Mu = %f B = %f N1 = %f E1 = %f diff = %f \n",
+                   i, I, t->c[0].I,  t->m.H, t->m.Mu, t->m.B1, t->c[0].N, E1, fabs(t->c[0].I - I));
+
+        } while(fabs(t->c[0].I - I) > 1);
+
 
         //The volume of spiral
         double fs = hc/2, ss = hc/2;
@@ -713,7 +742,7 @@ int trans_optim_tor(TRANS *t, double PW, double M, double FR)
                t->c[0].N, t->c[0].s, t->c[0].L, t->c[0].V, t->c[0].M, t->c[0].P, t->c[0].Rz, t->c[0].I, t->c[0].Rl);
         printf("N = %f s = %f L = %f  V = %f M = %f P = %f Rz = %f I = %f U = %f PER = %f Pv = %f M = %f\n",
                t->c[1].N, t->c[1].s, t->c[1].L, t->c[1].V, t->c[1].M, t->c[1].P, t->c[1].Rz, t->c[1].I, t->c[1].U, t->Per, UP*t->c[1].I, t->M);
-        printf("B = %f B1 = %f H = %f mu = %f\n", t->m.B, t->m.B1, t->m.H, t->m.Mu);
+        printf("B1 = %f H = %f mu = %f\n", t->m.B1, t->m.H, t->m.Mu);
         printf("l = %f L1 = %f L2 = %f L = %f  N1 = %f N = %f V = %f M = %f S = %f \n",
                t->m.l, t->m.L[1], t->m.L[2], t->m.L[1] + t->m.L[2], (t->m.fi[1] - t->m.fi[0])/(2*PI), (t->m.fi[2] - t->m.fi[0])/(2*PI), t->m.V1, t->m.M1, S);
 
@@ -1148,14 +1177,14 @@ void trans(void)
                 tr[i] = (TRANS) {.PW = POWER, .W = 5, .H = 400, .Hp[0] = 600, .Hp[1] = 1, .Ks[0] = 0.000155, .Ks[1] = 0.999845 };
                 tr[i].m = (MCORE) {.D = 7.65, .Mu = 10000., .B = 2.7, .Lc = 3, .Sfc = 0.95, .R = 40, .Rp[0] = 60, .Rp[1] = 0.1, .R1 = 10, .R1p[0] = 25, .R1p[1] = 0.1 };
                 //tr[i].i[0] = (INS) {.D = 3.26, .T = 1.};
-                tr[i].c[0] = (COIL) {.U = 380,   .T = 0.06,.C = 0.0282, .D = 2.6989, .R = 20.370513, .Rp[0] = 20.370513, .Rp[1] = 0.1, .s = 2, .N = 100, .Np[0] = 300, .Np[1] = 1};
+                tr[i].c[0] = (COIL) {.U = 380,   .T = 0.06,.C = 0.0282, .D = 2.6989, .R = 20.370513, .Rp[0] = 20.370513, .Rp[1] = 0.1, .s = 2, .N = 300, .Np[0] = 900, .Np[1] = 1};
                 tr[i].c[0].I = 50.;
                 //tr[i].i[1] = (INS) {.D = 3.26, .T = 2.};
-                tr[i].c[1] = (COIL) {.U = 3, .T = 0.06,.C = 0.0282, .D = 2.6989, .N = 1, .Np[0] = 7, .Np[1] = 1}; //8.92 //0.0175
+                tr[i].c[1] = (COIL) {.U = 3, .T = 0.06,.C = 0.0282, .D = 2.6989, .N = 1, .Np[0] = 10, .Np[1] = 1}; //8.92 //0.0175
                 //tr[i].c[1].I = POWER*1000/tr[i].c[1].U/3.;
             }
 
-                if(trans_optim_tor(&(tr[i]), POWER, 3.5, FR)) { printf("No any result!!!\n"); return; }
+                if(trans_optim_tor(&(tr[i]), POWER, 3.7 , FR)) { printf("No any result!!!\n"); return; }
 
 
 
