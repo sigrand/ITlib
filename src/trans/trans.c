@@ -463,7 +463,7 @@ int trans_optim_tor(TRANS *t, double PW, double M, double FR)
         for(R1 = t->m.R1; R1 <= t->m.R1p[0]; R1 += t->m.R1p[1]){
             for(N1 = t->c[0].N; N1 <= t->c[0].Np[0]; N1 += t->c[0].Np[1]){
                 for(N = t->c[1].N; N  <= t->c[1].Np[0]; N += t->c[1].Np[1]){
-                    for(a = R1*2; a <=  R1*3; a += 0.2) {
+                    for(a = R1; a <=  R1; a += 0.2) {
                         b = R1;
                         //t->c[0].Rl = sqrt(t->c[0].U*t->c[0].U/(t->c[0].I*t->c[0].I) - t->c[0].Rz*t->c[0].Rz) - 0.3;
                         //L = t->c[0].Rl/(2*PI*FR);
@@ -539,7 +539,7 @@ int trans_optim_tor(TRANS *t, double PW, double M, double FR)
                         //return;
 
                         U = t->c[0].Rl*t->c[0].I;
-                        //t->m.B = Bc(N1, U, SQL(a,b), FR);
+                        t->m.B = Bc(N1, U, SQL(a,b), FR);
 
                         //printf(" I = %f I0 = %f H = %f Mu = %f B = %f B1 = %f L = %f N = %f diff = %f \n",
                         //       I, t->c[0].I, t->m.H, t->m.Mu, t->m.B1, t->m.B, L, N1, fabs(t->c[0].I - I));
@@ -556,10 +556,10 @@ int trans_optim_tor(TRANS *t, double PW, double M, double FR)
 
                         //t->c[1].U = U*N/N1;
                         t->c[1].U = 1.41*PI*SQL(a,b)*FR*N*t->m.B1/1000000;
+                        //t->m.B = Bc(N, t->c[1].U, SQL(a,b), FR);
 
                         if(t->c[1].U < UP || t->c[1].U > 2.6) continue;
 
-                        //t->m.B = Bc(N, t->c[1].U, SQL(a,b), FR);
 
                         //if(fabs(t->m.B - t->m.B1)/t->m.B > 0.1) continue;
 
@@ -1148,14 +1148,14 @@ void trans(void)
                 tr[i] = (TRANS) {.PW = POWER, .W = 5, .H = 400, .Hp[0] = 600, .Hp[1] = 1, .Ks[0] = 0.000155, .Ks[1] = 0.999845 };
                 tr[i].m = (MCORE) {.D = 7.65, .Mu = 10000., .B = 2.7, .Lc = 3, .Sfc = 0.95, .R = 40, .Rp[0] = 60, .Rp[1] = 0.1, .R1 = 10, .R1p[0] = 25, .R1p[1] = 0.1 };
                 //tr[i].i[0] = (INS) {.D = 3.26, .T = 1.};
-                tr[i].c[0] = (COIL) {.U = 380,   .T = 0.06,.C = 0.0282, .D = 2.6989, .R = 20.370513, .Rp[0] = 20.370513, .Rp[1] = 0.1, .s = 2.3, .N = 100, .Np[0] = 300, .Np[1] = 1};
+                tr[i].c[0] = (COIL) {.U = 380,   .T = 0.06,.C = 0.0282, .D = 2.6989, .R = 20.370513, .Rp[0] = 20.370513, .Rp[1] = 0.1, .s = 2, .N = 100, .Np[0] = 300, .Np[1] = 1};
                 tr[i].c[0].I = 50.;
                 //tr[i].i[1] = (INS) {.D = 3.26, .T = 2.};
                 tr[i].c[1] = (COIL) {.U = 3, .T = 0.06,.C = 0.0282, .D = 2.6989, .N = 1, .Np[0] = 7, .Np[1] = 1}; //8.92 //0.0175
                 //tr[i].c[1].I = POWER*1000/tr[i].c[1].U/3.;
             }
 
-                if(trans_optim_tor(&(tr[i]), POWER, 4, FR)) { printf("No any result!!!\n"); return; }
+                if(trans_optim_tor(&(tr[i]), POWER, 3.5, FR)) { printf("No any result!!!\n"); return; }
 
 
 
