@@ -5,7 +5,10 @@
 
 typedef struct COIL {
     double U;   //Voltage V
+    double Uh;   //Voltage V
     double I;   //Current A
+    double Ih;  //idling current
+    double Is;  //short circuit current
     double T;   //The thickness of the wire insulation mm
     double R;   //The external radius mm
     double s;   //The cross-sectional area of the wire mm**2
@@ -37,6 +40,7 @@ typedef struct COIL {
 typedef struct MCORE {
     double R;   //The external radius mm
     double R1;  //The tor radius mm
+    double R2;  //The tor radius mm
     double M;   //Mass kg
     double V;   //Volume dm**3
     double P;   //The loss power W
@@ -44,11 +48,19 @@ typedef struct MCORE {
     double Sfc; //Core Stacking Factor
     double Lc;  //Loss in magnetic core W/kg
     double Mu;  //Magnetic permeability of transformer steel
+    double Muh;  //Magnetic permeability of transformer steel
+    double Mus;  //Magnetic permeability of transformer steel
     double B;   //The max magnetic field T
     double B1;   //The max magnetic field T
+    double Bh;   //The max magnetic field T
+    double Bs;   //The max magnetic field T
     double H;   //The magnetic industion
+    double Hh;   //The magnetic industion
+    double Hs;   //The magnetic industion
     double S;   //square м**2
     double a,b; //Elips parameters
+    double a1,b1; //Elips parameters
+    double a2,b2; //Elips parameters
     double l;
     double L[3]; //The lenght of spiral
     double fi[3]; //The angels of spiral
