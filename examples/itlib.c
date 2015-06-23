@@ -999,6 +999,9 @@ int main(int argc, const char *argv[]) {
         }else if (!strcmp(argv[i], "trans") && tr ) {
             trans();
             if(verb) printf("Calculate transformer table\n");
+        }else if (!strcmp(argv[i], "engine") && tr ) {
+            engine();
+            if(verb) printf("Calculate transformer table\n");
         }
     }
 
