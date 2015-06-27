@@ -4,7 +4,7 @@
 #include "../libit/types.h"
 
 #define PI 3.1415926535
-//#define E 2.71828182
+#define E 2.71828182
 #define MU 1.256637E-6
 
 
@@ -31,9 +31,10 @@ typedef struct CORE {
     double D;   //Density kg/gm**3
     double L;   //Width
     double w;   //Teeth width
+    double h;   //Teeth height
     double p;   //Period lenght
     double a;   //Step
-
+    double al;  //The corner of period
 } CORE;
 
 typedef struct ROTOR {
@@ -80,6 +81,19 @@ typedef struct ENGINE {
 
 } ENGINE;
 
+
+double HB[10][2] =  {
+                    {0    , 0},
+                    {30    , 1.4},
+                    {35    , 1.5},
+                    {45    , 1.6},
+                    {70    , 1.7},
+                    {200   , 1.8},
+                    {1000  , 1.9},
+                    {10000 , 2  },
+                    {230000, 2.18},
+                    {285000, 2.24}
+                   };
 
 #ifdef __cplusplus
 extern "C"
