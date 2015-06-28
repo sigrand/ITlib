@@ -157,14 +157,14 @@ double mass_ENGINE(ENGINE *en)
 
 }
 
-void B_calc(ENGINE *en)
+void B_calc(ENGINE *en, double *S)
 {
     int i = 0;
     double Hst[3], Hrt[3], Hsy[2], Hry[2], Hh[3];
     double Bst[3], Brt[3], Bsy[2], Bry[2], Bh[3];
     double Lst, Lrt, Lsy, Lry, Lh;
     double Sst, Srt, Ssy, Sry, Sh;
-    double S[3];
+    //double S[3];
     double I = 20; //Current density
     double d0 = 100, d1 = 100, l0, l1;
 
@@ -176,17 +176,17 @@ void B_calc(ENGINE *en)
     Lry = en->ST.CR.p*0.001;
 
     //Set up square
-    Sst = en->ST.CR.w*en->L;
-    Sst = en->ST.CR.w*en->L;
-    Sh = en->ST.CR.w*en->L;
-    Ssy = en->ST.CR.a*en->L;
-    Sry = en->RT.CR.a*en->L;
-    S[0] = Sst; S[1] = Sst;  S[2] = Sst;
+    Sst = en->ST.CR.w*en->L*0.000001;
+    Sst = en->ST.CR.w*en->L*0.000001;
+    Sh = en->ST.CR.w*en->L*0.000001;
+    Ssy = en->ST.CR.a*en->L*0.000001;
+    Sry = en->RT.CR.a*en->L*0.000001;
+    //S[0] = Sst; S[1] = Sst;  S[2] = Sst;
 
     l0 = Lst + Lrt + Lh + Lsy + Lry;
     printf("Lst = %f Lrt = %f Lh = %f Lsy = %f Lry = %f l = %f Ssy = %f\n",Lst, Lrt, Lh, Lsy, Lry, l0, Ssy);
 
-    for(i=0, Hsy[0] = 100, Hsy[1] = 100; abs(d0) > 2 && abs(d1) > 2; i++){
+    for(i=0, Hsy[0] = 8000, Hsy[1] = 8000; (abs(d0) > 2) || (abs(d1) > 2); i++){
 
         Hry[0] = Hsy[0];
         Hry[1] = Hsy[1];
@@ -212,10 +212,10 @@ void B_calc(ENGINE *en)
         //printf("I = %f d0 = %f d1 = %f H0 = %f H1 = %f B = %f\n", en->ST.CL.S*I, d0, d1, Hsy[0], Hsy[1], BH(Hst[1]));
         //if(i > 10) break;
     }
-    printf("I = %f d0 = %f d1 = %f H0 = %f H1 = %f H2 = %f B = %f\n", en->ST.CL.S*I, d0, d1, Hsy[0], Hsy[1], Hh[1], BH(Hst[1]));
+    printf("I = %f d0 = %f d1 = %f H0 = %f H1 = %f H2 = %f B = %f Ph = %f\n", en->ST.CL.S*I, d0, d1, Hsy[0], Hsy[1], Hh[1], BH(Hst[1]), BH(Hst[1])*S[1]);
 }
 
-double get_square(ENGINE *en, double Ts, double Tr)
+double get_lenght(ENGINE *en, double Ts, double Tr)
 {
     double S, d, di;
     if(Tr < Ts) {
@@ -230,43 +230,54 @@ double get_square(ENGINE *en, double Ts, double Tr)
     return S;
 }
 
-void position_calc(ENGINE *en)
+void position_calc(ENGINE *en, double st, double *L)
 {
-    double Ts[6], Tr[6];
-    double S[3];
+    double Ts[3], Tr[3];
+    //double S[3];
     double d, di;
     //Set up
     Ts[0] = -en->ST.CR.w/2 - en->ST.CR.p;
-    Ts[1] =  en->ST.CR.w/2 - en->ST.CR.p;
-    Ts[2] = -en->ST.CR.w/2;
-    Ts[3] =  en->ST.CR.w/2;
-    Ts[4] = -en->ST.CR.w/2 + en->ST.CR.p;
-    Ts[5] =  en->ST.CR.w/2 + en->ST.CR.p;
+    //Ts[1] =  en->ST.CR.w/2 - en->ST.CR.p;
+    Ts[1] = -en->ST.CR.w/2;
+    //Ts[3] =  en->ST.CR.w/2;
+    Ts[2] = -en->ST.CR.w/2 + en->ST.CR.p;
+    //Ts[5] =  en->ST.CR.w/2 + en->ST.CR.p;
 
     Tr[0] = -en->RT.CR.w/2 - en->RT.CR.p;
-    Tr[1] =  en->RT.CR.w/2 - en->RT.CR.p;
-    Tr[2] = -en->RT.CR.w/2;
-    Tr[3] =  en->RT.CR.w/2;
-    Tr[4] = -en->RT.CR.w/2 + en->RT.CR.p;
-    Tr[5] =  en->RT.CR.w/2 + en->RT.CR.p;
+    //Tr[1] =  en->RT.CR.w/2 - en->RT.CR.p;
+    Tr[1] = -en->RT.CR.w/2;
+    //Tr[3] =  en->RT.CR.w/2;
+    Tr[2] = -en->RT.CR.w/2 + en->RT.CR.p;
+    //Tr[5] =  en->RT.CR.w/2 + en->RT.CR.p;
 
-    printf("Ts[0] = %f Ts[1] = %f Ts[2] = %f Ts[3] = %f Ts[4] = %f Ts[5] = %f \n", Ts[0],Ts[1],Ts[2],Ts[3],Ts[4],Ts[5]);
-    printf("Tr[0] = %f Tr[1] = %f Tr[2] = %f Tr[3] = %f Tr[4] = %f Tr[5] = %f \n", Tr[0],Tr[1],Tr[2],Tr[3],Tr[4],Tr[5]);
-    /*
-    if(Tr[0] < Ts[0]) {
-        d = Ts[0] - Tr[0];
-        di = en->RT.CR.p - d;
-        S[0] = di > en->ST.CR.w ? en->ST.CR.w : di;
-    } else {
-        d = Tr[0] - Ts[0];
-        S[0] = en->ST.CR.p - d;
-    }
-    */
-    S[0] = get_square(en, Ts[0], Tr[0]);
-    S[1] = get_square(en, Ts[2], Tr[2]);
-    S[2] = get_square(en, Ts[4], Tr[4]);
-    printf("S[0] = %f S[1] = %f S[2] = %f \n", S[0], S[1], S[2]);
+    printf("Ts[0] = %f Ts[1] = %f Ts[2] = %f Ts[3] = %f Ts[4] = %f Ts[5] = %f \n",
+           Ts[0],Ts[0]+en->ST.CR.w,Ts[1],Ts[1]+en->ST.CR.w,Ts[2],Ts[2]+en->ST.CR.w);
+    printf("Tr[0] = %f Tr[1] = %f Tr[2] = %f Tr[3] = %f Tr[4] = %f Tr[5] = %f \n",
+           Tr[0],Tr[0]+en->RT.CR.w,Tr[1],Tr[1]+en->RT.CR.w,Tr[2],Tr[2]+en->RT.CR.w);
+
+    L[0] = get_lenght(en, Ts[0], Tr[0]+st);
+    L[1] = get_lenght(en, Ts[1], Tr[1]+st);
+    L[2] = get_lenght(en, Ts[2], Tr[2]+st);
+    printf("L[0] = %f L[1] = %f L[2] = %f \n", L[0], L[1], L[2]);
 }
+
+void PH_calc(ENGINE *en)
+{
+    double S[3];
+    double L[3];
+    int i, n = 10;
+    double st = en->RT.CR.w/n, sp;
+
+    for(i=0, sp = 0; i < 5; i++, sp+=st){
+        position_calc(en, sp, L);
+        S[0] = L[0]*en->L*0.000001;
+        S[1] = L[1]*en->L*0.000001;
+        S[2] = L[2]*en->L*0.000001;
+        B_calc(en, S);
+    }
+}
+
+
 
 void engine(void)
 {
@@ -306,9 +317,7 @@ void engine(void)
     ms = mass_ENGINE(&en);
     printf("Engine mass = %f\n", ms);
 
-    B_calc(&en);
-
-    position_calc(&en);
+    PH_calc(&en);
 
     /*
     rz = resistance_COIL(&en.ST.CL);
